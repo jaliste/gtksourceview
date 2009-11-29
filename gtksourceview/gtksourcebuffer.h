@@ -134,6 +134,15 @@ void			 gtk_source_buffer_remove_source_marks	(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *start,
 								 const GtkTextIter      *end,
 								 const gchar            *category);
+
+gboolean		 gtk_source_buffer_iter_has_class	(GtkSourceBuffer	*buffer,
+								 const GtkTextIter	*iter,
+								 const gchar            *klass);
+
+GSList			*gtk_source_buffer_get_classes_at_iter
+								(GtkSourceBuffer	*buffer,
+								 const GtkTextIter	*iter);
+
 /* private */
 void			 _gtk_source_buffer_update_highlight	(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *start,

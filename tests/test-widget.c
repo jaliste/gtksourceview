@@ -1030,6 +1030,9 @@ update_cursor_position (GtkTextBuffer *buffer, gpointer user_data)
 	GtkTextIter iter, start;
 	GtkSourceView *view;
 	GtkLabel *pos_label;
+	GSList *item;
+	GSList *classes;
+	GString *str;
 
 	g_return_if_fail (GTK_IS_SOURCE_VIEW (user_data));
 
@@ -1060,9 +1063,25 @@ update_cursor_position (GtkTextBuffer *buffer, gpointer user_data)
 		gtk_text_iter_forward_char (&start);
 	}
 
-	msg = g_strdup_printf ("char: %d, line: %d, column: %d", chars, row, col);
+	classes = gtk_source_buffer_get_classes_at_iter (GTK_SOURCE_BUFFER (buffer),
+	                                                 &iter);
+
+	str = g_string_new ("");
+
+	for (item = classes; item; item = g_slist_next (item))
+	{
+		if (item != classes)
+		{
+			g_string_append (str, ", ");
+		}
+
+		g_string_append_printf (str, "%s", (gchar *)item->data);
+	}
+
+	msg = g_strdup_printf ("char: %d, line: %d, column: %d, classes: %s", chars, row, col, str->str);
 	gtk_label_set_text (pos_label, msg);
-      	g_free (msg);
+	g_free (msg);
+	g_string_free (str, TRUE);
 }
 
 static void
