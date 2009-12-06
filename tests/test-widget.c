@@ -1273,7 +1273,7 @@ create_view_window (GtkSourceBuffer *buffer, GtkSourceView *from)
 	g_signal_connect (buffer, "mark-set", G_CALLBACK (move_cursor_cb), view);
 	g_signal_connect (buffer, "changed", G_CALLBACK (update_cursor_position), view);
 	g_signal_connect (view, "line-mark-activated", G_CALLBACK (line_mark_activated), view);
-	g_signal_connect_after (view, "button-press-event", G_CALLBACK (button_press_cb), NULL);
+	//g_signal_connect_after (view, "button-press-event", G_CALLBACK (button_press_cb), NULL);
 	g_signal_connect (window, "delete-event", (GCallback) window_deleted_cb, view);
 
 	/* action group and UI manager */
