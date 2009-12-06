@@ -21,6 +21,7 @@
  */
 
 #include "gtksourcegutter-private.h"
+#include "gtksourcefold.h"
 #include "gtksourceview.h"
 #include "gtksourceview-i18n.h"
 #include "gtksourceview-marshal.h"
@@ -774,7 +775,7 @@ get_lines (GtkTextView  *text_view,
 	GtkTextIter iter;
 	gint count;
 	gint size;
-      	gint last_line_num = -1;
+	gint last_line_num = -1;
 
 	g_array_set_size (buffer_coords, 0);
 	g_array_set_size (numbers, 0);
@@ -788,7 +789,7 @@ get_lines (GtkTextView  *text_view,
 	/* For each iter, get its location and add it to the arrays.
 	 * Stop when we pass last_y */
 	count = 0;
-  	size = 0;
+	size = 0;
 
   	while (!gtk_text_iter_is_end (&iter))
     	{
@@ -811,7 +812,7 @@ get_lines (GtkTextView  *text_view,
 		if ((y + height) >= last_y)
 			break;
 
-		gtk_text_iter_forward_line (&iter);
+		gtk_text_iter_forward_visible_line (&iter);
 	}
 
 	if (gtk_text_iter_is_end (&iter))
@@ -877,6 +878,7 @@ on_view_expose_event (GtkSourceView   *view,
 
 	text_view = GTK_TEXT_VIEW (view);
 	sizes = g_array_new (FALSE, FALSE, sizeof (gint));
+	
 
 	/* This is fairly ugly, but we could not find a better way to
 	 * do it: renderers could have changed size and they do not have
@@ -918,6 +920,7 @@ on_view_expose_event (GtkSourceView   *view,
 		gint count;
 		gint i;
 		GList *item;
+		GtkTextIter iter, iter2;
 
 		gdk_window_get_pointer (window, &x, &y, NULL);
 
@@ -951,7 +954,15 @@ on_view_expose_event (GtkSourceView   *view,
 						  gtk_text_buffer_get_insert (text_view->buffer));
 
 		cur_line = gtk_text_iter_get_line (&cur);
+		
+		/* Get iter at first y */
+		gtk_text_view_get_line_at_y (text_view, &iter, y1, NULL);
 
+        /* Get iter at last y */
+		gtk_text_view_get_line_at_y (text_view, &iter2, y2, NULL);
+		/* forward to line end so we match all folds on the line. */
+		gtk_text_iter_forward_to_line_end (&iter2);
+		view->last_folds = _gtk_source_buffer_get_folds_in_region(GTK_SOURCE_BUFFER(text_view->buffer), &iter,&iter2);
 		for (i = 0; i < count; ++i)
 		{
 			gint pos;
@@ -977,7 +988,10 @@ on_view_expose_event (GtkSourceView   *view,
 				Renderer *renderer = (Renderer *)item->data;
 				gint width = g_array_index (sizes, gint, idx++);
 				GtkCellRendererState state = 0;
-
+				if (width == 0)
+				{
+					continue;
+				}
 				cell_area.width = width;
 
 				/* Call data func if needed */
@@ -1015,7 +1029,6 @@ on_view_expose_event (GtkSourceView   *view,
 				cell_area.x += cell_area.width;
 			}
 		}
-
 		g_array_free (numbers, TRUE);
 		g_array_free (pixels, TRUE);
 		g_array_free (heights, TRUE);

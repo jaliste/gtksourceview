@@ -40,6 +40,7 @@ G_BEGIN_DECLS
 #define GTK_IS_SOURCE_BUFFER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_SOURCE_BUFFER))
 #define GTK_SOURCE_BUFFER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_SOURCE_BUFFER, GtkSourceBufferClass))
 
+typedef struct _GtkSourceFold			GtkSourceFold;
 typedef struct _GtkSourceBuffer			GtkSourceBuffer;
 typedef struct _GtkSourceBufferClass		GtkSourceBufferClass;
 typedef struct _GtkSourceBufferPrivate		GtkSourceBufferPrivate;
@@ -58,6 +59,10 @@ struct _GtkSourceBufferClass
 	/* Signals */
 	void (*undo) (GtkSourceBuffer *buffer);
 	void (*redo) (GtkSourceBuffer *buffer);
+	void (*fold_added)  (GtkSourceBuffer *buffer,
+			     GtkSourceFold   *fold);
+	void (*fold_remove) (GtkSourceBuffer *buffer,
+			     GtkSourceFold   *fold);
 
 	/* Padding for future expansion */
 	void (*_gtk_source_reserved1) (void);
@@ -156,6 +161,27 @@ gboolean		 gtk_source_buffer_iter_backward_to_context_class_toggle
 								 GtkTextIter		*iter,
 								 const gchar		*context_class);
 
+/* fold methods. */
+gboolean		 gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
+void			 gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
+								 gboolean                enable_folds);
+
+GtkSourceFold		*gtk_source_buffer_add_fold		(GtkSourceBuffer        *buffer,
+								 const GtkTextIter      *begin,
+								 const GtkTextIter      *end);
+void			 gtk_source_buffer_remove_fold		(GtkSourceBuffer        *buffer,
+								 GtkSourceFold          *fold);
+
+void			 gtk_source_buffer_remove_folds_in_region
+ 								(GtkSourceBuffer        *buffer,
+								 const GtkTextIter      *begin,
+								 const GtkTextIter      *end);
+
+GtkSourceFold		*gtk_source_buffer_get_fold_at_iter	(GtkSourceBuffer        *buffer,
+								 const GtkTextIter      *iter);
+
+const GList		*gtk_source_buffer_get_root_folds	(GtkSourceBuffer        *buffer);
+
 /* private */
 void			 _gtk_source_buffer_update_highlight	(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *start,
@@ -163,13 +189,18 @@ void			 _gtk_source_buffer_update_highlight	(GtkSourceBuffer        *buffer,
 								 gboolean                synchronous);
 
 GtkSourceMark		*_gtk_source_buffer_source_mark_next	(GtkSourceBuffer        *buffer,
-								 GtkSourceMark          *mark, 
+								 GtkSourceMark          *mark,
 								 const gchar            *category);
 GtkSourceMark		*_gtk_source_buffer_source_mark_prev	(GtkSourceBuffer        *buffer,
-								 GtkSourceMark          *mark, 
+								 GtkSourceMark          *mark,
 								 const gchar            *category);
 
 GtkTextTag		*_gtk_source_buffer_get_bracket_match_tag (GtkSourceBuffer        *buffer);
+GList			*_gtk_source_buffer_get_folds_in_region	(GtkSourceBuffer        *buffer,
+								 const GtkTextIter      *begin,
+								 const GtkTextIter      *end);
+GtkSourceFold		*_gtk_source_buffer_get_fold_at_line	(GtkSourceBuffer        *buffer,
+								 gint                    line);
 
 G_END_DECLS
 

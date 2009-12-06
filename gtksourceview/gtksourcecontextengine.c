@@ -540,6 +540,17 @@ static void		install_first_update	(GtkSourceContextEngine	*ce);
 static gboolean		mem_usage_timeout	(GtkSourceContextEngine *ce);
 #endif
 
+static GSList *
+get_context_classes (GtkSourceContextEngine *ce,
+                     Context                *context);
+static GtkTextTag *
+get_context_class_tag (GtkSourceContextEngine *ce,
+                       gchar const            *name);
+static void
+apply_context_classes (GtkSourceContextEngine *ce,
+                       GSList                 *context_classes,
+                       gint                    start,
+                       gint                    end);
 
 /* TAGS AND STUFF -------------------------------------------------------------- */
 
@@ -621,7 +632,7 @@ unhighlight_region (GtkSourceContextEngine *ce,
 
 	if (gtk_text_iter_equal (start, end))
 		return;
-
+	//gtk_source_buffer_remove_folds_in_region (GTK_SOURCE_BUFFER(data.buffer), start, end);
 	g_hash_table_foreach (ce->priv->tags, (GHFunc) unhighlight_region_cb, &data);
 }
 
@@ -829,7 +840,9 @@ apply_tags (GtkSourceContextEngine *ce,
 	GtkTextBuffer *buffer = ce->priv->buffer;
 	SubPattern *sp;
 	Segment *child;
-
+	GSList *classes;
+	GSList *items;
+	GtkTextTag *fold_tag;
 	g_assert (segment != NULL);
 
 	if (SEGMENT_IS_INVALID (segment))
@@ -842,6 +855,28 @@ apply_tags (GtkSourceContextEngine *ce,
 	end_offset = MIN (end_offset, segment->end_at);
 
 	tag = get_context_tag (ce, segment->context);
+	classes = get_context_classes (ce,
+	                               segment->context);
+	
+	fold_tag = get_context_class_tag(ce, "fold");
+	for (items = classes; items != NULL; items = g_slist_next (items))
+	{ 
+		ContextClassTag *attrtag = (ContextClassTag *)items->data;
+		if (fold_tag!=NULL && attrtag->tag ==fold_tag)
+		{
+			GtkTextIter start_iter, end_iter;
+			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&start_iter, segment->start_at);
+			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&end_iter, segment->end_at);
+			
+			printf("%p, Segment (%d,%d) Offset (%d,%d), context = %s\n",segment, segment->start_at,segment->end_at ,start_offset, end_offset,segment->context->definition->id);
+			gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER(ce->priv->buffer), &start_iter, &end_iter);
+			break;
+		}
+	}	
+	
+
+	apply_context_classes (ce, classes, start_offset, end_offset);
+
 
 	if (tag != NULL)
 	{
@@ -4537,7 +4572,7 @@ segment_ends_here (Segment  *state,
  * @line_pos: the position inside @line, bytes.
  *
  * Verifies if some ancestor context ends at the current position.
- * This function only checks conetxts and does not modify the tree,
+ * This function only checks contexts and does not modify the tree,
  * it's used by ancestor_ends_here().
  *
  * Returns: the ancestor context that terminates here or %NULL.
