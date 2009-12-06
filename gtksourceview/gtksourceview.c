@@ -2896,7 +2896,7 @@ draw_tabs_and_spaces (GtkSourceView  *view,
 		/* Since fold labels aren't anchored, we need to update the position
 		 * manually as the textview is scrolled. Also, this applies to all fold
 		 * labels in the visible textview, not just the part that is being painted.
-		 */
+		 /
 		if (view->priv->show_folds &&
 		    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)) &&
 		    g_hash_table_size (view->priv->fold_labels) > 0)
@@ -2904,7 +2904,7 @@ draw_tabs_and_spaces (GtkSourceView  *view,
 			update_fold_label_locations (view);
 		}
 
-		/* Have GtkTextView draw the text first. */
+		/ Have GtkTextView draw the text first. /
 		if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event)
 			event_handled =
 				GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event (widget, event);
@@ -4641,47 +4641,6 @@ gtk_source_view_motion_notify (GtkWidget *widget, GdkEventMotion *event)
 	}
 }
 
-static void
-extend_selection_to_line (GtkTextBuffer *buf, GtkTextIter *line_start)
-{
-	GtkTextIter start;
-	GtkTextIter end;
-	GtkTextIter line_end;
-
-	gtk_text_buffer_get_selection_bounds (buf, &start, &end);
-
-	line_end = *line_start;
-	gtk_text_iter_forward_to_line_end (&line_end);
-
-	if (gtk_text_iter_compare (&start, line_start) < 0)
-	{
-		gtk_text_buffer_select_range (buf, &start, &line_end);
-	}
-	else if (gtk_text_iter_compare (&end, &line_end) < 0)
-	{
-		/* if the selection is in this line, extend
-		 * the selection to the whole line */
-		gtk_text_buffer_select_range (buf, &line_end, line_start);
-	}
-	else
-	{
-		gtk_text_buffer_select_range (buf, &end, line_start);
-	}
-}
-
-static void
-select_line (GtkTextBuffer *buf, GtkTextIter *line_start)
-{
-	GtkTextIter iter;
-
-	iter = *line_start;
-
-	if (!gtk_text_iter_ends_line (&iter))
-		gtk_text_iter_forward_to_line_end (&iter);
-
-	/* Select the line, put the cursor at the end of the line */
-	gtk_text_buffer_select_range (buf, &iter, line_start);
-}
 
 static gboolean
 gtk_source_view_button_press (GtkWidget *widget, GdkEventButton *event)
