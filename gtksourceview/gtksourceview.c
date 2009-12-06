@@ -45,10 +45,8 @@
 #include "gtksourcefold-private.h"
 #include "gtksourcefoldlabel.h"
 
-/*
 #define ENABLE_DEBUG
-*/
-#undef ENABLE_DEBUG
+/*#undef ENABLE_DEBUG*/
 
 /*
 #define ENABLE_PROFILE
@@ -298,6 +296,16 @@ static MarkCategory *
 static MarkCategory *
 		mark_category_new			(gint               priority);
 static void	mark_category_free			(MarkCategory      *cat);
+
+static void     draw_fold_line 				(GtkSourceView *view,
+							 GtkTextIter   *cur,
+							 gint           text_width,
+							 gint           text_height,
+							 GtkSourceFold *fold);
+static gboolean
+move_fold_label (GtkTextView        *view,
+		 GtkSourceFold      *fold,
+		 GtkWidget          *label);		
 
 /* Private functions. */
 static void
@@ -1733,6 +1741,7 @@ fold_added_cb (GtkSourceBuffer *buffer,
 	       GtkSourceFold   *fold,
 	       GtkSourceView   *view)
 {
+	DEBUG(g_print("Signal fold_added catched\n"));
 	gtk_widget_queue_draw (GTK_WIDGET (view));
 }
 
@@ -2343,6 +2352,8 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 	GHashTable *folds;
 	GtkSourceFold *fold;
 
+	GdkWindow *win;
+
 
 
 
@@ -2436,27 +2447,32 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 		margin_width = 0;
 
 	view->priv->line_numbers_width = margin_width;
-
+*/
 	if (view->priv->show_folds)
-		margin_width += view->priv->expander_size;
-
+		margin_width += view->priv->expander_size + 5;
+/*
 	x_pixmap = margin_width;
 
 	if (view->priv->show_line_marks)
 		margin_width += GUTTER_PIXMAP;
 
 	g_return_if_fail (margin_width != 0);
-
+*/
+//	margin_width = gtk_text_view_get_border_window_size (GTK_TEXT_VIEW(text_view), GTK_TEXT_WINDOW_LEFT);
+	printf("%d\n", view->priv->expander_size);
 	gtk_text_view_set_border_window_size (GTK_TEXT_VIEW (text_view),
 					      GTK_TEXT_WINDOW_LEFT,
-					      margin_width);
-
+					      56+margin_width);
+/*
 	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
 					  &cur,
 					  gtk_text_buffer_get_insert (text_view->buffer));
 
 	cur_line = gtk_text_iter_get_line (&cur);
+*/
 
+	win = gtk_text_view_get_window (text_view,
+					GTK_TEXT_WINDOW_LEFT);
 	//* It can happen that only part of the fold line was drawn. When the
 	// * view is scrolled downwards, a part of the fold line still needs to be
 	// * drawn. That check is performed here.
@@ -2469,7 +2485,7 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 		if (fold != NULL)
 			draw_fold_line (view, &cur, text_width, text_height, fold);
 	}
-
+/*
  code_folding:gtksourceview/gtksourceview.c */
 	for (i = 0; i < count; ++i)
 	{
@@ -2477,8 +2493,12 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 		GSList *marks;
 		GdkColor *background;
 		int priority;
+		gint pos;
 
 		line_to_paint = g_array_index (numbers, gint, i);
+
+
+
 
 		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
 								    line_to_paint,
@@ -2507,10 +2527,14 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 							       g_array_index (pixels, gint, i),
 							       g_array_index (heights, gint, i),
 							       background);
-	}
+		
+		gtk_text_view_buffer_to_window_coords (text_view,
+						       GTK_TEXT_WINDOW_LEFT,
+						       0,
+						       g_array_index (pixels, gint, i),
+						       NULL,
+						       &pos);
 
-	g_array_free (heights, TRUE);
-/* Nuevo
 		if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
 		{
 			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
@@ -2522,7 +2546,7 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 
 				// draw a vertical line to highlight the fold. 
 				if (fold->prelighted && !fold->folded)
-					draw_fold_line (view, &cur, text_width, text_height, fold);
+					draw_fold_line (view, &cur, text_width + 56, text_height, fold);
 
 				if (fold->prelighted)
 					state = GTK_STATE_PRELIGHT;
@@ -2533,11 +2557,11 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 						    NULL,
 						    GTK_WIDGET (view),
 						    NULL,
-						    text_width + 4 + (view->priv->expander_size / 2),
-						    pos + (text_height / 2),
-						    fold->expander_style);
+						    56 + text_width + 4 + (view->priv->expander_size / 2),
+						    pos + (measure_line_height(view) / 2),
+						    fold->expander_style); 
 
-				 Add or update the fold label. 
+				// Add or update the fold label. 
 				fold_label = g_hash_table_lookup (view->priv->fold_labels,
 								  fold);
 
@@ -2564,10 +2588,12 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 				}
 			}
 		}
+
 	}
 
+	g_array_free (heights, TRUE);
+	
 	g_hash_table_destroy (folds);
-// code_folding:gtksourceview/gtksourceview.c*/
 	g_array_free (pixels, TRUE);
 	g_array_free (numbers, TRUE);
 }
@@ -3080,17 +3106,16 @@ gtk_source_view_expose (GtkWidget      *widget,
 		gtk_source_view_paint_line_background (text_view, event, y, height, color);
 	}
 
-	if (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT))
-		gtk_source_view_paint_marks_background (view, event);
-
 	/* Have GtkTextView draw the text first. */
 	if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event)
 		event_handled =
 			GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event (widget, event);
 
+	//if (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT))
+		gtk_source_view_paint_marks_background (view, event);
 	/* Draw the right margin vertical line + overlay. */
 	if (view->priv->show_right_margin &&
-	    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)))
+		    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)))
 	{
 		gtk_source_view_paint_right_margin (view, event);
 	}

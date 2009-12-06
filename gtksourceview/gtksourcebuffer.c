@@ -41,12 +41,11 @@
 #include "gtksourcestyleschememanager.h"
 #include "gtksourcestyle-private.h"
 
-/*
-#define ENABLE_DEBUG
-#define ENABLE_PROFILE
-*/
 #undef ENABLE_DEBUG
 #undef ENABLE_PROFILE
+#define ENABLE_DEBUG
+#define ENABLE_PROFILE
+
 
 #ifdef ENABLE_DEBUG
 #define DEBUG(x) (x)
