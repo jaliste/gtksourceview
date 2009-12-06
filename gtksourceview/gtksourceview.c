@@ -2336,199 +2336,7 @@ gtk_source_view_paint_line_background (GtkTextView    *text_view,
 
 
 static void
-draw_fold_line (GtkSourceView *view,
-		GtkTextIter   *cur,
-		gint           text_width,
-		gint           text_height,
-		GtkSourceFold *fold)
-{
-	GtkWidget *widget;
-	GtkTextView *text_view;
-	GdkWindow *win;
-	int x, y, win_y, y1, y2, height;
-
-	widget = GTK_WIDGET (view);
-	text_view = GTK_TEXT_VIEW (view);
-
-	win = gtk_text_view_get_window (text_view,
-					GTK_TEXT_WINDOW_LEFT);
-
-	x = text_width + 3 + (view->priv->expander_size / 2);
-
-	/* the line starts at the next line. */
-	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-					  cur,
-					  fold->start_line);
-	gtk_text_iter_forward_visible_line (cur);
-
-	gtk_text_view_get_line_yrange (text_view,
-				       cur, &y,
-				       &height);
-
-	gtk_text_view_buffer_to_window_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y,
-					       NULL,
-					       &y1);
-
-	/* calculate the end of the line. */
-	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-					  cur,
-					  fold->end_line);
-
-	/* if the end of the fold is at the start of the
-	 * line, the fold actually ended on the previous line. */
-	if (gtk_text_iter_starts_line (cur))
-		gtk_text_iter_backward_visible_line (cur);
-
-	gtk_text_view_get_line_yrange (text_view,
-				       cur, &y,
-				       &height);
-
-	gtk_text_view_buffer_to_window_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y,
-					       NULL,
-					       &win_y);
-
-	y2 = win_y + (text_height / 2);
-
-	/* vertical line. */
-	gdk_draw_line (win,
-		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
-		       x, y1, x, y2);
-
-	/* horizontal line indicating the end of the fold. */
-	gdk_draw_line (win,
-		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
-		       x, y2, x + (view->priv->expander_size / 2) - 2, y2);
-}
-
-static gboolean
-move_fold_label (GtkTextView        *view,
-		 GtkSourceFold      *fold,
-		 GtkWidget          *label)
-{
-	GtkTextIter begin;
-	GdkRectangle rect;
-	int x, y, old_x, old_y;
-
-	gtk_source_fold_get_bounds (fold, &begin, NULL);
-
-	/* if there's no text before the start of the fold, show the fold label
-	 * after the text on the line. This ties in with how GtkSourceFold shows
-	 * a collapsed fold: the first line remains visible when there's no text
-	 * before the start of the fold. */
-	if (gtk_text_iter_starts_sentence (&begin) && !gtk_text_iter_ends_line (&begin))
-		gtk_text_iter_forward_to_line_end (&begin);
-
-	gtk_text_view_get_iter_location (view, &begin, &rect);
-
-	gtk_text_view_buffer_to_window_coords (view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       rect.x, rect.y,
-					       &x, &y);
-
-	_gtk_source_fold_label_get_position (GTK_SOURCE_FOLD_LABEL (label),
-					     &old_x, &old_y);
-
-	/* Only update if the position has really changed. */
-	if (GTK_WIDGET_VISIBLE (label) && old_x == x && old_y == y)
-		return FALSE;
-
-	_gtk_source_fold_label_set_position (GTK_SOURCE_FOLD_LABEL (label), x, y);
-
-	/* Position the label 2 pixels to the right of the last character. */
-	gtk_text_view_move_child (view, label, x + 2, y);
-
-	if (!GTK_WIDGET_VISIBLE (label))
-		gtk_widget_show (label);
-
-	return TRUE;
-}
-
-static void
-foreach_fold_label (GtkSourceFold     *fold,
-		    GtkWidget         *label,
-		    FoldLabelLocation *location)
-{
-	GtkTextIter fold_start;
-
-	/* If the fold isn't collapsed, don't bother. */
-	if (!gtk_source_fold_get_folded (fold))
-		return;
-
-	gtk_source_fold_get_bounds (fold, &fold_start, NULL);
-
-	/* If the label is in the visible range, update its location. */
-	if (gtk_text_iter_compare (&fold_start, &location->start) != -1 &&
-	    gtk_text_iter_compare (&fold_start, &location->end) != 1)
-	{
-		gboolean updated = move_fold_label (GTK_TEXT_VIEW (location->view),
-						    fold, label);
-
-		/* Set the updated flag so we queue a redraw. */
-		if (!location->updated && updated)
-			location->updated = TRUE;
-	}
-	else if (GTK_WIDGET_VISIBLE (label))
-	{
-		/* If the label was visible, but no longer is, queue a redraw. */
-		gtk_widget_hide (label);
-		location->updated = TRUE;
-	}
-}
-
-static void
-update_fold_label_locations (GtkSourceView *view)
-{
-	FoldLabelLocation location;
-	int y;
-
-	location.view = view;
-	location.updated = FALSE;
-
-	/* Get the visible line range in the textview. */
-	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       0,
-					       NULL,
-					       &y);
-
-	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.start, 0, y);
-
-	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       GTK_WIDGET (view)->allocation.height,
-					       NULL,
-					       &y);
-
-	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.end, 0, y);
-
-	/* Update the fold label positions. */
-	g_hash_table_foreach (view->priv->fold_labels,
-			      (GHFunc) foreach_fold_label,
-			      &location);
-
-	/* When scrolling, we can't just update the fold label positions and *not*
-	 * redraw the visible area. If we don't redraw, we get ghosting effects
-	 * when scrolling.
-	 */
-	if (location.updated)
-	{
-		//gtk_widget_queue_draw (GTK_WIDGET (view));
-		gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
-								      GTK_TEXT_WINDOW_TEXT),
-					    NULL, TRUE);
-	}
-}
-
-static void
-gtk_source_view_paint_margin (GtkSourceView *view,
+gtk_source_view_paint_marks_background (GtkSourceView *view,
 			      GdkEventExpose *event)
 {
 	GtkWidget *widget;
@@ -5777,3 +5585,195 @@ expand_folds (GtkSourceBuffer *buffer, GList *folds)
 		folds = g_list_next (folds);
 	}
 }
+static void
+draw_fold_line (GtkSourceView *view,
+		GtkTextIter   *cur,
+		gint           text_width,
+		gint           text_height,
+		GtkSourceFold *fold)
+{
+	GtkWidget *widget;
+	GtkTextView *text_view;
+	GdkWindow *win;
+	int x, y, win_y, y1, y2, height;
+
+	widget = GTK_WIDGET (view);
+	text_view = GTK_TEXT_VIEW (view);
+
+	win = gtk_text_view_get_window (text_view,
+					GTK_TEXT_WINDOW_LEFT);
+
+	x = text_width + 3 + (view->priv->expander_size / 2);
+
+	/* the line starts at the next line. */
+	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+					  cur,
+					  fold->start_line);
+	gtk_text_iter_forward_visible_line (cur);
+
+	gtk_text_view_get_line_yrange (text_view,
+				       cur, &y,
+				       &height);
+
+	gtk_text_view_buffer_to_window_coords (text_view,
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       y,
+					       NULL,
+					       &y1);
+
+	/* calculate the end of the line. */
+	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+					  cur,
+					  fold->end_line);
+
+	/* if the end of the fold is at the start of the
+	 * line, the fold actually ended on the previous line. */
+	if (gtk_text_iter_starts_line (cur))
+		gtk_text_iter_backward_visible_line (cur);
+
+	gtk_text_view_get_line_yrange (text_view,
+				       cur, &y,
+				       &height);
+
+	gtk_text_view_buffer_to_window_coords (text_view,
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       y,
+					       NULL,
+					       &win_y);
+
+	y2 = win_y + (text_height / 2);
+
+	/* vertical line. */
+	gdk_draw_line (win,
+		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
+		       x, y1, x, y2);
+
+	/* horizontal line indicating the end of the fold. */
+	gdk_draw_line (win,
+		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
+		       x, y2, x + (view->priv->expander_size / 2) - 2, y2);
+}
+
+static gboolean
+move_fold_label (GtkTextView        *view,
+		 GtkSourceFold      *fold,
+		 GtkWidget          *label)
+{
+	GtkTextIter begin;
+	GdkRectangle rect;
+	int x, y, old_x, old_y;
+
+	gtk_source_fold_get_bounds (fold, &begin, NULL);
+
+	/* if there's no text before the start of the fold, show the fold label
+	 * after the text on the line. This ties in with how GtkSourceFold shows
+	 * a collapsed fold: the first line remains visible when there's no text
+	 * before the start of the fold. */
+	if (gtk_text_iter_starts_sentence (&begin) && !gtk_text_iter_ends_line (&begin))
+		gtk_text_iter_forward_to_line_end (&begin);
+
+	gtk_text_view_get_iter_location (view, &begin, &rect);
+
+	gtk_text_view_buffer_to_window_coords (view,
+					       GTK_TEXT_WINDOW_TEXT,
+					       rect.x, rect.y,
+					       &x, &y);
+
+	_gtk_source_fold_label_get_position (GTK_SOURCE_FOLD_LABEL (label),
+					     &old_x, &old_y);
+
+	/* Only update if the position has really changed. */
+	if (GTK_WIDGET_VISIBLE (label) && old_x == x && old_y == y)
+		return FALSE;
+
+	_gtk_source_fold_label_set_position (GTK_SOURCE_FOLD_LABEL (label), x, y);
+
+	/* Position the label 2 pixels to the right of the last character. */
+	gtk_text_view_move_child (view, label, x + 2, y);
+
+	if (!GTK_WIDGET_VISIBLE (label))
+		gtk_widget_show (label);
+
+	return TRUE;
+}
+
+static void
+foreach_fold_label (GtkSourceFold     *fold,
+		    GtkWidget         *label,
+		    FoldLabelLocation *location)
+{
+	GtkTextIter fold_start;
+
+	/* If the fold isn't collapsed, don't bother. */
+	if (!gtk_source_fold_get_folded (fold))
+		return;
+
+	gtk_source_fold_get_bounds (fold, &fold_start, NULL);
+
+	/* If the label is in the visible range, update its location. */
+	if (gtk_text_iter_compare (&fold_start, &location->start) != -1 &&
+	    gtk_text_iter_compare (&fold_start, &location->end) != 1)
+	{
+		gboolean updated = move_fold_label (GTK_TEXT_VIEW (location->view),
+						    fold, label);
+
+		/* Set the updated flag so we queue a redraw. */
+		if (!location->updated && updated)
+			location->updated = TRUE;
+	}
+	else if (GTK_WIDGET_VISIBLE (label))
+	{
+		/* If the label was visible, but no longer is, queue a redraw. */
+		gtk_widget_hide (label);
+		location->updated = TRUE;
+	}
+}
+
+static void
+update_fold_label_locations (GtkSourceView *view)
+{
+	FoldLabelLocation location;
+	int y;
+
+	location.view = view;
+	location.updated = FALSE;
+
+	/* Get the visible line range in the textview. */
+	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       0,
+					       NULL,
+					       &y);
+
+	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.start, 0, y);
+
+	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       GTK_WIDGET (view)->allocation.height,
+					       NULL,
+					       &y);
+
+	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.end, 0, y);
+
+	/* Update the fold label positions. */
+	g_hash_table_foreach (view->priv->fold_labels,
+			      (GHFunc) foreach_fold_label,
+			      &location);
+
+	/* When scrolling, we can't just update the fold label positions and *not*
+	 * redraw the visible area. If we don't redraw, we get ghosting effects
+	 * when scrolling.
+	 */
+	if (location.updated)
+	{
+		//gtk_widget_queue_draw (GTK_WIDGET (view));
+		gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
+								      GTK_TEXT_WINDOW_TEXT),
+					    NULL, TRUE);
+	}
+}
+
