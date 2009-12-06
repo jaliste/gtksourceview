@@ -23,6 +23,7 @@ lib_LTLIBRARIES = libgtksourceview-2.0.la
 
 libgtksourceview_headers =			\
 	gtksourcebuffer.h			\
+	gtksourcefold.h				\
 	gtksourceiter.h				\
 	gtksourceview.h				\
 	gtksourcelanguage.h			\
@@ -56,6 +57,11 @@ NOINST_H_FILES = \
 
 libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcebuffer.c 		\
+	gtksourcebuffer-private.h 	\
+	gtksourcefold.c			\
+	gtksourcefold-private.h		\
+	gtksourcefoldlabel.c		\
+	gtksourcefoldlabel.h		\
 	gtksourceiter.c			\
 	gtksourceview.c 		\
 	gtksourceundomanager.c 		\
