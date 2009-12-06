@@ -75,6 +75,8 @@ static void       margin_toggled_cb              (GtkAction       *action,
 						  gpointer         user_data);
 static void       hl_bracket_toggled_cb          (GtkAction       *action,
 						  gpointer         user_data);
+static void       folds_toggled_cb		 (GtkAction       *action,
+						  gpointer         user_data);
 static void       hl_line_toggled_cb             (GtkAction       *action,
 						  gpointer         user_data);
 static void       draw_spaces_toggled_cb	 (GtkAction       *action,
@@ -91,6 +93,8 @@ static void       tabs_toggled_cb                (GtkAction       *action,
 static void       indent_toggled_cb              (GtkAction       *action,
 						  GtkAction       *current,
 						  gpointer         user_data);
+
+static void	  add_folds			 (GtkSourceBuffer *buffer);
 
 static GtkWidget *create_view_window             (GtkSourceBuffer *buffer,
 						  GtkSourceView   *from);
@@ -131,6 +135,9 @@ static GtkToggleActionEntry toggle_entries[] = {
 	{ "ShowMarks", NULL, "Show Line _Marks", NULL,
 	  "Toggle visibility of marks in the left margin",
 	  G_CALLBACK (marks_toggled_cb), FALSE },
+	{ "FoldsEnabled", NULL, "Folds Enabled", NULL,
+	  "Folds enabled",
+	  G_CALLBACK (folds_toggled_cb), FALSE },
 	{ "ShowMargin", NULL, "Show Right M_argin", NULL,
 	  "Toggle visibility of right margin indicator",
 	  G_CALLBACK (margin_toggled_cb), FALSE },
@@ -193,6 +200,7 @@ static const gchar *view_ui_description =
 "      <menuitem action=\"HlBracket\"/>"
 "      <menuitem action=\"ShowNumbers\"/>"
 "      <menuitem action=\"ShowMarks\"/>"
+"      <menuitem action=\"FoldsEnabled\"/>"
 "      <menuitem action=\"ShowMargin\"/>"
 "      <menuitem action=\"HlLine\"/>"
 "      <menuitem action=\"DrawSpaces\"/>"
@@ -474,6 +482,29 @@ out:
 	return success;
 }
 
+static void
+add_folds (GtkSourceBuffer *buffer)
+{
+	GtkTextBuffer *text_buffer = GTK_TEXT_BUFFER (buffer);
+	GtkTextIter start, end;
+
+	if (!gtk_source_buffer_get_folds_enabled (buffer))
+		return;
+	gtk_text_buffer_get_start_iter (text_buffer, &start);
+	end = start;
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 15);
+	gtk_source_buffer_add_fold (buffer, &start, &end);
+
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 3);
+ 	end = start;
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 6);
+ 	gtk_source_buffer_add_fold (buffer, &start, &end);
+
+	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 16);
+	end = start;
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 20);
+	gtk_source_buffer_add_fold (buffer, &start, &end);
+}
 
 /* View action callbacks -------------------------------------------------------- */
 
@@ -513,6 +544,18 @@ hl_bracket_toggled_cb (GtkAction *action, gpointer user_data)
 	gtk_source_buffer_set_highlight_matching_brackets (
 		GTK_SOURCE_BUFFER (buffer),
 		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
+}
+
+static void
+folds_toggled_cb (GtkAction *action, gpointer user_data)
+{
+	GtkTextBuffer *buffer;
+	g_return_if_fail (GTK_IS_TOGGLE_ACTION (action) && GTK_IS_SOURCE_VIEW (user_data));
+	buffer = gtk_text_view_get_buffer (user_data);
+	gtk_source_buffer_set_folds_enabled (
+		GTK_SOURCE_BUFFER (buffer),
+		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
+	add_folds (GTK_SOURCE_BUFFER (buffer));
 }
 
 static void
@@ -1229,6 +1272,7 @@ create_view_window (GtkSourceBuffer *buffer, GtkSourceView *from)
 	g_signal_connect (buffer, "mark-set", G_CALLBACK (move_cursor_cb), view);
 	g_signal_connect (buffer, "changed", G_CALLBACK (update_cursor_position), view);
 	g_signal_connect (view, "line-mark-activated", G_CALLBACK (line_mark_activated), view);
+	//g_signal_connect_after (view, "button-press-event", G_CALLBACK (button_press_cb), NULL);
 	g_signal_connect (window, "delete-event", (GCallback) window_deleted_cb, view);
 
 	/* action group and UI manager */
@@ -1383,6 +1427,9 @@ create_main_window (GtkSourceBuffer *buffer)
 
 	action = gtk_action_group_get_action (action_group, "HlBracket");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
+
+	action = gtk_action_group_get_action (action_group, "FoldsEnabled");
+	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), FALSE);
 
 	action = gtk_action_group_get_action (action_group, "ShowNumbers");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
