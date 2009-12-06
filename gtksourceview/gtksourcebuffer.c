@@ -787,7 +787,7 @@ gtk_source_buffer_real_insert_text (GtkTextBuffer *buffer,
 	gint start_offset;
 	GtkTextMark *mark;
 	GtkTextIter insert_iter;
-	gint start_offset, end_offset;
+	gint end_offset;
 	GtkSourceBuffer *source_buffer = GTK_SOURCE_BUFFER (buffer);
 	GtkSourceFold *fold;
 
@@ -817,11 +817,11 @@ gtk_source_buffer_real_insert_text (GtkTextBuffer *buffer,
 	 * inserted text
 	 */
 	GTK_TEXT_BUFFER_CLASS (gtk_source_buffer_parent_class)->insert_text (buffer, iter, text, len);
-<<<<head
+/*<<<<head */
 	gtk_source_buffer_content_inserted (buffer,
 					    start_offset,
 					    gtk_text_iter_get_offset (iter));
-====
+/*====
 mark = gtk_text_buffer_get_insert (buffer);
 	gtk_text_buffer_get_iter_at_mark (buffer, &insert_iter, mark);
 	gtk_source_buffer_move_cursor (buffer, &insert_iter, mark);
@@ -832,7 +832,7 @@ mark = gtk_text_buffer_get_insert (buffer);
 		_gtk_source_engine_text_inserted (source_buffer->priv->highlight_engine,
 						  start_offset,
 						  end_offset);
->>>>>
+>>>>>*/
 }
 
 /* insert_pixbuf and insert_child_anchor do nothing except notifying
@@ -2695,7 +2695,7 @@ gtk_source_buffer_add_fold (GtkSourceBuffer   *buffer,
 
 		if (error != NULL)
 		{
-			g_critical (error->message);
+	//		g_critical (error->message);
 			g_error_free (error);
 			gtk_source_fold_free (fold);
 			return NULL;
