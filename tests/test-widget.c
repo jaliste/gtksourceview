@@ -503,7 +503,6 @@ add_folds (GtkSourceBuffer *buffer)
 
 	if (!gtk_source_buffer_get_folds_enabled (buffer))
 		return;
-
 	gtk_text_buffer_get_start_iter (text_buffer, &start);
 	end = start;
 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 15);
