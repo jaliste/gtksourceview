@@ -4715,47 +4715,6 @@ gtk_source_view_button_press (GtkWidget *widget, GdkEventButton *event)
 		return TRUE;
 	}
 
-	if (view->priv->show_line_numbers &&
-	    (event->window == gtk_text_view_get_window (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT)))
-	{
-		gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT,
-						       event->x, event->y,
-						       NULL, &y_buf);
-
-		gtk_text_view_get_line_at_y (GTK_TEXT_VIEW (view),
-					     &line_start,
-					     y_buf,
-					     NULL);
-
-		if (event->type == GDK_BUTTON_PRESS && (event->button == 1))
-		{
-			if ((event->state & GDK_CONTROL_MASK) != 0)
-			{
-				/* Single click + Ctrl -> select the line */
-				select_line (buf, &line_start);
-			}
-			else if ((event->state & GDK_SHIFT_MASK) != 0)
-			{
-				/* Single click + Shift -> extended current
-				   selection to include the clicked line */
-				extend_selection_to_line (buf, &line_start);
-			}
-			else
-			{
-				gtk_text_buffer_place_cursor (buf, &line_start);
-			}
-		}
-		else if (event->type == GDK_2BUTTON_PRESS && (event->button == 1))
-		{
-			select_line (buf, &line_start);
-		}
-
-		/* consume the event also on right click etc */
-		return TRUE;
-	}
-
 	return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->button_press_event (widget, event);
 }
 
