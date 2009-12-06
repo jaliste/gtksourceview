@@ -2259,7 +2259,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 	*countp = count;
 }
-//--
+/*--
 
 	if (gtk_text_iter_is_end (&iter))
 	{
@@ -2273,7 +2273,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 		/* Only add the line number if we started at the last line or
 		 * if we didn't add the line number already in the previous
 		 * while loop (line_num != last_line_num).
-		 */
+		 
 		if (count == 0 || line_num != last_line_num)
 		{
 			g_array_append_val (buffer_coords, y);
@@ -2287,7 +2287,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 	*countp = count;
 }
-//>>
+//>>*/
 static void
 gtk_source_view_paint_line_background (GtkTextView    *text_view,
 				       GdkEventExpose *event,
@@ -2554,7 +2554,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 	widget = GTK_WIDGET (view);
 	text_view = GTK_TEXT_VIEW (view);
 
-// this was removed from main but modified in folding
+/* this was removed from main but modified in folding
 	if (!view->priv->show_line_numbers &&
 	    !view->priv->show_line_marks &&
 	    !view->priv->show_folds)
@@ -2564,7 +2564,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 			
 		return;
 	}			      0);
-// until this
+// until this*/
 
 	y1 = event->area.y;
 	y2 = y1 + event->area.height;
@@ -2623,7 +2623,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 
 //======= Borrado pero modificado en code_folding
 	/* set size. */
-	g_snprintf (str, sizeof (str),
+/*	g_snprintf (str, sizeof (str),
 		    "%d", MAX (99, gtk_text_buffer_get_line_count (text_view->buffer)));
 	layout = gtk_widget_create_pango_layout (GTK_WIDGET (view), str);
 
@@ -2632,7 +2632,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 	pango_layout_set_width (layout, text_width);
 	pango_layout_set_alignment (layout, PANGO_ALIGN_RIGHT);
 
-	/* determine the width of the left margin. */
+	// determine the width of the left margin. 
 	if (view->priv->show_line_numbers)
 		margin_width = text_width + 4;
 	else
@@ -2660,10 +2660,10 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 
 	cur_line = gtk_text_iter_get_line (&cur);
 
-	/* It can happen that only part of the fold line was drawn. When the
-	 * view is scrolled downwards, a part of the fold line still needs to be
-	 * drawn. That check is performed here.
-	 */
+	//* It can happen that only part of the fold line was drawn. When the
+	// * view is scrolled downwards, a part of the fold line still needs to be
+	// * drawn. That check is performed here.
+	 
 	if (view->priv->prelight_fold_line != -1 &&
 	    view->priv->prelight_fold_line < g_array_index (numbers, gint, i))
 	{
@@ -2673,7 +2673,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 			draw_fold_line (view, &cur, text_width, text_height, fold);
 	}
 
-// code_folding:gtksourceview/gtksourceview.c
+ code_folding:gtksourceview/gtksourceview.c */
 	for (i = 0; i < count; ++i)
 	{
 		gint line_to_paint;
@@ -2713,7 +2713,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 	}
 
 	g_array_free (heights, TRUE);
-// Nuevo
+/* Nuevo
 		if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
 		{
 			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
@@ -2723,7 +2723,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 				GtkStateType state = GTK_WIDGET_STATE (view);
 				GtkWidget *fold_label;
 
-				/* draw a vertical line to highlight the fold. */
+				// draw a vertical line to highlight the fold. 
 				if (fold->prelighted && !fold->folded)
 					draw_fold_line (view, &cur, text_width, text_height, fold);
 
@@ -2740,7 +2740,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 						    pos + (text_height / 2),
 						    fold->expander_style);
 
-				/* Add or update the fold label. */
+				 Add or update the fold label. 
 				fold_label = g_hash_table_lookup (view->priv->fold_labels,
 								  fold);
 
@@ -2759,7 +2759,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 
 					move_fold_label (text_view, fold, fold_label);
 				}
-				/* Hide the label if the fold has expanded. */
+				// Hide the label if the fold has expanded. 
 				else if (fold_label != NULL && !fold->folded &&
 					 GTK_WIDGET_VISIBLE (fold_label))
 				{
@@ -2770,7 +2770,7 @@ gtk_source_view_paint_margin (GtkSourceView *view,
 	}
 
 	g_hash_table_destroy (folds);
-// code_folding:gtksourceview/gtksourceview.c
+// code_folding:gtksourceview/gtksourceview.c*/
 	g_array_free (pixels, TRUE);
 	g_array_free (numbers, TRUE);
 }
