@@ -495,14 +495,14 @@ add_folds (GtkSourceBuffer *buffer)
 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 15);
 	gtk_source_buffer_add_fold (buffer, &start, &end);
 
-// 	gtk_text_buffer_get_start_iter (text_buffer, &start);
-// 	end = start;
-// 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 4);
-// 	gtk_source_buffer_add_fold (buffer, &start, &end);
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 3);
+ 	end = start;
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 6);
+ 	gtk_source_buffer_add_fold (buffer, &start, &end);
 
-	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 5);
+	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 16);
 	end = start;
-	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 10);
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 20);
 	gtk_source_buffer_add_fold (buffer, &start, &end);
 }
 

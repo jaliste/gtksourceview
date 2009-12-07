@@ -152,6 +152,7 @@ struct _GtkSourceViewPrivate
 
 	GtkCellRenderer *line_renderer;
 	GtkCellRenderer *marks_renderer;
+	GtkCellRenderer	*folds_renderer;
 	
 	GdkColor         current_line_color;
 	guint            current_line_color_set : 1;
@@ -1215,6 +1216,113 @@ line_renderer_size_func (GtkSourceGutter *gutter,
 }
 
 static void
+folds_renderer_data_func (GtkSourceGutter *gutter,
+                          GtkCellRenderer *renderer,
+                          gint             line_number,
+                          gboolean         current_line,
+                          GtkSourceView   *view)
+{
+	GSList *marks;
+	GdkPixbuf *pixbuf = NULL;
+	int size = 0;
+
+	if (view->priv->source_buffer)
+	{
+		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
+								    line_number,
+								    NULL);
+
+		if (marks != NULL)
+		{
+			GtkTextIter iter;
+
+			gtk_text_buffer_get_iter_at_line (GTK_TEXT_BUFFER (view->priv->source_buffer),
+							  &iter,
+							  line_number);
+
+			if (size == 0)
+			{
+				size = measure_line_height (view);
+			}
+
+			/* draw marks for the line */
+			pixbuf = composite_marks (view, marks, size);
+			g_slist_free (marks);
+		}
+	}
+
+	g_object_set (G_OBJECT (renderer),
+	              "pixbuf", pixbuf,
+	              "xpad", 2,
+	              "ypad", 1,
+	              "yalign", 0.0,
+	              "xalign", 0.5,
+	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
+	              NULL);
+/*	             if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
+		{
+			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
+
+			if (fold != NULL)
+			{
+				GtkStateType state = GTK_WIDGET_STATE (view);
+				GtkWidget *fold_label;
+
+				// draw a vertical line to highlight the fold. 
+				if (fold->prelighted && !fold->folded)
+					draw_fold_line (view, &cur, text_width + 56, text_height, fold);
+
+				if (fold->prelighted)
+					state = GTK_STATE_PRELIGHT;
+
+				gtk_paint_expander (GTK_WIDGET (view)->style,
+						    win,
+						    state,
+						    NULL,
+						    GTK_WIDGET (view),
+						    NULL,
+						    56 + text_width + 4 + (view->priv->expander_size / 2),
+						    pos + (measure_line_height(view) / 2),
+						    fold->expander_style); 
+
+				// Add or update the fold label. 
+				fold_label = g_hash_table_lookup (view->priv->fold_labels,
+								  fold);
+
+				if (fold_label == NULL && fold->folded)
+				{
+					fold_label = _gtk_source_fold_label_new (view);
+
+					g_hash_table_insert (view->priv->fold_labels,
+							     fold, fold_label);
+
+					gtk_text_view_add_child_in_window (text_view,
+									   fold_label,
+									   GTK_TEXT_WINDOW_TEXT,
+									   0,
+									   0);
+
+					move_fold_label (text_view, fold, fold_label);
+				}
+				// Hide the label if the fold has expanded. 
+				else if (fold_label != NULL && !fold->folded &&
+					 GTK_WIDGET_VISIBLE (fold_label))
+				{
+					gtk_widget_hide (fold_label);
+				}
+			}
+		}
+*/
+}
+
+static void
+folds_renderer_size_func (GtkSourceGutter *gutter,
+                         GtkCellRenderer *renderer,
+                         GtkSourceView   *view)
+{
+}
+
+static void
 extend_selection_to_line (GtkTextBuffer *buf, GtkTextIter *line_start)
 {
 	GtkTextIter start;
@@ -1498,6 +1606,7 @@ init_left_gutter (GtkSourceView *view)
 
 	view->priv->line_renderer = gtk_cell_renderer_text_new ();
 	view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
+	view->priv->folds_renderer = gtk_cell_renderer_pixbuf_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
@@ -1508,9 +1617,14 @@ init_left_gutter (GtkSourceView *view)
 	gtk_source_gutter_insert (gutter, 
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-
+	
+	gtk_source_gutter_insert (gutter, 
+	                          view->priv->folds_renderer,
+	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
+	
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
+	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
 
 	gtk_source_gutter_set_cell_data_func (gutter,
 	                                      view->priv->line_renderer,
@@ -1535,6 +1649,20 @@ init_left_gutter (GtkSourceView *view)
 	                                      (GtkSourceGutterSizeFunc)marks_renderer_size_func,
 	                                      view,
 	                                      NULL);
+	
+	gtk_source_gutter_set_cell_data_func (gutter,
+	                                      view->priv->folds_renderer,
+	                                      (GtkSourceGutterDataFunc)folds_renderer_data_func,
+	                                      view,
+	                                      NULL);
+	                                      
+	gtk_source_gutter_set_cell_size_func (gutter,
+	                                      view->priv->folds_renderer,
+	                                      (GtkSourceGutterSizeFunc)folds_renderer_size_func,
+	                                      view,
+	                                      NULL);
+                                      
+	
 	                                      
 	g_signal_connect (gutter,
 	                  "cell-activated",
@@ -2334,46 +2462,23 @@ gtk_source_view_paint_line_background (GtkTextView    *text_view,
 
 
 static void
-gtk_source_view_paint_marks_background (GtkSourceView *view,
-			      GdkEventExpose *event)
+gtk_source_view_paint_marks_background (GtkSourceView  *view,
+                                        GdkEventExpose *event)
 {
-	GtkWidget *widget;
 	GtkTextView *text_view;
 	GArray *numbers;
 	GArray *pixels;
 	GArray *heights;
 	gint y1, y2;
 	gint count;
-	gint margin_width;
-	gint text_width, text_height, x_pixmap;
 	gint i;
-	GtkTextIter cur;
-	gint cur_line;
 	GHashTable *folds;
-	GtkSourceFold *fold;
-
-	GdkWindow *win;
-
-
-
-
+	
 	if (view->priv->source_buffer == NULL)
 		return;
-	widget = GTK_WIDGET (view);
+
 	text_view = GTK_TEXT_VIEW (view);
-
-/* this was removed from main but modified in folding
-	if (!view->priv->show_line_numbers &&
-	    !view->priv->show_line_marks &&
-	    !view->priv->show_folds)
-	{
-		gtk_text_view_set_border_window_size (GTK_TEXT_VIEW (text_view),
-						      GTK_TEXT_WINDOW_LEFT,
-			
-		return;
-	}			      0);
-// until this*/
-
+	
 	y1 = event->area.y;
 	y2 = y1 + event->area.height;
 
@@ -2395,8 +2500,8 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 	numbers = g_array_new (FALSE, FALSE, sizeof (gint));
 	pixels = g_array_new (FALSE, FALSE, sizeof (gint));
 	heights = g_array_new (FALSE, FALSE, sizeof (gint));
-	folds = g_hash_table_new (g_direct_hash, g_direct_equal);
 
+	folds = g_hash_table_new (g_direct_hash, g_direct_equal);
 	/* get the line numbers and y coordinates. */
 	gtk_source_view_get_lines (text_view,
 				   y1,
@@ -2429,76 +2534,14 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 			   g_array_index (numbers, gint, count - 1));
 	});
 
-//======= Borrado pero modificado en code_folding
-	/* set size. */
-/*	g_snprintf (str, sizeof (str),
-		    "%d", MAX (99, gtk_text_buffer_get_line_count (text_view->buffer)));
-	layout = gtk_widget_create_pango_layout (GTK_WIDGET (view), str);
-
-	pango_layout_get_pixel_size (layout, &text_width, &text_height);
-
-	pango_layout_set_width (layout, text_width);
-	pango_layout_set_alignment (layout, PANGO_ALIGN_RIGHT);
-
-	// determine the width of the left margin. 
-	if (view->priv->show_line_numbers)
-		margin_width = text_width + 4;
-	else
-		margin_width = 0;
-
-	view->priv->line_numbers_width = margin_width;
-*/
-	if (view->priv->show_folds)
-		margin_width += view->priv->expander_size + 5;
-/*
-	x_pixmap = margin_width;
-
-	if (view->priv->show_line_marks)
-		margin_width += GUTTER_PIXMAP;
-
-	g_return_if_fail (margin_width != 0);
-*/
-//	margin_width = gtk_text_view_get_border_window_size (GTK_TEXT_VIEW(text_view), GTK_TEXT_WINDOW_LEFT);
-	printf("%d\n", view->priv->expander_size);
-	gtk_text_view_set_border_window_size (GTK_TEXT_VIEW (text_view),
-					      GTK_TEXT_WINDOW_LEFT,
-					      56+margin_width);
-/*
-	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-					  &cur,
-					  gtk_text_buffer_get_insert (text_view->buffer));
-
-	cur_line = gtk_text_iter_get_line (&cur);
-*/
-
-	win = gtk_text_view_get_window (text_view,
-					GTK_TEXT_WINDOW_LEFT);
-	//* It can happen that only part of the fold line was drawn. When the
-	// * view is scrolled downwards, a part of the fold line still needs to be
-	// * drawn. That check is performed here.
-	 
-	if (view->priv->prelight_fold_line != -1 &&
-	    view->priv->prelight_fold_line < g_array_index (numbers, gint, i))
-	{
-		fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-							    view->priv->prelight_fold_line);
-		if (fold != NULL)
-			draw_fold_line (view, &cur, text_width, text_height, fold);
-	}
-/*
- code_folding:gtksourceview/gtksourceview.c */
 	for (i = 0; i < count; ++i)
 	{
 		gint line_to_paint;
 		GSList *marks;
 		GdkColor *background;
 		int priority;
-		gint pos;
 
 		line_to_paint = g_array_index (numbers, gint, i);
-
-
-
 
 		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
 								    line_to_paint,
@@ -2527,73 +2570,9 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 							       g_array_index (pixels, gint, i),
 							       g_array_index (heights, gint, i),
 							       background);
-		
-		gtk_text_view_buffer_to_window_coords (text_view,
-						       GTK_TEXT_WINDOW_LEFT,
-						       0,
-						       g_array_index (pixels, gint, i),
-						       NULL,
-						       &pos);
-
-		if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
-		{
-			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
-
-			if (fold != NULL)
-			{
-				GtkStateType state = GTK_WIDGET_STATE (view);
-				GtkWidget *fold_label;
-
-				// draw a vertical line to highlight the fold. 
-				if (fold->prelighted && !fold->folded)
-					draw_fold_line (view, &cur, text_width + 56, text_height, fold);
-
-				if (fold->prelighted)
-					state = GTK_STATE_PRELIGHT;
-
-				gtk_paint_expander (GTK_WIDGET (view)->style,
-						    win,
-						    state,
-						    NULL,
-						    GTK_WIDGET (view),
-						    NULL,
-						    56 + text_width + 4 + (view->priv->expander_size / 2),
-						    pos + (measure_line_height(view) / 2),
-						    fold->expander_style); 
-
-				// Add or update the fold label. 
-				fold_label = g_hash_table_lookup (view->priv->fold_labels,
-								  fold);
-
-				if (fold_label == NULL && fold->folded)
-				{
-					fold_label = _gtk_source_fold_label_new (view);
-
-					g_hash_table_insert (view->priv->fold_labels,
-							     fold, fold_label);
-
-					gtk_text_view_add_child_in_window (text_view,
-									   fold_label,
-									   GTK_TEXT_WINDOW_TEXT,
-									   0,
-									   0);
-
-					move_fold_label (text_view, fold, fold_label);
-				}
-				// Hide the label if the fold has expanded. 
-				else if (fold_label != NULL && !fold->folded &&
-					 GTK_WIDGET_VISIBLE (fold_label))
-				{
-					gtk_widget_hide (fold_label);
-				}
-			}
-		}
-
 	}
 
 	g_array_free (heights, TRUE);
-	
-	g_hash_table_destroy (folds);
 	g_array_free (pixels, TRUE);
 	g_array_free (numbers, TRUE);
 }
@@ -3106,16 +3085,17 @@ gtk_source_view_expose (GtkWidget      *widget,
 		gtk_source_view_paint_line_background (text_view, event, y, height, color);
 	}
 
+	if (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT))
+		gtk_source_view_paint_marks_background (view, event);
+
 	/* Have GtkTextView draw the text first. */
 	if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event)
 		event_handled =
 			GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event (widget, event);
 
-	//if (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT))
-		gtk_source_view_paint_marks_background (view, event);
 	/* Draw the right margin vertical line + overlay. */
 	if (view->priv->show_right_margin &&
-		    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)))
+	    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)))
 	{
 		gtk_source_view_paint_right_margin (view, event);
 	}
