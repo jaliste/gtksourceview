@@ -1259,7 +1259,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
-/*	             if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
+/*	        if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
 		{
 			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
 

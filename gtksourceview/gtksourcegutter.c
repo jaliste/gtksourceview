@@ -737,12 +737,15 @@ get_lines (GtkTextView  *text_view,
            GArray       *buffer_coords,
            GArray       *line_heights,
            GArray       *numbers,
+           GHashTable   *fold_hash,
            gint         *countp)
 {
-	GtkTextIter iter;
+	GtkTextIter iter, iter2, start_fold;
+	GList *folds, *l;
+	GtkSourceFold *fold = NULL;
 	gint count;
 	gint size;
-      	gint last_line_num = -1;
+	gint last_line_num = -1;
 
 	g_array_set_size (buffer_coords, 0);
 	g_array_set_size (numbers, 0);
@@ -753,13 +756,40 @@ get_lines (GtkTextView  *text_view,
 	/* Get iter at first y */
 	gtk_text_view_get_line_at_y (text_view, &iter, first_y, NULL);
 
+        /* Get iter at last y */
+	gtk_text_view_get_line_at_y (text_view, &iter2, last_y, NULL);
+
+	DEBUG (g_message ("from %d to %d",
+			  gtk_text_iter_get_line (&iter),
+			  gtk_text_iter_get_line (&iter2)));
+
+	/* forward to line end so we match all folds on the line. */
+	gtk_text_iter_forward_to_line_end (&iter2);
+
+	/* get a flattened list of all folds in the area */
+	folds = _gtk_source_buffer_get_folds_in_region (GTK_SOURCE_VIEW (text_view)->priv->source_buffer,
+						        &iter, &iter2);
+	l = folds;
+
 	/* For each iter, get its location and add it to the arrays.
 	 * Stop when we pass last_y */
 	count = 0;
-  	size = 0;
+	size = 0;
 
-  	while (!gtk_text_iter_is_end (&iter))
-    	{
+	/* Start with the first fold in the region. */
+	if (folds != NULL)
+	{
+		fold = folds->data;
+
+		gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+						  &start_fold,
+						  fold->start_line);
+	}
+
+	last_line_num = gtk_text_iter_get_line (&iter);
+
+	while (!gtk_text_iter_is_end (&iter))
+	{
 		gint y, height;
 
 		gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
@@ -774,14 +804,37 @@ get_lines (GtkTextView  *text_view,
 		last_line_num = gtk_text_iter_get_line (&iter);
 		g_array_append_val (numbers, last_line_num);
 
+		/* check if there's a fold on the line. */
+		if (fold != NULL && gtk_text_iter_get_line (&iter) ==
+		    gtk_text_iter_get_line (&start_fold))
+		{
+			g_hash_table_insert (fold_hash,
+					     GINT_TO_POINTER (last_line_num),
+					     fold);
+
+			/* advance to the next fold (if it exists) */
+			folds = g_list_next (folds);
+			if (folds != NULL)
+			{
+				fold = folds->data;
+
+				gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+								  &start_fold,
+								  fold->start_line);
+			}
+			else
+			{
+				fold = NULL;
+			}
+		}
+
 		++count;
 
 		if ((y + height) >= last_y)
 			break;
-
-		gtk_text_iter_forward_line (&iter);
+		gtk_text_iter_forward_visible_line (&iter);
 	}
-
+//HEAD
 	if (gtk_text_iter_is_end (&iter))
     	{
 		gint y, height;
@@ -794,19 +847,34 @@ get_lines (GtkTextView  *text_view,
 		if (line_num != last_line_num)
 		{
 			g_array_append_val (buffer_coords, y);
-
 			if (line_heights)
-			{
 				g_array_append_val (line_heights, height);
-			}
-
 			g_array_append_val (numbers, line_num);
 			++count;
 		}
 	}
 
 	*countp = count;
+}
+/*--
+		/* Only add the line number if we started at the last line or
+		 * if we didn't add the line number already in the previous
+		 * while loop (line_num != last_line_num).
+		if (count == 0 || line_num != last_line_num)
+		{
+			g_array_append_val (buffer_coords, y);
+			g_array_append_val (numbers, line_num);
+			++count;
+		}
+	}
 
+	if (l != NULL)
+		g_list_free (l);
+
+	*countp = count;
+}
+*/
+/*
 	if (count == 0)
 	{
 		gint y = 0;
@@ -825,6 +893,7 @@ get_lines (GtkTextView  *text_view,
 		}
 	}
 }
+*/
 
 static gboolean
 on_view_expose_event (GtkSourceView   *view,
@@ -845,6 +914,9 @@ on_view_expose_event (GtkSourceView   *view,
 
 	text_view = GTK_TEXT_VIEW (view);
 	sizes = g_array_new (FALSE, FALSE, sizeof (gint));
+
+	folds = g_hash_table_new (g_direct_hash, g_direct_equal);
+	
 
 	/* This is fairly ugly, but we could not find a better way to
 	 * do it: renderers could have changed size and they do not have
