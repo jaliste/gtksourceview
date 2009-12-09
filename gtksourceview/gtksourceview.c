@@ -1300,7 +1300,12 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	
 	switch (fold_mark)
 	{
-		case FOLD_MARK_START: text = g_strdup_printf ("+");break;
+		case FOLD_MARK_START: 
+			if (gtk_source_fold_get_folded(last_folds->data)) 
+				text = g_strdup_printf ("+");
+			else
+				text = g_strdup_printf ("-");
+			break;
 		case FOLD_MARK_STOP: text = g_strdup_printf ("/");break;
 		case FOLD_MARK_INTERIOR: text = g_strdup_printf ("|");break;
 		default: text = g_strdup_printf (" ");break;
