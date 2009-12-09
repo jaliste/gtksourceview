@@ -46,6 +46,11 @@ GtkSourceFold		*gtk_source_fold_get_parent	(GtkSourceFold       *fold);
 
 const GList		*gtk_source_fold_get_children	(GtkSourceFold       *fold);
 
+void 			gtk_source_fold_get_lines	(GtkSourceFold 	     *fold,
+							 GtkTextBuffer 	     *buffer, 
+							 gint 		     *start_line,
+			 				 gint 		     *end_line); 
+
 G_END_DECLS
 
 #endif  /* __GTK_SOURCE_FOLD_H__ */
