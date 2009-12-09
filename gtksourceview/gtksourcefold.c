@@ -142,6 +142,7 @@ reapply_invisibleline_tag (GtkTextBuffer *buffer,
 		{
 			gtk_text_buffer_get_iter_at_mark (buffer, &begin,
 							  fold->start_line);
+			gtk_text_iter_forward_to_line_end (&begin);
 			gtk_text_buffer_get_iter_at_mark (buffer, &end,
 							  fold->end_line);
 			gtk_text_buffer_apply_tag_by_name (buffer, INVISIBLE_LINE,
