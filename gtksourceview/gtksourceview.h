@@ -57,6 +57,7 @@ struct _GtkSourceView
 	GtkTextView           parent;
 
 	GtkSourceViewPrivate *priv;
+	GList	*last_folds;
 };
 
 struct _GtkSourceViewClass

@@ -180,12 +180,19 @@ struct _GtkSourceViewPrivate
 	guint		 animation_timeout;
 	gint		 animate_fold_line;
 	GHashTable      *fold_labels;
+	GList		*last_folds;
 };
 
 
 G_DEFINE_TYPE (GtkSourceView, gtk_source_view, GTK_TYPE_TEXT_VIEW)
 
-
+enum
+{
+	FOLD_MARK_NULL,
+	FOLD_MARK_START,
+	FOLD_MARK_STOP,
+	FOLD_MARK_INTERIOR
+};
 /* Implement DnD for application/x-color drops */
 typedef enum {
 	TARGET_COLOR = 200
@@ -255,8 +262,8 @@ static void 	gtk_source_view_get_lines 		(GtkTextView       *text_view,
 				       			 GArray            *buffer_coords,
 				       			 GArray            *line_heights,
 				       			 GArray            *numbers,
-							 GHashTable	   *fold_hash,
-				       			 gint              *countp);
+							 gint              *countp);
+							 
 static gint     gtk_source_view_expose 			(GtkWidget         *widget,
 							 GdkEventExpose    *event);
 static gboolean	gtk_source_view_key_press_event		(GtkWidget         *widget,
@@ -1159,6 +1166,8 @@ marks_renderer_data_func (GtkSourceGutter *gutter,
 	              NULL);
 }
 
+
+
 static void
 line_renderer_data_func (GtkSourceGutter *gutter,
                          GtkCellRenderer *renderer,
@@ -1169,7 +1178,7 @@ line_renderer_data_func (GtkSourceGutter *gutter,
 	int weight;
 	gchar *text;
 	GtkStyle *style;
-
+	printf("LINEA\n");
 	if (current_line && gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
 	{
 		weight = PANGO_WEIGHT_BOLD;
@@ -1234,97 +1243,101 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
                           gboolean         current_line,
                           GtkSourceView   *view)
 {
-	GSList *marks;
-	GdkPixbuf *pixbuf = NULL;
-	int size = 0;
+	// I get a flattened list of folds. I output the list of folds starting at the "nearest" 
+	// fold of the line.
 
-	if (view->priv->source_buffer)
+	gint fold_mark;
+	gint line;
+	gchar *text;
+	
+	GtkSourceFold *fold;
+	GList	 *last_folds;
+	GList	 *folds;
+
+	gint start_line, end_line;
+	gint found;
+	found = FALSE;
+	line = line_number;
+
+	if (!view->priv->source_buffer)
 	{
-		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
-								    line_number,
-								    NULL);
-
-		if (marks != NULL)
-		{
-			GtkTextIter iter;
-
-			gtk_text_buffer_get_iter_at_line (GTK_TEXT_BUFFER (view->priv->source_buffer),
-							  &iter,
-							  line_number);
-
-			if (size == 0)
-			{
-				size = measure_line_height (view);
-			}
-
-			/* draw marks for the line */
-			pixbuf = composite_marks (view, marks, size);
-			g_slist_free (marks);
-		}
+		return;
 	}
 
+
+	last_folds = view->last_folds;
+	folds = last_folds;
+	fold_mark = FOLD_MARK_NULL;	
+	while (folds != NULL)
+	{
+		fold = folds->data;
+		
+		
+		gtk_source_fold_get_lines(fold,GTK_TEXT_BUFFER(view->priv->source_buffer),&start_line,&end_line);
+		printf("FOLD (%d->%d)",start_line+1,end_line+1);
+		if (line  < start_line)
+		{
+			fold_mark = FOLD_MARK_NULL;
+			printf("NULL,");
+			break;
+		}
+		else if (line == start_line)
+		{
+			// There should be only one fold for line!
+			last_folds = folds;
+			printf("START,");
+			fold_mark =  FOLD_MARK_START;
+			found = FALSE;
+			break;
+	
+		}
+		else if (line == end_line)
+		{
+			last_folds = folds;
+			printf("STOP,");
+			fold_mark =  FOLD_MARK_STOP;
+			break;
+		}
+		else if (line > start_line && line < end_line) 
+		{
+			printf("INTERIOR, LOOKING NEXT FOLD");
+			// I need to look for the closest fold to the line.
+			last_folds = folds;
+			found = TRUE; 
+		}
+		// this case means line > end_line and we found a previous fold containing the line.
+		else if (found) 
+		{
+			break;
+			
+		}
+		folds = g_list_next (folds);
+	}
+	if (found)
+	{
+		printf("FOUND,");
+		fold_mark = FOLD_MARK_INTERIOR;
+	} 	
+	
+	
+	switch (fold_mark)
+	{
+		case FOLD_MARK_START: text = g_strdup_printf ("+");break;
+		case FOLD_MARK_STOP: text = g_strdup_printf ("/");break;
+		case FOLD_MARK_INTERIOR: text = g_strdup_printf ("|");break;
+		default: text = g_strdup_printf (" ");break;
+		
+	}
 	g_object_set (G_OBJECT (renderer),
-	              "pixbuf", pixbuf,
+	              "text", text,
 	              "xpad", 2,
 	              "ypad", 1,
 	              "yalign", 0.0,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
-/*	        if (view->priv->show_folds && g_hash_table_size (folds) > 0)		
-		{
-			fold = g_hash_table_lookup (folds, GINT_TO_POINTER (line_to_paint));
-
-			if (fold != NULL)
-			{
-				GtkStateType state = GTK_WIDGET_STATE (view);
-				GtkWidget *fold_label;
-
-				// draw a vertical line to highlight the fold. 
-				if (fold->prelighted && !fold->folded)
-					draw_fold_line (view, &cur, text_width + 56, text_height, fold);
-
-				if (fold->prelighted)
-					state = GTK_STATE_PRELIGHT;
-
-				gtk_paint_expander (GTK_WIDGET (view)->style,
-						    win,
-						    state,
-						    NULL,
-						    GTK_WIDGET (view),
-						    NULL,
-						    56 + text_width + 4 + (view->priv->expander_size / 2),
-						    pos + (measure_line_height(view) / 2),
-						    fold->expander_style); 
-
-				// Add or update the fold label. 
-				fold_label = g_hash_table_lookup (view->priv->fold_labels,
-								  fold);
-
-				if (fold_label == NULL && fold->folded)
-				{
-					fold_label = _gtk_source_fold_label_new (view);
-
-					g_hash_table_insert (view->priv->fold_labels,
-							     fold, fold_label);
-
-					gtk_text_view_add_child_in_window (text_view,
-									   fold_label,
-									   GTK_TEXT_WINDOW_TEXT,
-									   0,
-									   0);
-
-					move_fold_label (text_view, fold, fold_label);
-				}
-				// Hide the label if the fold has expanded. 
-				else if (fold_label != NULL && !fold->folded &&
-					 GTK_WIDGET_VISIBLE (fold_label))
-				{
-					gtk_widget_hide (fold_label);
-				}
-			}
-		}
-*/
+	//view->last_folds = last_folds;
+	// I would like not to traverse this list every time... but I can't...
 }
 
 static void
@@ -1332,6 +1345,19 @@ folds_renderer_size_func (GtkSourceGutter *gutter,
                          GtkCellRenderer *renderer,
                          GtkSourceView   *view)
 {
+	gchar *text;
+	gint count;
+
+	text = g_strdup_printf ("+");
+
+	/* measure with bold, just in case font is rendered larger */
+	g_object_set (G_OBJECT (renderer),
+	              "text", text,
+	              "xpad", 2,
+	              "ypad", 0,
+	              "weight", PANGO_WEIGHT_BOLD,
+	               NULL);
+	g_free (text);
 }
 
 static void
@@ -1618,7 +1644,7 @@ init_left_gutter (GtkSourceView *view)
 
 	view->priv->line_renderer = gtk_cell_renderer_text_new ();
 	view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
-	view->priv->folds_renderer = gtk_cell_renderer_pixbuf_new ();
+	view->priv->folds_renderer = gtk_cell_renderer_text_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
@@ -1713,6 +1739,8 @@ gtk_source_view_init (GtkSourceView *view)
 	view->priv->right_margin_line_color = NULL;
 	view->priv->right_margin_overlay_color = NULL;
 	view->priv->spaces_color = NULL;
+	
+	view->last_folds = NULL;
 
 	view->priv->mark_categories = g_hash_table_new_full (g_str_hash, g_str_equal,
 							     (GDestroyNotify) g_free,
@@ -2285,12 +2313,9 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 			   GArray       *buffer_coords,
 			   GArray       *line_heights,
 			   GArray       *numbers,
-			   GHashTable   *fold_hash,
 			   gint         *countp)
 {
 	GtkTextIter iter, iter2, start_fold;
-	GList *folds, *l;
-	GtkSourceFold *fold = NULL;
 	gint count;
 	gint size;
 	gint last_line_num = -1;
@@ -2311,25 +2336,12 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 	/* forward to line end so we match all folds on the line. */
 	gtk_text_iter_forward_to_line_end (&iter2);
 
-	/* get a flattened list of all folds in the area */
-	folds = _gtk_source_buffer_get_folds_in_region (GTK_SOURCE_VIEW (text_view)->priv->source_buffer,
-						        &iter, &iter2);
-	l = folds;
 
 	/* For each iter, get its location and add it to the arrays. Stop when
 	 * we pass last_y. */
 	count = 0;
 	size = 0;
 
-	/* Start with the first fold in the region. */
-	if (folds != NULL)
-	{
-		fold = folds->data;
-
-		gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-						  &start_fold,
-						  fold->start_line);
-	}
 
 	last_line_num = gtk_text_iter_get_line (&iter);
 
@@ -2345,37 +2357,12 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 		g_array_append_val (numbers, last_line_num);
 
-		/* check if there's a fold on the line. */
-		if (fold != NULL && gtk_text_iter_get_line (&iter) ==
-		    gtk_text_iter_get_line (&start_fold))
-		{
-			g_hash_table_insert (fold_hash,
-					     GINT_TO_POINTER (last_line_num),
-					     fold);
-
-			/* advance to the next fold (if it exists) */
-			folds = g_list_next (folds);
-			if (folds != NULL)
-			{
-				fold = folds->data;
-
-				gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-								  &start_fold,
-								  fold->start_line);
-			}
-			else
-			{
-				fold = NULL;
-			}
-		}
-
 		++count;
 
 		if ((y + height) >= last_y)
 			break;
 		gtk_text_iter_forward_visible_line (&iter);
 	}
-//HEAD
 	if (gtk_text_iter_is_end (&iter))
     	{
 		gint y, height;
@@ -2484,7 +2471,6 @@ gtk_source_view_paint_marks_background (GtkSourceView  *view,
 	gint y1, y2;
 	gint count;
 	gint i;
-	GHashTable *folds;
 	
 	if (view->priv->source_buffer == NULL)
 		return;
@@ -2513,7 +2499,6 @@ gtk_source_view_paint_marks_background (GtkSourceView  *view,
 	pixels = g_array_new (FALSE, FALSE, sizeof (gint));
 	heights = g_array_new (FALSE, FALSE, sizeof (gint));
 
-	folds = g_hash_table_new (g_direct_hash, g_direct_equal);
 	/* get the line numbers and y coordinates. */
 	gtk_source_view_get_lines (text_view,
 				   y1,
@@ -2521,7 +2506,6 @@ gtk_source_view_paint_marks_background (GtkSourceView  *view,
 				   pixels,
 				   heights,
 				   numbers,
-				   folds,
 				   &count);
 
 	if (count == 0)
@@ -2937,7 +2921,7 @@ static void
 gtk_source_view_paint_right_margin (GtkSourceView  *view,
                                     GdkEventExpose *event)
 {
-	GdkRectangle visible_rect;
+	GdkRectangle visible_rect; 
 	GdkRectangle redraw_rect;
 	cairo_t *cr;
 	double x;
@@ -3226,6 +3210,7 @@ gtk_source_view_get_show_line_numbers (GtkSourceView *view)
 	return (view->priv->show_line_numbers != FALSE);
 }
 
+
 /**
  * gtk_source_view_set_show_line_numbers:
  * @view: a #GtkSourceView.
@@ -3239,7 +3224,6 @@ gtk_source_view_set_show_line_numbers (GtkSourceView *view,
 				       gboolean       show)
 {
 	GtkSourceGutter *gutter;
-
 	g_return_if_fail (view != NULL);
 	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
 
