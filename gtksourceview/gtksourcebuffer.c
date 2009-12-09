@@ -2359,12 +2359,12 @@ gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
 
 	/* Remove all existing folds if folds are disabled. 
 	 * We should not remove the folds! */
-	/*if (!enable_folds && buffer->priv->folds != NULL)
+	if (!enable_folds && buffer->priv->folds != NULL)
 	{
 		GList *folds = g_list_copy (buffer->priv->folds);
 		g_list_foreach (folds, foreach_fold_region, buffer);
 		g_list_free (folds);
-	} */
+	} 
 
 	g_object_notify (G_OBJECT (buffer), "folds");
 }
