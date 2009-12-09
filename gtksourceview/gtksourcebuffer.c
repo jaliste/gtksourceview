@@ -2086,13 +2086,14 @@ gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
 
 	buffer->priv->enable_folds = enable_folds;
 
-	/* Remove all existing folds if folds are disabled. */
-	if (!enable_folds && buffer->priv->folds != NULL)
+	/* Remove all existing folds if folds are disabled. 
+	 * We should not remove the folds! */
+	/*if (!enable_folds && buffer->priv->folds != NULL)
 	{
 		GList *folds = g_list_copy (buffer->priv->folds);
 		g_list_foreach (folds, foreach_fold_region, buffer);
 		g_list_free (folds);
-	}
+	} */
 
 	g_object_notify (G_OBJECT (buffer), "folds");
 }
@@ -2515,6 +2516,7 @@ get_folds_in_region (GtkTextBuffer     *buffer,
 	if (gtk_text_iter_compare (&fbegin, begin) == -1 &&
 	    gtk_text_iter_compare (&fend, begin) == 1)
 	{
+		*list = g_list_append (*list, fold);
 		children = fold->children;
 		while (!fold->folded && children != NULL)
 		{
