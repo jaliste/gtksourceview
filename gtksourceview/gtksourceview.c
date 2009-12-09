@@ -317,11 +317,7 @@ static MarkCategory *
 		mark_category_new			(gint               priority);
 static void	mark_category_free			(MarkCategory      *cat);
 
-static void     draw_fold_line 				(GtkSourceView *view,
-							 GtkTextIter   *cur,
-							 gint           text_width,
-							 gint           text_height,
-							 GtkSourceFold *fold);
+
 static gboolean
 move_fold_label (GtkTextView        *view,
 		 GtkSourceFold      *fold,
@@ -1178,7 +1174,6 @@ line_renderer_data_func (GtkSourceGutter *gutter,
 	int weight;
 	gchar *text;
 	GtkStyle *style;
-	printf("LINEA\n");
 	if (current_line && gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
 	{
 		weight = PANGO_WEIGHT_BOLD;
@@ -1274,18 +1269,15 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		
 		
 		gtk_source_fold_get_lines(fold,GTK_TEXT_BUFFER(view->priv->source_buffer),&start_line,&end_line);
-		printf("FOLD (%d->%d)",start_line+1,end_line+1);
 		if (line  < start_line)
 		{
 			fold_mark = FOLD_MARK_NULL;
-			printf("NULL,");
 			break;
 		}
 		else if (line == start_line)
 		{
 			// There should be only one fold for line!
 			last_folds = folds;
-			printf("START,");
 			fold_mark =  FOLD_MARK_START;
 			found = FALSE;
 			break;
@@ -1294,13 +1286,12 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		else if (line == end_line)
 		{
 			last_folds = folds;
-			printf("STOP,");
 			fold_mark =  FOLD_MARK_STOP;
+			found = FALSE;
 			break;
 		}
 		else if (line > start_line && line < end_line) 
 		{
-			printf("INTERIOR, LOOKING NEXT FOLD");
 			// I need to look for the closest fold to the line.
 			last_folds = folds;
 			found = TRUE; 
@@ -1315,7 +1306,6 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	}
 	if (found)
 	{
-		printf("FOUND,");
 		fold_mark = FOLD_MARK_INTERIOR;
 	} 	
 	
@@ -1662,7 +1652,7 @@ init_left_gutter (GtkSourceView *view)
 	
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
-	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
+	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 12, 0);
 
 	gtk_source_gutter_set_cell_data_func (gutter,
 	                                      view->priv->line_renderer,
@@ -5492,76 +5482,6 @@ expand_folds (GtkSourceBuffer *buffer, GList *folds)
 
 		folds = g_list_next (folds);
 	}
-}
-static void
-draw_fold_line (GtkSourceView *view,
-		GtkTextIter   *cur,
-		gint           text_width,
-		gint           text_height,
-		GtkSourceFold *fold)
-{
-	GtkWidget *widget;
-	GtkTextView *text_view;
-	GdkWindow *win;
-	int x, y, win_y, y1, y2, height;
-
-	widget = GTK_WIDGET (view);
-	text_view = GTK_TEXT_VIEW (view);
-
-	win = gtk_text_view_get_window (text_view,
-					GTK_TEXT_WINDOW_LEFT);
-
-	x = text_width + 3 + (view->priv->expander_size / 2);
-
-	/* the line starts at the next line. */
-	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-					  cur,
-					  fold->start_line);
-	gtk_text_iter_forward_visible_line (cur);
-
-	gtk_text_view_get_line_yrange (text_view,
-				       cur, &y,
-				       &height);
-
-	gtk_text_view_buffer_to_window_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y,
-					       NULL,
-					       &y1);
-
-	/* calculate the end of the line. */
-	gtk_text_buffer_get_iter_at_mark (text_view->buffer,
-					  cur,
-					  fold->end_line);
-
-	/* if the end of the fold is at the start of the
-	 * line, the fold actually ended on the previous line. */
-	if (gtk_text_iter_starts_line (cur))
-		gtk_text_iter_backward_visible_line (cur);
-
-	gtk_text_view_get_line_yrange (text_view,
-				       cur, &y,
-				       &height);
-
-	gtk_text_view_buffer_to_window_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y,
-					       NULL,
-					       &win_y);
-
-	y2 = win_y + (text_height / 2);
-
-	/* vertical line. */
-	gdk_draw_line (win,
-		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
-		       x, y1, x, y2);
-
-	/* horizontal line indicating the end of the fold. */
-	gdk_draw_line (win,
-		       widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
-		       x, y2, x + (view->priv->expander_size / 2) - 2, y2);
 }
 
 static gboolean
