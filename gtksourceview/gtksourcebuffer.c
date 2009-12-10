@@ -61,6 +61,8 @@
 
 #define MAX_CHARS_BEFORE_FINDING_A_MATCH    10000
 
+#define TAG_CLASS_NAME "GtkSourceViewTagClassName"
+
 /* Signals */
 enum {
 	HIGHLIGHT_UPDATED,
@@ -2765,4 +2767,85 @@ gtk_source_buffer_get_root_folds (GtkSourceBuffer *buffer)
 	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
 
 	return buffer->priv->folds;
+}
+
+/**
+ * gtk_source_buffer_iter_has_class:
+ * @buffer: a #GtkSourceBuffer.
+ * @iter: a #GtkTextIter
+ * @klass: class to search for
+ *
+ * Check if the class @klass is set on @iter.
+ *
+ * Since: 2.10
+ **/
+gboolean
+gtk_source_buffer_iter_has_class (GtkSourceBuffer   *buffer,
+                                  const GtkTextIter *iter,
+                                  const gchar       *klass)
+{
+	GSList *tags;
+	GSList *item;
+	gboolean ret = FALSE;
+
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
+	g_return_val_if_fail (iter != NULL, FALSE);
+	g_return_val_if_fail (klass != NULL, FALSE);
+
+	tags = gtk_text_iter_get_tags (iter);
+
+	for (item = tags; item; item = g_slist_next (item))
+	{
+		gchar const *name = g_object_get_data (G_OBJECT (item->data),
+		                                       TAG_CLASS_NAME);
+
+		if (g_strcmp0 (name, klass) == 0)
+		{
+			ret = TRUE;
+			break;
+		}
+	}
+
+	g_slist_free (tags);
+	return ret;
+}
+
+/**
+ * gtk_source_buffer_get_classes_at_iter:
+ * @buffer: a #GtkSourceBuffer.
+ * @iter: a #GtkTextIter
+ *
+ * Get all defined classes at @iter.
+ *
+ * Returns: a new #GSList containing class names set for @iter. The names
+ *          are newly allocated and need to be freed by the caller.
+ *
+ * Since: 2.10
+ **/
+GSList *
+gtk_source_buffer_get_classes_at_iter (GtkSourceBuffer   *buffer,
+                                       const GtkTextIter *iter)
+{
+	GSList *tags;
+	GSList *item;
+	GSList *ret = NULL;
+
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
+	g_return_val_if_fail (iter != NULL, FALSE);
+
+	tags = gtk_text_iter_get_tags (iter);
+
+	for (item = tags; item; item = g_slist_next (item))
+	{
+		gchar const *name = g_object_get_data (G_OBJECT (item->data),
+		                                       TAG_CLASS_NAME);
+
+		if (name != NULL)
+		{
+			ret = g_slist_prepend (ret, g_strdup (name));
+		}
+	}
+
+	g_slist_free (tags);
+	return g_slist_reverse (ret);
 }

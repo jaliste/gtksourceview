@@ -85,6 +85,8 @@ gboolean	 _gtk_source_context_data_define_context
 							 const gchar		 *start_regex,
 							 const gchar		 *end_regex,
 							 const gchar		 *style,
+							 GSList			 *classes_enabled,
+							 GSList			 *classes_disabled,
 							 GtkSourceContextFlags    flags,
 							 GError			**error);
 
@@ -95,6 +97,8 @@ gboolean	 _gtk_source_context_data_add_sub_pattern
 							 const gchar		 *name,
 							 const gchar		 *where,
 							 const gchar		 *style,
+							 GSList			 *classes_enabled,
+							 GSList			 *classes_disabled,
 							 GError			**error);
 
 gboolean	 _gtk_source_context_data_add_ref 	(GtkSourceContextData	 *data,
