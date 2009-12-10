@@ -89,6 +89,7 @@ libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcecompletionmodel.c	\
 	gtksourcecompletionutils.c	\
 	gtksourcecompletioncontext.c 	\
+	folds_cell_renderer.c		\
 	$(libgtksourceview_headers)	\
 	$(NOINST_H_FILES)
 

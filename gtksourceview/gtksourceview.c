@@ -44,7 +44,7 @@
 #include "gtksourcegutter-private.h"
 #include "gtksourcefold-private.h"
 #include "gtksourcefoldlabel.h"
-
+#include "folds_cell_renderer.h"
 //#define ENABLE_DEBUG
 #undef ENABLE_DEBUG
 
@@ -174,13 +174,7 @@ struct _GtkSourceViewPrivate
 
 G_DEFINE_TYPE (GtkSourceView, gtk_source_view, GTK_TYPE_TEXT_VIEW)
 
-enum
-{
-	FOLD_MARK_NULL,
-	FOLD_MARK_START,
-	FOLD_MARK_STOP,
-	FOLD_MARK_INTERIOR
-};
+
 /* Implement DnD for application/x-color drops */
 typedef enum {
 	TARGET_COLOR = 200
@@ -1297,22 +1291,12 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		fold_mark = FOLD_MARK_INTERIOR;
 	} 	
 	
-	
-	switch (fold_mark)
+	if (fold_mark == FOLD_MARK_START && gtk_source_fold_get_folded(last_folds->data))
 	{
-		case FOLD_MARK_START: 
-			if (gtk_source_fold_get_folded(last_folds->data)) 
-				text = g_strdup_printf ("+");
-			else
-				text = g_strdup_printf ("-");
-			break;
-		case FOLD_MARK_STOP: text = g_strdup_printf ("/");break;
-		case FOLD_MARK_INTERIOR: text = g_strdup_printf ("|");break;
-		default: text = g_strdup_printf (" ");break;
-		
+		fold_mark = FOLD_MARK_START_FOLDED;
 	}
 	g_object_set (G_OBJECT (renderer),
-	              "text", text,
+	              "fold_mark", fold_mark,
 	              "xpad", 2,
 	              "ypad", 1,
 	              "yalign", 0.0,
@@ -1627,7 +1611,7 @@ init_left_gutter (GtkSourceView *view)
 
 	view->priv->line_renderer = gtk_cell_renderer_text_new ();
 	view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
-	view->priv->folds_renderer = gtk_cell_renderer_text_new ();
+	view->priv->folds_renderer = folds_cell_renderer_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
