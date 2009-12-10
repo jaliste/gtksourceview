@@ -1246,6 +1246,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 
 	gint start_line, end_line;
 	gint found;
+	gint depth = 0;
 	found = FALSE;
 	line = line_number;
 
@@ -1289,6 +1290,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		{
 			// I need to look for the closest fold to the line.
 			last_folds = folds;
+			depth++;
 			found = TRUE; 
 		}
 		// this case means line > end_line and we found a previous fold containing the line.
@@ -1310,6 +1312,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	}
 	g_object_set (G_OBJECT (renderer),
 	              "fold_mark", fold_mark,
+	              "depth", depth,
 	              "xpad", 2,
 	              "ypad", 1,
 	              "yalign", 0.0,
