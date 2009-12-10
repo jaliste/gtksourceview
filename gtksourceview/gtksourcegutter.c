@@ -43,7 +43,6 @@ enum
 	LAST_SIGNAL
 };
 
-
 static guint signals[LAST_SIGNAL] = {0,};
 
 typedef struct
@@ -705,6 +704,7 @@ calculate_size (GtkSourceGutter  *gutter,
 		                            NULL, NULL, NULL,
 		                            &width, &height);
 	}
+
 	return width == -1 ? 1 : width;
 }
 
@@ -730,68 +730,59 @@ calculate_sizes (GtkSourceGutter  *gutter,
 	return total_width;
 }
 
-
-
-
-
 /* This function is taken from gtk+/tests/testtext.c */
 static void
 get_lines (GtkTextView  *text_view,
-			   gint          first_y,
-			   gint          last_y,
+           gint          first_y,
+           gint          last_y,
            GArray       *buffer_coords,
            GArray       *line_heights,
            GArray       *numbers,
            gint         *countp)
 {
-	GtkTextIter iter, iter2;
+	GtkTextIter iter;
 	gint count;
 	gint size;
 	gint last_line_num = -1;
 
 	g_array_set_size (buffer_coords, 0);
 	g_array_set_size (numbers, 0);
+
 	if (line_heights != NULL)
 		g_array_set_size (line_heights, 0);
 
-	/* get iter at first and last y */
+	/* Get iter at first y */
 	gtk_text_view_get_line_at_y (text_view, &iter, first_y, NULL);
-	gtk_text_view_get_line_at_y (text_view, &iter2, last_y, NULL);
 
-	/*DEBUG (g_message ("from %d to %d",
-			  gtk_text_iter_get_line (&iter),
-			  gtk_text_iter_get_line (&iter2)));
-*/
-	/* forward to line end so we match all folds on the line. */
-	gtk_text_iter_forward_to_line_end (&iter2);
-
-
-	/* For each iter, get its location and add it to the arrays. Stop when
-	 * we pass last_y. */
+	/* For each iter, get its location and add it to the arrays.
+	 * Stop when we pass last_y */
 	count = 0;
 	size = 0;
 
-
-	last_line_num = gtk_text_iter_get_line (&iter);
-
-	while (!gtk_text_iter_is_end (&iter))
-	{
+  	while (!gtk_text_iter_is_end (&iter))
+    	{
 		gint y, height;
 
 		gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
-		g_array_append_val (buffer_coords, y);
-		if (line_heights)
-			g_array_append_val (line_heights, height);
-		last_line_num = gtk_text_iter_get_line (&iter);
 
+		g_array_append_val (buffer_coords, y);
+
+		if (line_heights)
+		{
+			g_array_append_val (line_heights, height);
+		}
+
+		last_line_num = gtk_text_iter_get_line (&iter);
 		g_array_append_val (numbers, last_line_num);
 
 		++count;
 
 		if ((y + height) >= last_y)
 			break;
+
 		gtk_text_iter_forward_visible_line (&iter);
 	}
+
 	if (gtk_text_iter_is_end (&iter))
     	{
 		gint y, height;
@@ -804,44 +795,37 @@ get_lines (GtkTextView  *text_view,
 		if (line_num != last_line_num)
 		{
 			g_array_append_val (buffer_coords, y);
+
 			if (line_heights)
+			{
 				g_array_append_val (line_heights, height);
+			}
+
 			g_array_append_val (numbers, line_num);
 			++count;
 		}
 	}
 
 	*countp = count;
-}
-/*--
 
-	if (gtk_text_iter_is_end (&iter))
+	if (count == 0)
 	{
-		gint y, height;
-		gint line_num;
+		gint y = 0;
+		gint n = 0;
+		gint height;
 
-		gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
+		*countp = 1;
 
-		line_num = gtk_text_iter_get_line (&iter);
+		g_array_append_val (buffer_coords, y);
+		g_array_append_val (numbers, n);
 
-		/* Only add the line number if we started at the last line or
-		 * if we didn't add the line number already in the previous
-		 * while loop (line_num != last_line_num).
-		 
-		if (count == 0 || line_num != last_line_num)
+		if (line_heights)
 		{
-			g_array_append_val (buffer_coords, y);
-			g_array_append_val (numbers, line_num);
-			++count;
+			gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
+			g_array_append_val (line_heights, height);
 		}
 	}
-
-	if (l != NULL)
-		g_list_free (l);
-
-	*countp = count;
 }
-//>>*/
 
 static gboolean
 on_view_expose_event (GtkSourceView   *view,
@@ -906,13 +890,8 @@ on_view_expose_event (GtkSourceView   *view,
 		GList *item;
 		GtkTextIter iter, iter2;
 
-		GList *folds;
-		GtkSourceFold *fold;
-
-
 		gdk_window_get_pointer (window, &x, &y, NULL);
 
-		
 		y1 = event->area.y;
 		y2 = y1 + event->area.height;
 
@@ -934,20 +913,20 @@ on_view_expose_event (GtkSourceView   *view,
 		numbers = g_array_new (FALSE, FALSE, sizeof (gint));
 		pixels = g_array_new (FALSE, FALSE, sizeof (gint));
 		heights = g_array_new (FALSE, FALSE, sizeof (gint));
-		
+
 		/* get the line numbers and y coordinates. */
-		
-		get_lines (text_view, y1,y2, pixels, heights, numbers, &count);
+		get_lines (text_view, y1, y2, pixels, heights, numbers, &count);
 
 		gtk_text_buffer_get_iter_at_mark (text_view->buffer,
 						  &cur,
 						  gtk_text_buffer_get_insert (text_view->buffer));
 
 		cur_line = gtk_text_iter_get_line (&cur);
+		
 		/* Get iter at first y */
 		gtk_text_view_get_line_at_y (text_view, &iter, y1, NULL);
 
-        	/* Get iter at last y */
+        /* Get iter at last y */
 		gtk_text_view_get_line_at_y (text_view, &iter2, y2, NULL);
 		/* forward to line end so we match all folds on the line. */
 		gtk_text_iter_forward_to_line_end (&iter2);
@@ -977,11 +956,8 @@ on_view_expose_event (GtkSourceView   *view,
 			for (item = gutter->priv->renderers; item; item = g_list_next (item))
 			{
 				Renderer *renderer = (Renderer *)item->data;
-				
 				gint width = g_array_index (sizes, gint, idx++);
-				
 				GtkCellRendererState state = 0;
-				
 				if (width == 0)
 				{
 					continue;
