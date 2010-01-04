@@ -204,7 +204,7 @@
                     </include>
                 </context>
 
-                <context id="verbatim-comment" style-ref="comment">
+                <context id="verbatim-comment" class="fold" style-ref="comment">
                     <start>\\begin\{comment\}</start>
                     <end>\\end\{comment\}</end>
                     <include>

@@ -1230,6 +1230,9 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	GtkSourceFold *fold;
 	GList	 *last_folds;
 	GList	 *folds;
+	GtkTextBuffer *buffer;
+	
+	buffer = GTK_TEXT_BUFFER(view->priv->source_buffer);
 
 	gint start_line, end_line;
 	gint found;
@@ -1246,19 +1249,23 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	last_folds = view->last_folds;
 	folds = last_folds;
 	fold_mark = FOLD_MARK_NULL;	
+//	printf("Cell render, line %d\n",line+1);
 	while (folds != NULL)
 	{
 		fold = folds->data;
 		
+		gtk_source_fold_get_lines(fold,buffer,&start_line,&end_line);
+//		printf("Found fold between %d and %d\n",start_line+1,end_line+1);
 		
-		gtk_source_fold_get_lines(fold,GTK_TEXT_BUFFER(view->priv->source_buffer),&start_line,&end_line);
-		if (line  < start_line)
+		/*if (line  < start_line)
 		{
+			printf(",null mark");
 			fold_mark = FOLD_MARK_NULL;
 			break;
 		}
-		else if (line == start_line)
+		else*/ if (line == start_line)
 		{
+//			printf(",start mark");
 			// There should be only one fold for line!
 			last_folds = folds;
 			fold_mark =  FOLD_MARK_START;
@@ -1268,6 +1275,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		}
 		else if (line == end_line)
 		{
+//			printf(",end_mark");
 			last_folds = folds;
 			fold_mark =  FOLD_MARK_STOP;
 			found = FALSE;
@@ -1275,19 +1283,27 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		}
 		else if (line > start_line && line < end_line) 
 		{
+//			printf(",interior");
 			// I need to look for the closest fold to the line.
 			last_folds = folds;
 			depth++;
 			found = TRUE; 
+		}  else if (line < start_line) {
+		  	// We stop 
+		  	break;
 		}
 		// this case means line > end_line and we found a previous fold containing the line.
-		else if (found) 
+	/*	else if (found) 
 		{
+		
+			printf("found");
 			break;
 			
 		}
+	*/	//printf("\n");
 		folds = g_list_next (folds);
 	}
+//	printf("\n");
 	if (found)
 	{
 		fold_mark = FOLD_MARK_INTERIOR;

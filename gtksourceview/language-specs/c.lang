@@ -87,8 +87,14 @@
                       <context ref="def:in-line-comment"/>
                     </include>
                 </context>
-
-                <context id="comment-multiline" style-ref="comment" class="comment multiline-comment">
+		<context id="cblock" class="fold">
+			<start>{</start>
+			<end>}</end>
+			<include>
+			<context ref="c"/>
+			</include>
+		</context>
+                <context id="comment-multiline" style-ref="comment" class="comment multiline-comment fold">
                     <start>/\*</start>
                     <end>\*/</end>
                     <include>

@@ -42,12 +42,19 @@
 
     <definitions>
         <!-- Html comments are more permissive than xml comments -->
-        <context id="comment" style-ref="comment">
+        <context id="comment" class="fold" style-ref="comment">
             <start>&lt;!--</start>
             <end>--\s*&gt;</end>
             <include>
                 <context ref="def:in-comment"/>
             </include>
+        </context>
+        <context id="foldable_tag" class='fold'>
+        	<start>&lt;div&gt;</start>
+        	<end>&lt;/div&gt;</end>
+        	<include>
+        	<context ref='tag'/>
+        	</include>
         </context>
 
         <context id="dtd" style-ref="dtd">
@@ -64,7 +71,7 @@
             <end></end>
         </context>
 
-        <context id="generic-tag">
+        <context id="generic-tag" >
             <include>
 
                 <!-- Attribute in the form: name="value" -->
@@ -133,7 +140,7 @@
             </include>
         </context>
 
-        <context id="tag">
+        <context id="tag" class="fold">
             <start>&lt;\s*/?\s*[a-z0-9_-]+</start>
             <end>/?\s*&gt;</end>
             <include>

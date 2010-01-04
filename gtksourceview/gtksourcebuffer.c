@@ -2465,7 +2465,7 @@ gtk_source_buffer_real_remove_fold (GtkSourceBuffer *buffer,
 
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 	g_return_if_fail (fold != NULL);
-
+	printf(" Removing fold");
 	if (fold->folded)
 		gtk_source_fold_set_folded (fold, FALSE);
 
@@ -2513,7 +2513,9 @@ get_folds_in_region (GtkTextBuffer     *buffer,
 
 	gtk_text_buffer_get_iter_at_mark (buffer, &fbegin, fold->start_line);
 	gtk_text_buffer_get_iter_at_mark (buffer, &fend, fold->end_line);
-
+	//printf("Found fold between %d and %d\n",
+	//	 gtk_text_iter_get_line(&fbegin),
+	//	 gtk_text_iter_get_line(&fend));
 	/* the region lies in the fold, so add possible children in the region. */
 	if (gtk_text_iter_compare (&fbegin, begin) == -1 &&
 	    gtk_text_iter_compare (&fend, begin) == 1)
@@ -2566,7 +2568,7 @@ _gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
 					const GtkTextIter *end)
 {
 	GList *result, *folds;
-
+//	printf("Get folds in region\n");
 	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
 	g_return_val_if_fail (begin != NULL && end != NULL, NULL);
 
@@ -2587,7 +2589,7 @@ _gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
 
 		folds = g_list_next (folds);
 	}
-
+//	printf("end\n");
 	return result;
 }
 
