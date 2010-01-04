@@ -90,13 +90,10 @@
 enum {
 	HIGHLIGHT_UPDATED,
 	SOURCE_MARK_UPDATED,
-<<<<<<< HEAD:gtksourceview/gtksourcebuffer.c
 	UNDO,
 	REDO,
-=======
 	FOLD_ADDED,
 	FOLD_REMOVE,
->>>>>>> Merging folding code to master2. First try:gtksourceview/gtksourcebuffer.c
 	LAST_SIGNAL
 };
 

@@ -540,6 +540,17 @@ static void		install_first_update	(GtkSourceContextEngine	*ce);
 static gboolean		mem_usage_timeout	(GtkSourceContextEngine *ce);
 #endif
 
+static GSList *
+get_context_classes (GtkSourceContextEngine *ce,
+                     Context                *context);
+static GtkTextTag *
+get_context_class_tag (GtkSourceContextEngine *ce,
+                       gchar const            *name);
+static void
+apply_context_classes (GtkSourceContextEngine *ce,
+                       GSList                 *context_classes,
+                       gint                    start,
+                       gint                    end);
 
 /* TAGS AND STUFF -------------------------------------------------------------- */
 
@@ -847,10 +858,10 @@ apply_tags (GtkSourceContextEngine *ce,
 	classes = get_context_classes (ce,
 	                               segment->context);
 	
-	fold_tag = get_class_tag(ce, "fold");
+	fold_tag = get_context_class_tag(ce, "fold");
 	for (items = classes; items != NULL; items = g_slist_next (items))
 	{ 
-		ClassTag *attrtag = (ClassTag *)items->data;
+		ContextClassTag *attrtag = (ContextClassTag *)items->data;
 		if (fold_tag!=NULL && attrtag->tag ==fold_tag)
 		{
 			GtkTextIter start_iter, end_iter;
@@ -864,7 +875,7 @@ apply_tags (GtkSourceContextEngine *ce,
 	}	
 	
 
-	apply_classes (ce, classes, start_offset, end_offset);
+	apply_context_classes (ce, classes, start_offset, end_offset);
 
 
 	if (tag != NULL)
