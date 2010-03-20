@@ -641,4 +641,3 @@ gtk_text_region_debug_print (GtkTextRegion *region)
 	}
 	g_print ("\n");
 }
-

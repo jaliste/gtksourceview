@@ -27,7 +27,7 @@
  * @short_description: Completion provider interface
  *
  * You must implement this interface to provide proposals to #GtkSourceCompletion
- * 
+ *
  */
 
 #include <gtksourceview/gtksourcecompletionprovider.h>
@@ -118,7 +118,7 @@ static void
 gtk_source_completion_provider_default_init (GtkSourceCompletionProviderIface *iface)
 {
 	static gboolean initialized = FALSE;
-	
+
 	iface->get_name = gtk_source_completion_provider_get_name_default;
 	iface->get_icon = gtk_source_completion_provider_get_icon_default;
 
@@ -126,10 +126,10 @@ gtk_source_completion_provider_default_init (GtkSourceCompletionProviderIface *i
 
 	iface->match = gtk_source_completion_provider_match_default;
 	iface->get_activation = gtk_source_completion_provider_get_activation_default;
-	
+
 	iface->get_info_widget = gtk_source_completion_provider_get_info_widget_default;
 	iface->update_info = gtk_source_completion_provider_update_info_default;
-	
+
 	iface->get_start_iter = gtk_source_completion_provider_get_start_iter_default;
 	iface->activate_proposal = gtk_source_completion_provider_activate_proposal_default;
 
@@ -237,9 +237,9 @@ gtk_source_completion_provider_match (GtkSourceCompletionProvider *provider,
  * Get a customized info widget to show extra information of a proposal.
  * This allows for customized widgets on a proposal basis, although in general
  * providers will have the same custom widget for all their proposals and
- * @proposal can be ignored. The implementation of this function is optional. 
+ * @proposal can be ignored. The implementation of this function is optional.
  * If implemented, #gtk_source_completion_provider_update_info MUST also be
- * implemented. If not implemented, the default 
+ * implemented. If not implemented, the default
  * #gtk_source_completion_proposal_get_info will be used to display extra
  * information about a #GtkSourceCompletionProposal.
  *
@@ -264,10 +264,10 @@ gtk_source_completion_provider_get_info_widget (GtkSourceCompletionProvider *pro
  *
  * Update extra information shown in @info for @proposal. This should be
  * implemented if your provider sets a custom info widget for @proposal.
- * This function MUST be implemented when 
+ * This function MUST be implemented when
  * #gtk_source_completion_provider_get_info_widget is implemented.
  */
-void 
+void
 gtk_source_completion_provider_update_info (GtkSourceCompletionProvider *provider,
                                             GtkSourceCompletionProposal *proposal,
                                             GtkSourceCompletionInfo     *info)

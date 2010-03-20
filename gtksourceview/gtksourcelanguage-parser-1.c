@@ -795,4 +795,3 @@ error:
 	xmlFree (lang_version);
 	return FALSE;
 }
-

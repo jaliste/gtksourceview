@@ -39,7 +39,7 @@
  * non-highlighted text, color for the line numbers, etc.
  *
  * Style schemes are stored in XML files. The format of a scheme file is
- * the documented in the 
+ * the documented in the
  * <link linkend="style-reference">style scheme reference</link>.
  */
 
@@ -696,9 +696,15 @@ unset_cursor_colors (GtkWidget *widget)
 {
 #if !GTK_CHECK_VERSION(2,11,3)
 	if (g_object_get_data (G_OBJECT (widget), "gtk-source-view-cursor-color-set") != NULL)
+	{
+		GtkStyle *style;
+
+		style = gtk_widget_get_style (widget);
+
 		set_cursor_colors (widget,
-				   &widget->style->text[GTK_STATE_NORMAL],
-				   &widget->style->text_aa[GTK_STATE_NORMAL]);
+				   &style->text[GTK_STATE_NORMAL],
+				   &style->text_aa[GTK_STATE_NORMAL]);
+	}
 #else
 	gtk_widget_modify_cursor (widget, NULL, NULL);
 #endif

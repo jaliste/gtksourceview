@@ -73,5 +73,3 @@ void      gtk_source_undo_manager_can_redo_changed          (GtkSourceUndoManage
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_UNDO_MANAGER_H__ */
-
-

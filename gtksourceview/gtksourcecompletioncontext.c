@@ -209,7 +209,7 @@ static void
 gtk_source_completion_context_class_init (GtkSourceCompletionContextClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	
+
 	object_class->set_property = gtk_source_completion_context_set_property;
 	object_class->get_property = gtk_source_completion_context_get_property;
 	object_class->constructor = gtk_source_completion_context_constructor;
@@ -227,9 +227,9 @@ gtk_source_completion_context_class_init (GtkSourceCompletionContextClass *klass
 		              G_TYPE_FROM_CLASS (klass),
 		              G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		              G_STRUCT_OFFSET (GtkSourceCompletionContextClass, cancelled),
-		              NULL, 
 		              NULL,
-		              g_cclosure_marshal_VOID__VOID, 
+		              NULL,
+		              g_cclosure_marshal_VOID__VOID,
 		              G_TYPE_NONE,
 		              0);
 

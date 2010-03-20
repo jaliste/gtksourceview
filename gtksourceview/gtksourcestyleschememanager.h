@@ -88,4 +88,3 @@ GtkSourceStyleScheme	*gtk_source_style_scheme_manager_get_scheme		(GtkSourceStyl
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_STYLE_SCHEME_MANAGER_H__ */
-
