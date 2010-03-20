@@ -962,7 +962,9 @@ on_view_expose_event (GtkSourceView   *view,
 		gtk_text_view_get_line_at_y (text_view, &iter2, y2, NULL);
 		/* forward to line end so we match all folds on the line. */
 		gtk_text_iter_forward_to_line_end (&iter2);
-		view->last_folds = _gtk_source_buffer_get_folds_in_region(GTK_SOURCE_BUFFER(text_view->buffer), &iter,&iter2);
+		/* update the views folds */
+		_gtk_source_view_update_folds_for (view, &iter, &iter2);
+
 		for (i = 0; i < count; ++i)
 		{
 			gint pos;

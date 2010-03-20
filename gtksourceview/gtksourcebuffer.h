@@ -167,10 +167,6 @@ void			 gtk_source_buffer_set_undo_manager	(GtkSourceBuffer	*buffer,
 								 GtkSourceUndoManager	*manager);
 
 /* fold methods. */
-gboolean		 gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
-void			 gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
-								 gboolean                enable_folds);
-
 GtkSourceFold		*gtk_source_buffer_add_fold		(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *begin,
 								 const GtkTextIter      *end);
@@ -206,6 +202,11 @@ GList			*_gtk_source_buffer_get_folds_in_region	(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *end);
 GtkSourceFold		*_gtk_source_buffer_get_fold_at_line	(GtkSourceBuffer        *buffer,
 								 gint                    line);
+
+/* fold methods. */
+gboolean		 _gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
+void			 _gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
+								 gboolean                folds_enabled);
 
 G_END_DECLS
 

@@ -63,7 +63,6 @@ struct _GtkSourceView
 	GtkTextView           parent;
 
 	GtkSourceViewPrivate *priv;
-	GList	*last_folds;
 };
 
 struct _GtkSourceViewClass
@@ -186,6 +185,10 @@ void 		 gtk_source_view_set_show_line_marks    (GtkSourceView   *view,
 							 gboolean         show);
 gboolean	 gtk_source_view_get_show_line_marks    (GtkSourceView   *view);
 
+void 		 gtk_source_view_set_show_folds    (GtkSourceView   *view,
+							 gboolean         show);
+gboolean	 gtk_source_view_get_show_folds    (GtkSourceView   *view);
+
 #ifndef GTKSOURCEVIEW_DISABLE_DEPRECATED
 void		 gtk_source_view_set_mark_category_pixbuf
 							(GtkSourceView   *view,
@@ -269,6 +272,11 @@ GtkSourceCompletion *
 
 GtkSourceGutter *gtk_source_view_get_gutter		(GtkSourceView     *view,
                                                          GtkTextWindowType  window_type);
+
+/* private */
+void			_gtk_source_view_update_folds_for	(GtkSourceView        *view,
+								 const GtkTextIter      *begin,
+								 const GtkTextIter      *end);
 
 G_END_DECLS
 #endif				/* end of SOURCE_VIEW_H__ */

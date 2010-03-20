@@ -42,6 +42,11 @@ GList			*_gtk_source_buffer_get_folds_in_region	(GtkSourceBuffer        *buffer,
 GtkSourceFold		*_gtk_source_buffer_get_fold_at_line	(GtkSourceBuffer        *buffer,
 								 gint                    line);
 
+/* fold methods. */
+gboolean		 _gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
+void			 _gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
+								 gboolean                folds_enabled);
+
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_BUFFER_PRIVATE_H__ */
