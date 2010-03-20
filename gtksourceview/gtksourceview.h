@@ -49,7 +49,8 @@ G_BEGIN_DECLS
 typedef enum
 {
 	GTK_SOURCE_VIEW_GUTTER_POSITION_LINES = -30,
-	GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS = -20
+	GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS = -20,
+	GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS = -10
 } GtkSourceViewGutterPosition;
 
 typedef struct _GtkSourceView GtkSourceView;
@@ -62,6 +63,7 @@ struct _GtkSourceView
 	GtkTextView           parent;
 
 	GtkSourceViewPrivate *priv;
+	GList	*last_folds;
 };
 
 struct _GtkSourceViewClass

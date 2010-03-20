@@ -88,6 +88,14 @@
                     </include>
                 </context>
 
+		<context id="cblock" class="fold">
+			<start>{</start>
+			<end>}</end>
+			<include>
+			<context ref="c"/>
+			</include>
+		</context>
+
                 <context id="comment-multiline" style-ref="comment" class="comment" class-disabled="no-spell-check">
                     <start>/\*</start>
                     <end>\*/</end>
