@@ -60,7 +60,8 @@
 
 /*
 #define ENABLE_DEBUG
-/*#undef ENABLE_DEBUG*/
+#undef ENABLE_DEBUG
+*/
 
 /*
 #define ENABLE_PROFILE
@@ -149,7 +150,7 @@ struct _GtkSourceViewPrivate
 
 	gboolean	 show_right_margin;
 	guint		 right_margin_pos;
-	gint             cached_right_margin_pos;
+	gint		 cached_right_margin_pos;
 
 	gboolean	 style_scheme_applied;
 	GtkSourceStyleScheme *style_scheme;
@@ -938,8 +939,7 @@ notify_buffer (GtkSourceView *view)
 	/* we use view->buffer directly instead of get_buffer()
 	 * since the latter causes the buffer to be recreated and that
 	 * is not a good idea when finalizing */
-	set_source_buffer (view, GTK_TEXT_VIEW (view)->buffer);
-
+	set_source_buffer (view, gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
 }
 
 static gint
@@ -1305,7 +1305,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 
 	gint fold_mark;
 	gint line;
-	gchar *text;
+	// UNUSED: gchar *text;
 
 	GtkSourceFold *fold;
 	GList	 *last_folds;
@@ -1326,16 +1326,16 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	}
 
 
-	last_folds = view->last_folds;
+	last_folds = view->priv->last_folds;
 	folds = last_folds;
 	fold_mark = FOLD_MARK_NULL;
-//	printf("Cell render, line %d\n",line+1);
+	// printf("Cell render, line %d\n",line+1);
 	while (folds != NULL)
 	{
 		fold = folds->data;
 
 		gtk_source_fold_get_lines(fold,buffer,&start_line,&end_line);
-//		printf("Found fold between %d and %d\n",start_line+1,end_line+1);
+		// printf("Found fold between %d and %d\n",start_line+1,end_line+1);
 
 		/*if (line  < start_line)
 		{
@@ -1345,7 +1345,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		}
 		else*/ if (line == start_line)
 		{
-//			printf(",start mark");
+			// printf(",start mark");
 			// There should be only one fold for line!
 			last_folds = folds;
 			fold_mark =  FOLD_MARK_START;
@@ -1355,7 +1355,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		}
 		else if (line == end_line)
 		{
-//			printf(",end_mark");
+			// printf(",end_mark");
 			last_folds = folds;
 			fold_mark =  FOLD_MARK_STOP;
 			found = FALSE;
@@ -1363,7 +1363,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		}
 		else if (line > start_line && line < end_line)
 		{
-//			printf(",interior");
+			// printf(",interior");
 			// I need to look for the closest fold to the line.
 			last_folds = folds;
 			depth++;
@@ -1380,10 +1380,10 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 			break;
 
 		}
-	*/	//printf("\n");
+	*/	// printf("\n");
 		folds = g_list_next (folds);
 	}
-//	printf("\n");
+	// printf("\n");
 	if (found)
 	{
 		fold_mark = FOLD_MARK_INTERIOR;
@@ -1402,7 +1402,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
-	//view->last_folds = last_folds;
+	// view->last_folds = last_folds;
 	// I would like not to traverse this list every time... but I can't...
 }
 
@@ -1412,7 +1412,7 @@ folds_renderer_size_func (GtkSourceGutter *gutter,
                          GtkSourceView   *view)
 {
 	gchar *text;
-	gint count;
+	// UNUSED: gint count;
 
 	text = g_strdup_printf ("+");
 
@@ -1714,18 +1714,18 @@ init_left_gutter (GtkSourceView *view)
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
-	gtk_source_gutter_insert (gutter, 
-	                          view->priv->line_renderer, 
+	gtk_source_gutter_insert (gutter,
+	                          view->priv->line_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_LINES);
 
-	gtk_source_gutter_insert (gutter, 
+	gtk_source_gutter_insert (gutter,
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-	
-	gtk_source_gutter_insert (gutter, 
+
+	gtk_source_gutter_insert (gutter,
 	                          view->priv->folds_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-	
+
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
@@ -1805,7 +1805,7 @@ gtk_source_view_init (GtkSourceView *view)
 	view->priv->right_margin_line_color = NULL;
 	view->priv->right_margin_overlay_color = NULL;
 	view->priv->spaces_color = NULL;
-	
+
 	view->priv->last_folds = NULL;
 
 	view->priv->mark_categories = g_hash_table_new_full (g_str_hash, g_str_equal,
@@ -1988,7 +1988,7 @@ fold_remove_cb (GtkSourceBuffer *buffer,
 
 	if (label != NULL)
 	{
-		if (GTK_WIDGET_VISIBLE (label))
+		if (gtk_widget_get_visible (GTK_WIDGET (label)))
 			gtk_widget_hide (GTK_WIDGET (label));
 
 		g_hash_table_remove (view->priv->fold_labels, fold);
@@ -2194,7 +2194,7 @@ move_cursor (GtkTextView       *text_view,
 	     const GtkTextIter *new_location,
 	     gboolean           extend_selection)
 {
-	GtkTextBuffer *buffer = text_view->buffer;
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (text_view);
 
 	if (extend_selection)
 		gtk_text_buffer_move_mark_by_name (buffer, "insert",
@@ -2267,7 +2267,7 @@ gtk_source_view_move_cursor (GtkTextView    *text_view,
 			     gboolean        extend_selection)
 {
 	GtkSourceView *source_view = GTK_SOURCE_VIEW (text_view);
-	GtkTextBuffer *buffer = text_view->buffer;
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (text_view);
 	GtkTextMark *mark;
 	GtkTextIter cur, iter;
 
@@ -2364,7 +2364,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 			   GArray       *numbers,
 			   gint         *countp)
 {
-	GtkTextIter iter, iter2, start_fold;
+	GtkTextIter iter, iter2; // UNUSED: start_fold;
 	gint count;
 	gint size;
 	gint last_line_num = -1;
@@ -2444,7 +2444,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 		line_num = gtk_text_iter_get_line (&iter);
 
-		/* Only add the line number if we started at the last line or
+		/ Only add the line number if we started at the last line or
 		 * if we didn't add the line number already in the previous
 		 * while loop (line_num != last_line_num).
 
@@ -3113,22 +3113,25 @@ gtk_source_view_expose (GtkWidget      *widget,
 						     &iter1, &iter2, FALSE);
 	}
 
-	if (GTK_WIDGET_IS_SENSITIVE(view) && view->priv->highlight_current_line &&
+	if (gtk_widget_get_sensitive (GTK_WIDGET (view)) && view->priv->highlight_current_line &&
 		    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)))
 	{
+		GtkTextBuffer *buffer;
 		GtkTextIter cur;
 		gint y, height;
 		GdkColor *color;
 
-		gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+		buffer = gtk_text_view_get_buffer (text_view);
+
+		gtk_text_buffer_get_iter_at_mark (buffer,
 						  &cur,
-						  gtk_text_buffer_get_insert (text_view->buffer));
+						  gtk_text_buffer_get_insert (buffer));
 		gtk_text_view_get_line_yrange (text_view, &cur, &y, &height);
 
 		if (view->priv->current_line_color_set)
 			color = &view->priv->current_line_color;
 		else
-			color = &widget->style->bg[GTK_WIDGET_STATE (widget)];
+			color = &gtk_widget_get_style (widget)->bg[gtk_widget_get_state (widget)];
 
 		gtk_source_view_paint_line_background (text_view, event, y, height, color);
 	}
@@ -3821,7 +3824,7 @@ set_mark_category_tooltip_func (GtkSourceView   *view,
 	if (func != NULL)
 	{
 		gtk_widget_set_has_tooltip (GTK_WIDGET (view), TRUE);
-		if (GTK_WIDGET_REALIZED (view))
+		if (gtk_widget_get_realized (GTK_WIDGET (view)))
 		{
 			gtk_widget_trigger_tooltip_query (GTK_WIDGET (view));
 		}
@@ -5050,16 +5053,17 @@ view_dnd_drop (GtkTextView *view,
 		gint buffer_x;
 		gint buffer_y;
 
-		if (selection_data->length < 0)
+		if (gtk_selection_data_get_length (selection_data) < 0)
 			return;
 
-		if ((selection_data->format != 16) || (selection_data->length != 8))
+		if ((gtk_selection_data_get_format (selection_data) != 16) ||
+			(gtk_selection_data_get_length (selection_data) != 8))
 		{
 			g_warning ("Received invalid color data\n");
 			return;
 		}
 
-		vals = (guint16 *) selection_data->data;
+		vals = (guint16 *) gtk_selection_data_get_data (selection_data);
 
 		vals[0] /= 256;
 	        vals[1] /= 256;
@@ -5348,7 +5352,7 @@ update_right_margin_colors (GtkSourceView *view)
 {
 	GtkWidget *widget = GTK_WIDGET (view);
 
-	if (!GTK_WIDGET_REALIZED (view))
+	if (!gtk_widget_get_realized (widget))
 		return;
 
 	if (view->priv->right_margin_line_color != NULL)
@@ -5403,7 +5407,7 @@ update_right_margin_colors (GtkSourceView *view)
 	}
 
 	if (view->priv->right_margin_line_color == NULL)
-		view->priv->right_margin_line_color = gdk_color_copy (&widget->style->text[GTK_STATE_NORMAL]);
+		view->priv->right_margin_line_color = gdk_color_copy (&gtk_widget_get_style (widget)->text[GTK_STATE_NORMAL]);
 }
 
 static void
@@ -5411,7 +5415,7 @@ update_spaces_color (GtkSourceView *view)
 {
 	GtkWidget *widget = GTK_WIDGET (view);
 
-	if (!GTK_WIDGET_REALIZED (view))
+	if (!gtk_widget_get_realized (widget))
 		return;
 
 	if (view->priv->spaces_color != NULL)
@@ -5445,7 +5449,7 @@ update_spaces_color (GtkSourceView *view)
 	}
 
 	if (view->priv->spaces_color == NULL)
-		view->priv->spaces_color = gdk_color_copy (&widget->style->text[GTK_STATE_INSENSITIVE]);
+		view->priv->spaces_color = gdk_color_copy (&gtk_widget_get_style (widget)->text[GTK_STATE_INSENSITIVE]);
 }
 
 static void
@@ -5506,7 +5510,7 @@ gtk_source_view_update_style_scheme (GtkSourceView *view)
 		if (new_scheme)
 			g_object_ref (new_scheme);
 
-		if (GTK_WIDGET_REALIZED (view))
+		if (gtk_widget_get_realized (GTK_WIDGET (view)))
 		{
 			_gtk_source_style_scheme_apply (new_scheme, GTK_WIDGET (view));
 			update_current_line_color (view);
@@ -5633,7 +5637,7 @@ move_fold_label (GtkTextView        *view,
 					     &old_x, &old_y);
 
 	/* Only update if the position has really changed. */
-	if (GTK_WIDGET_VISIBLE (label) && old_x == x && old_y == y)
+	if (gtk_widget_get_visible (label) && old_x == x && old_y == y)
 		return FALSE;
 
 	_gtk_source_fold_label_set_position (GTK_SOURCE_FOLD_LABEL (label), x, y);
@@ -5641,7 +5645,7 @@ move_fold_label (GtkTextView        *view,
 	/* Position the label 2 pixels to the right of the last character. */
 	gtk_text_view_move_child (view, label, x + 2, y);
 
-	if (!GTK_WIDGET_VISIBLE (label))
+	if (!gtk_widget_get_visible (label))
 		gtk_widget_show (label);
 
 	return TRUE;
@@ -5671,7 +5675,7 @@ foreach_fold_label (GtkSourceFold     *fold,
 		if (!location->updated && updated)
 			location->updated = TRUE;
 	}
-	else if (GTK_WIDGET_VISIBLE (label))
+	else if (gtk_widget_get_visible (label))
 	{
 		/* If the label was visible, but no longer is, queue a redraw. */
 		gtk_widget_hide (label);
@@ -5683,10 +5687,13 @@ static void
 update_fold_label_locations (GtkSourceView *view)
 {
 	FoldLabelLocation location;
+	GtkAllocation allocation;
 	int y;
 
 	location.view = view;
 	location.updated = FALSE;
+
+	gtk_widget_get_allocation (GTK_WIDGET (view), &allocation);
 
 	/* Get the visible line range in the textview. */
 	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
@@ -5701,7 +5708,7 @@ update_fold_label_locations (GtkSourceView *view)
 	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
 					       GTK_TEXT_WINDOW_TEXT,
 					       0,
-					       GTK_WIDGET (view)->allocation.height,
+					       allocation.height,
 					       NULL,
 					       &y);
 

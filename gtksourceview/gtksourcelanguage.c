@@ -925,4 +925,3 @@ _gtk_source_style_info_free (GtkSourceStyleInfo *info)
 
 	g_free (info);
 }
-

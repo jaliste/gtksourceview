@@ -209,7 +209,7 @@ static void
 gtk_source_completion_context_class_init (GtkSourceCompletionContextClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	
+
 	object_class->set_property = gtk_source_completion_context_set_property;
 	object_class->get_property = gtk_source_completion_context_get_property;
 	object_class->constructor = gtk_source_completion_context_constructor;
@@ -227,9 +227,9 @@ gtk_source_completion_context_class_init (GtkSourceCompletionContextClass *klass
 		              G_TYPE_FROM_CLASS (klass),
 		              G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
 		              G_STRUCT_OFFSET (GtkSourceCompletionContextClass, cancelled),
-		              NULL, 
 		              NULL,
-		              g_cclosure_marshal_VOID__VOID, 
+		              NULL,
+		              g_cclosure_marshal_VOID__VOID,
 		              G_TYPE_NONE,
 		              0);
 
@@ -289,7 +289,7 @@ gtk_source_completion_context_init (GtkSourceCompletionContext *context)
  * @provider: A #GtkSourceCompletionProvider
  * @proposals: The list of proposals to add
  * @finished: Whether the provider is finished adding proposals
- * 
+ *
  * Providers can use this function to add proposals to the completion. They
  * can do so asynchronously by means of the @finished argument. Providers must
  * ensure that they always call this function with @finished set to %TRUE
@@ -316,7 +316,7 @@ gtk_source_completion_context_add_proposals (GtkSourceCompletionContext  *contex
  * gtk_source_completion_context_get_iter:
  * @context: A #GtkSourceCompletionContext
  * @iter: A #GtkTextIter
- * 
+ *
  * Get the iter at which the completion was invoked. Providers can use this
  * to determine how and if to match proposals.
  *

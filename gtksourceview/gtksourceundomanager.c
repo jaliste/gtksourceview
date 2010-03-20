@@ -158,7 +158,7 @@ GType
 gtk_source_undo_manager_get_type ()
 {
 	static GType gtk_source_undo_manager_type_id = 0;
-	
+
 	if (!gtk_source_undo_manager_type_id)
 	{
 		static const GTypeInfo g_define_type_info =
@@ -173,7 +173,7 @@ gtk_source_undo_manager_get_type ()
 			0,
 			NULL
 		};
-		
+
 		gtk_source_undo_manager_type_id =
 			g_type_register_static (G_TYPE_INTERFACE,
 						"GtkSourceUndoManager",
@@ -183,7 +183,7 @@ gtk_source_undo_manager_get_type ()
 		g_type_interface_add_prerequisite (gtk_source_undo_manager_type_id,
 		                                   G_TYPE_OBJECT);
 	}
-	
+
 	return gtk_source_undo_manager_type_id;
 }
 
@@ -296,7 +296,7 @@ gtk_source_undo_manager_end_not_undoable_action (GtkSourceUndoManager *manager)
 /**
  * gtk_source_undo_manager_can_undo_changed:
  * @manager: A #GtkSourceUndoManager
- * 
+ *
  * Emits the #GtkSourceUndoManager::can-undo-changed signal.
  *
  * Since: 2.10
@@ -313,7 +313,7 @@ gtk_source_undo_manager_can_undo_changed (GtkSourceUndoManager *manager)
 /**
  * gtk_source_undo_manager_can_redo_changed:
  * @manager: A #GtkSourceUndoManager
- * 
+ *
  * Emits the #GtkSourceUndoManager::can-redo-changed signal.
  *
  * Since: 2.10

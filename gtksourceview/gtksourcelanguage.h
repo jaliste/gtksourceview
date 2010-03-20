@@ -80,4 +80,3 @@ const gchar	*gtk_source_language_get_style_name	(GtkSourceLanguage *language,
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_LANGUAGE_H__ */
-

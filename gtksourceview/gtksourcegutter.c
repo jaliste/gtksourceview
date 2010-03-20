@@ -35,7 +35,7 @@
  * The #GtkSourceGutter object represents the left and right gutters of the text
  * view. It is used by #GtkSourceView to draw the line numbers and category
  * marks that might be present on a line. By packing additional #GtkCellRenderer
- * objects in the gutter, you can extend the gutter with your own custom 
+ * objects in the gutter, you can extend the gutter with your own custom
  * drawings.
  *
  * The gutter works very much the same way as cells rendered in a #GtkTreeView.
@@ -44,7 +44,7 @@
  * #gtk_source_gutter_set_cell_data_func to set a callback to fill in any of the
  * cell renderers properties, given the line for which the cell is to be
  * rendered. Renderers are inserted into the gutter at a certain position. The
- * builtin line number renderer is at position 
+ * builtin line number renderer is at position
 
  * #GTK_SOURCE_VIEW_GUTTER_POSITION_LINES (-30) and the marks renderer is at
  * #GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS (-20). You can use these values to
@@ -470,7 +470,7 @@ static void
 append_renderer (GtkSourceGutter *gutter,
                  Renderer        *renderer)
 {
-	gutter->priv->renderers = 
+	gutter->priv->renderers =
 		g_list_insert_sorted_with_data (gutter->priv->renderers,
 			                        renderer,
 			                        (GCompareDataFunc)sort_by_position,
@@ -866,6 +866,8 @@ on_view_expose_event (GtkSourceView   *view,
 {
 	GdkWindow *window;
 	GtkTextView *text_view;
+	GtkTextBuffer *text_buffer;
+	GtkSourceBuffer *buffer;
 	GArray *sizes;
 	gint size;
 
@@ -877,8 +879,10 @@ on_view_expose_event (GtkSourceView   *view,
 	}
 
 	text_view = GTK_TEXT_VIEW (view);
+	text_buffer = gtk_text_view_get_buffer (text_view);
+	buffer = GTK_SOURCE_BUFFER (text_buffer);
 	sizes = g_array_new (FALSE, FALSE, sizeof (gint));
-	
+
 
 	/* This is fairly ugly, but we could not find a better way to
 	 * do it: renderers could have changed size and they do not have
@@ -949,15 +953,14 @@ on_view_expose_event (GtkSourceView   *view,
 		/* get the line numbers and y coordinates. */
 		get_lines (text_view, y1, y2, pixels, heights, numbers, &count);
 
-		gtk_text_buffer_get_iter_at_mark (text_view->buffer,
+		gtk_text_buffer_get_iter_at_mark (text_buffer,
 						  &cur,
-						  gtk_text_buffer_get_insert (text_view->buffer));
+						  gtk_text_buffer_get_insert (text_buffer));
 
 		cur_line = gtk_text_iter_get_line (&cur);
-		
+
 		/* Get iter at first y */
 		gtk_text_view_get_line_at_y (text_view, &iter, y1, NULL);
-
         /* Get iter at last y */
 		gtk_text_view_get_line_at_y (text_view, &iter2, y2, NULL);
 		/* forward to line end so we match all folds on the line. */

@@ -125,15 +125,21 @@ static gint
 gtk_source_fold_label_expose (GtkWidget      *widget,
 			      GdkEventExpose *event)
 {
+	GtkStyle *style;
+	GtkAllocation allocation;
+
 	GTK_WIDGET_CLASS (_gtk_source_fold_label_parent_class)->expose_event (widget, event);
 
+	style = gtk_rc_get_style (widget);
+	gtk_widget_get_allocation (widget, &allocation);
+
 	gdk_draw_rectangle (event->window,
-			    widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
+			    style->fg_gc[gtk_widget_get_state (widget)],
 			    FALSE,
-			    widget->allocation.x,
-			    widget->allocation.y,
-			    widget->allocation.width - 1,
-			    widget->allocation.height - 1);
+			    allocation.x,
+			    allocation.y,
+			    allocation.width - 1,
+			    allocation.height - 1);
 
 	return TRUE;
 }

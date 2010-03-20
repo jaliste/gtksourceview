@@ -859,23 +859,23 @@ apply_tags (GtkSourceContextEngine *ce,
 	tag = get_context_tag (ce, segment->context);
 	classes = get_context_classes (ce,
 	                               segment->context);
-	
+
 	fold_tag = get_context_class_tag(ce, "fold");
 	for (items = classes; items != NULL; items = g_slist_next (items))
-	{ 
+	{
 		ContextClassTag *attrtag = (ContextClassTag *)items->data;
 		if (fold_tag!=NULL && attrtag->tag ==fold_tag)
 		{
 			GtkTextIter start_iter, end_iter;
 			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&start_iter, segment->start_at);
 			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&end_iter, segment->end_at);
-			
+
 			printf("%p, Segment (%d,%d) Offset (%d,%d), context = %s\n",segment, segment->start_at,segment->end_at ,start_offset, end_offset,segment->context->definition->id);
 			gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER(ce->priv->buffer), &start_iter, &end_iter);
 			break;
 		}
-	}	
-	
+	}
+
 
 	apply_context_classes (ce, classes, start_offset, end_offset);
 
@@ -3847,7 +3847,7 @@ context_unref (Context *context)
 	{
 		for (i = 0; i < context->definition->n_sub_patterns; ++i)
 		{
-			g_slist_foreach (context->subpattern_context_classes[i], 
+			g_slist_foreach (context->subpattern_context_classes[i],
 			                 (GFunc)context_class_tag_free,
 			                 NULL);
 

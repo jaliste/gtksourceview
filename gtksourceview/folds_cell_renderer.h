@@ -44,4 +44,3 @@ GtkCellRenderer     *folds_cell_renderer_new (void);
 
 
 #endif /* _folds_cell_renderer_included_ */
-

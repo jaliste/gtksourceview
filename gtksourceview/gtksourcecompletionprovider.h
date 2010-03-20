@@ -17,7 +17,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, 
+ * Foundation, Inc., 59 Temple Place, Suite 330,
  * Boston, MA 02111-1307, USA.
  */
 
@@ -49,7 +49,7 @@ typedef struct _GtkSourceCompletionProviderIface GtkSourceCompletionProviderIfac
 struct _GtkSourceCompletionProviderIface
 {
 	GTypeInterface g_iface;
-	
+
 	gchar		*(*get_name)       	(GtkSourceCompletionProvider *provider);
 	GdkPixbuf	*(*get_icon)       	(GtkSourceCompletionProvider *provider);
 	void 		 (*populate) 		(GtkSourceCompletionProvider *provider,

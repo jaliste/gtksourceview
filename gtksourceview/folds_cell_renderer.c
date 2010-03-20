@@ -43,6 +43,7 @@ enum
   PROP_FOLD_MARK = 1,
   PROP_DEPTH    = 2
 };
+
 #define MAX_DEPTH 20
 
 static   gpointer parent_class;
@@ -98,9 +99,11 @@ folds_cell_renderer_get_type (void)
 static void
 folds_cell_renderer_init (FoldsCellRenderer *cellrenderer)
 {
-  GTK_CELL_RENDERER(cellrenderer)->mode = GTK_CELL_RENDERER_MODE_INERT;
-  GTK_CELL_RENDERER(cellrenderer)->xpad = 2;
-  GTK_CELL_RENDERER(cellrenderer)->ypad = 2;
+  g_object_set (G_OBJECT (cellrenderer),
+  	"mode",	GTK_CELL_RENDERER_MODE_INERT,
+  	"xpad",	2,
+  	"ypad",	2,
+  	NULL);
 }
 
 
@@ -120,8 +123,8 @@ folds_cell_renderer_init (FoldsCellRenderer *cellrenderer)
 static void
 folds_cell_renderer_class_init (FoldsCellRendererClass *klass)
 {
-  GtkCellRendererClass *cell_class   = GTK_CELL_RENDERER_CLASS(klass);
-  GObjectClass         *object_class = G_OBJECT_CLASS(klass);
+  GtkCellRendererClass *cell_class   = GTK_CELL_RENDERER_CLASS (klass);
+  GObjectClass         *object_class = G_OBJECT_CLASS (klass);
 
   parent_class           = g_type_class_peek_parent (klass);
   object_class->finalize = folds_cell_renderer_finalize;
@@ -185,16 +188,18 @@ folds_cell_renderer_get_property (GObject    *object,
                                             GValue     *value,
                                             GParamSpec *psec)
 {
-  FoldsCellRenderer  *cell = FOLDS_CELL_RENDERER(object);
+  FoldsCellRenderer  *cell = FOLDS_CELL_RENDERER (object);
 
   switch (param_id)
   {
     case PROP_FOLD_MARK:
-      g_value_set_int(value, cell->fold_mark);
+      g_value_set_int (value, cell->fold_mark);
       break;
+
     case PROP_DEPTH:
-      g_value_set_int(value, cell->depth);
+      g_value_set_int (value, cell->depth);
       break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, param_id, psec);
       break;
@@ -219,14 +224,15 @@ folds_cell_renderer_set_property (GObject      *object,
   switch (param_id)
   {
     case PROP_FOLD_MARK:
-      folds_cell->fold_mark = g_value_get_int(value);
+      folds_cell->fold_mark = g_value_get_int (value);
       break;
+
     case PROP_DEPTH:
-      folds_cell->depth = g_value_get_int(value);
+      folds_cell->depth = g_value_get_int (value);
       break;
 
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, param_id, pspec);
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, param_id, pspec);
       break;
   }
 }
@@ -240,7 +246,7 @@ folds_cell_renderer_set_property (GObject      *object,
 GtkCellRenderer *
 folds_cell_renderer_new (void)
 {
-  return g_object_new(FOLDS_TYPE_CELL_RENDERER, NULL);
+  return g_object_new (FOLDS_TYPE_CELL_RENDERER, NULL);
 }
 
 
@@ -265,11 +271,22 @@ folds_cell_renderer_get_size (GtkCellRenderer *cell,
                                         gint            *width,
                                         gint            *height)
 {
+  guint xpad;
+  guint ypad;
+  gfloat xalign;
+  gfloat yalign;
   gint calc_width;
   gint calc_height;
 
-  calc_width  = (gint) cell->xpad * 2 + FIXED_WIDTH;
-  calc_height = (gint) cell->ypad * 2 + FIXED_HEIGHT;
+  g_object_get (G_OBJECT (cell),
+  	"xpad",		&xpad,
+  	"ypad",		&ypad,
+  	"xalign",	&xalign,
+  	"yalign",	&yalign,
+  	NULL);
+
+  calc_width  = (gint) xpad * 2 + FIXED_WIDTH;
+  calc_height = (gint) ypad * 2 + FIXED_HEIGHT;
 
   if (width)
     *width = calc_width;
@@ -281,13 +298,13 @@ folds_cell_renderer_get_size (GtkCellRenderer *cell,
   {
     if (x_offset)
     {
-      *x_offset = cell->xalign * (cell_area->width - calc_width);
+      *x_offset = xalign * (cell_area->width - calc_width);
       *x_offset = MAX (*x_offset, 0);
     }
 
     if (y_offset)
     {
-      *y_offset = cell->yalign * (cell_area->height - calc_height);
+      *y_offset = yalign * (cell_area->height - calc_height);
       *y_offset = MAX (*y_offset, 0);
     }
   }
@@ -313,8 +330,8 @@ folds_cell_renderer_render (GtkCellRenderer *cell,
 	GtkStateType                state;
   	gint                        width, height;
   	gint                        x_offset, y_offset;
- 
- 
+
+
    	GdkRectangle visible_rect;
 	GdkRectangle line_rect;
 	gint win_y;
@@ -326,7 +343,7 @@ folds_cell_renderer_render (GtkCellRenderer *cell,
 		return;
 	}
 	cr = gdk_cairo_create (window);
-//	gdk_cairo_set_source_color (cr, (GdkColor *)color);
+	// gdk_cairo_set_source_color (cr, (GdkColor *)color);
 	cairo_set_line_width (cr, 1);
 	//folds_cell_renderer_get_size (cell, widget, cell_area,
         //                                  &x_offset, &y_offset,
@@ -335,8 +352,8 @@ folds_cell_renderer_render (GtkCellRenderer *cell,
 	c_y = cell_area->y + cell_area->height/2;
 	l   = 5;
 	a   = 2;
-	
-	
+
+
 	switch (cell_fold->fold_mark)
 	{
 		case FOLD_MARK_INTERIOR:
@@ -344,41 +361,43 @@ folds_cell_renderer_render (GtkCellRenderer *cell,
                 	cairo_rel_line_to (cr, 0, cell_area->height);
 			cairo_stroke (cr);
 			break;
+
 		case FOLD_MARK_STOP:
 			cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
 			cairo_rel_line_to (cr, 0, cell_area->height - l);
 			cairo_rel_line_to (cr, cell_area->width/2,0);
-			if (cell_fold->depth>0)
+			if (cell_fold->depth > 0)
 			{
 				cairo_move_to (cr, c_x + .5, c_y + l + .5);
 			    cairo_line_to (cr, c_x + .5, cell_area->y + cell_area->height);
-			     
+
 			}
 			cairo_stroke (cr);
 			break;
+
 		case FOLD_MARK_START_FOLDED:
 			cairo_move_to (cr, c_x + .5 , c_y - l + a +.5);
 			cairo_rel_line_to (cr, 0, 2*(l - a));
-	
+
 		case FOLD_MARK_START:
-			if (cell_fold->depth>0)
-			{	
+			if (cell_fold->depth > 0)
+			{
 			    cairo_move_to (cr, c_x + .5, cell_area->y + .5);
 			    cairo_line_to (cr, c_x + .5, c_y + .5 - l);
-			    
+
 			    cairo_move_to (cr, c_x + .5, c_y + l + .5);
 			    cairo_line_to (cr, c_x + .5, cell_area->y + cell_area->height);
 			}
-	
-			cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2*l, 2*l);  
+
+			cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2*l, 2*l);
 			cairo_move_to (cr, c_x + a + .5 - l, c_y + 0.5);
 			cairo_rel_line_to (cr, 2 * (l - a),0);
 			cairo_stroke (cr);
-			break;	
-		default:break;
+			break;
+
+		default:
+			break;
 	}
 	cairo_destroy (cr);
-               
+
 }
-
-

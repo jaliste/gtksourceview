@@ -42,7 +42,7 @@ typedef struct _GtkSourceCompletionInfo GtkSourceCompletionInfo;
 struct _GtkSourceCompletionInfo
 {
 	GtkWindow parent;
-	
+
 	GtkSourceCompletionInfoPrivate *priv;
 };
 
@@ -51,7 +51,7 @@ typedef struct _GtkSourceCompletionInfoClass GtkSourceCompletionInfoClass;
 struct _GtkSourceCompletionInfoClass
 {
 	GtkWindowClass parent_class;
-	
+
 	void	(*before_show)	(GtkSourceCompletionInfo *info);
 };
 

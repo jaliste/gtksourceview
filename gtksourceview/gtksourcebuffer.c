@@ -472,7 +472,7 @@ gtk_source_buffer_constructor (GType                  type,
 	}
 
 	/* Create invisibility tag for folding lines. */
-	gtk_text_buffer_create_tag (GTK_TEXT_BUFFER (buffer),
+	gtk_text_buffer_create_tag (GTK_TEXT_BUFFER (object),
 				    INVISIBLE_LINE, "invisible", TRUE, NULL);
 
 	return object;
