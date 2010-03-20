@@ -109,19 +109,18 @@ enum {
 	PROP_MAX_UNDO_LEVELS,
 	PROP_LANGUAGE,
 	PROP_STYLE_SCHEME,
-	PROP_UNDO_MANAGER,
-	PROP_FOLDS
+	PROP_UNDO_MANAGER
 };
 
 struct _GtkSourceBufferPrivate
 {
 	GList                 *folds;
-	gint                   enable_folds:1;
+	gboolean               folds_enabled : 1;
 
-	gint                   highlight_syntax:1;
-	gint                   highlight_brackets:1;
+	gboolean               highlight_syntax : 1;
+	gboolean               highlight_brackets : 1;
 
-	gint                   constructed:1;
+	gboolean               constructed : 1;
 
 	GtkTextTag            *bracket_match_tag;
 	GtkTextMark           *bracket_mark_cursor;
@@ -321,14 +320,6 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 	                                                      GTK_TYPE_SOURCE_UNDO_MANAGER,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
-	g_object_class_install_property (object_class,
-					 PROP_FOLDS,
-					 g_param_spec_boolean ("folds",
-							       _("Folds"),
-							       _("Whether folds are enabled"),
-							       FALSE,
-							       G_PARAM_READWRITE));
-
 	param_types[0] = GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE;
 	param_types[1] = GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE;
 
@@ -484,7 +475,7 @@ gtk_source_buffer_init (GtkSourceBuffer *buffer)
 	priv->bracket_mark_cursor = NULL;
 	priv->bracket_mark_match = NULL;
 	priv->bracket_match = GTK_SOURCE_BRACKET_MATCH_NONE;
-	priv->enable_folds = FALSE;
+	priv->folds_enabled = FALSE;
 	priv->folds = NULL;
 
 	priv->source_marks = g_array_new (FALSE, FALSE, sizeof (GtkSourceMark *));
@@ -621,10 +612,6 @@ gtk_source_buffer_set_property (GObject      *object,
 			gtk_source_buffer_set_undo_manager (source_buffer,
 			                                    g_value_get_object (value));
 			break;
-		case PROP_FOLDS:
-			gtk_source_buffer_set_folds_enabled (source_buffer,
-							     g_value_get_boolean (value));
-			break;
 
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -679,10 +666,6 @@ gtk_source_buffer_get_property (GObject    *object,
 
 		case PROP_UNDO_MANAGER:
 			g_value_set_object (value, source_buffer->priv->undo_manager);
-			break;
-
-		case PROP_FOLDS:
-			g_value_set_boolean (value, source_buffer->priv->enable_folds);
 			break;
 
 		default:
@@ -1097,7 +1080,7 @@ gtk_source_buffer_real_delete_range (GtkTextBuffer *buffer,
 	/* XXX same thing, this is wrong */
 	/* if the delete range intersects a folded region, don't delete any text;
 	 * unfold the region instead. */
-	if (source_buffer->priv->enable_folds)
+	if (source_buffer->priv->folds_enabled)
 	{
 		GtkSourceFold *fold;
 
@@ -2563,10 +2546,10 @@ gtk_source_buffer_get_undo_manager (GtkSourceBuffer *buffer)
  */
 
 gboolean
-gtk_source_buffer_get_folds_enabled (GtkSourceBuffer *buffer)
+_gtk_source_buffer_get_folds_enabled (GtkSourceBuffer *buffer)
 {
 	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
-	return buffer->priv->enable_folds;
+	return buffer->priv->folds_enabled;
 }
 
 static void
@@ -2576,28 +2559,26 @@ foreach_fold_region (gpointer data, gpointer user_data)
 }
 
 void
-gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
-				     gboolean         enable_folds)
+_gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
+				     gboolean         folds_enabled)
 {
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 
-	enable_folds = (enable_folds != FALSE);
+	folds_enabled = (folds_enabled != FALSE);
 
-	if (buffer->priv->enable_folds == enable_folds)
+	if (buffer->priv->folds_enabled == folds_enabled)
 		return;
 
-	buffer->priv->enable_folds = enable_folds;
+	buffer->priv->folds_enabled = folds_enabled;
 
 	/* Remove all existing folds if folds are disabled.
 	 * We should not remove the folds! */
-	if (!enable_folds && buffer->priv->folds != NULL)
+	if (!folds_enabled && buffer->priv->folds != NULL)
 	{
 		GList *folds = g_list_copy (buffer->priv->folds);
 		g_list_foreach (folds, foreach_fold_region, buffer);
 		g_list_free (folds);
 	}
-
-	g_object_notify (G_OBJECT (buffer), "folds");
 }
 
 static GQuark
