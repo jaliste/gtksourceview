@@ -1782,21 +1782,21 @@ init_left_gutter (GtkSourceView *view)
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
-	gtk_source_gutter_insert (gutter,
-	                          view->priv->line_renderer,
+	gtk_source_gutter_insert (gutter, 
+	                          view->priv->line_renderer, 
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_LINES);
 
-	gtk_source_gutter_insert (gutter,
+	gtk_source_gutter_insert (gutter, 
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-
-	gtk_source_gutter_insert (gutter,
+	
+	gtk_source_gutter_insert (gutter, 
 	                          view->priv->folds_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-
+	
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
-	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 12, 0);
+	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
 
 	gtk_source_gutter_set_cell_data_func (gutter,
 	                                      view->priv->line_renderer,
@@ -2076,6 +2076,15 @@ notify_folds_cb (GtkSourceBuffer *buffer,
 		 GtkSourceView   *view)
 {
 	view->priv->show_folds = gtk_source_buffer_get_folds_enabled (buffer);
+
+	if (view->priv->show_folds)
+	{
+		gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 12, 0);
+	}
+	else
+	{
+		gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
+	}
 
 	gtk_widget_queue_draw (GTK_WIDGET (view));
 }
