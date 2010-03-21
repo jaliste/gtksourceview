@@ -1756,8 +1756,8 @@ init_left_gutter (GtkSourceView *view)
 	
 	gtk_source_gutter_insert (gutter, 
 	                          view->priv->folds_renderer,
-	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
-	
+	                          GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS);
+
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 0, 0);
