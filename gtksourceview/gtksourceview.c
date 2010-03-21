@@ -271,12 +271,6 @@ static void	gtk_source_view_move_lines		(GtkSourceView     *view,
 							 gint               step);
 static gboolean	gtk_source_view_key_press_event		(GtkWidget         *widget,
 							 GdkEventKey       *event);
-// master borra la siguiente linea
-static gboolean	gtk_source_view_button_press		(GtkWidget         *widget,
-							 GdkEventButton    *event);
-// code_folding anade las dos siguientes
-static gboolean gtk_source_view_button_release		(GtkWidget          *widget,
-							 GdkEventButton     *event);
 static gboolean gtk_source_view_motion_notify		(GtkWidget          *widget,
 							 GdkEventMotion     *event);
 static void 	view_dnd_drop 				(GtkTextView       *view,
@@ -348,12 +342,7 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 	object_class->set_property = gtk_source_view_set_property;
 
 	widget_class->key_press_event = gtk_source_view_key_press_event;
-//the following was removed from master branch
-	widget_class->button_press_event = gtk_source_view_button_press;
-// los siguiente es the code folding
-	widget_class->button_release_event = gtk_source_view_button_release;
 	widget_class->motion_notify_event = gtk_source_view_motion_notify;
-// code_folding:gtksourceview/gtksourceview.c
 	widget_class->expose_event = gtk_source_view_expose;
 	widget_class->style_set = gtk_source_view_style_set;
 	widget_class->realize = gtk_source_view_realize;
@@ -1282,7 +1271,7 @@ line_renderer_size_func (GtkSourceGutter *gutter,
 	gint count;
 
 	count = gtk_text_buffer_get_line_count (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
-	text = g_strdup_printf ("%d", MAX(99, count));
+	text = g_strdup_printf ("%d", MAX (99, count));
 
 	/* measure with bold, just in case font is rendered larger */
 	g_object_set (G_OBJECT (renderer),
@@ -1367,6 +1356,73 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
+}
+
+static void
+folds_renderer_activated (GtkSourceGutter *gutter,
+			  GtkCellRenderer *renderer,
+			  GtkTextIter     *iter,
+			  GdkEvent        *event,
+			  GtkSourceView   *view)
+{
+	GtkSourceFold *fold;
+	GtkWidget *fold_label;
+	GList *folds;
+	GtkTextBuffer *buffer;
+	gint start_line;
+	gint end_line;
+	gint line_number;
+
+	if (view->priv->source_buffer == NULL)
+	{
+		return;
+	}
+
+	folds = view->priv->last_folds;
+	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
+	line_number = gtk_text_iter_get_line (iter);
+
+	while (folds != NULL)
+	{
+		fold = folds->data;
+
+		gtk_source_fold_get_lines (fold, buffer, &start_line, &end_line);
+
+		if (line_number == start_line && fold != NULL)
+		{
+			gtk_source_fold_set_folded (fold, !gtk_source_fold_get_folded (fold));
+
+			/* Add or update the fold label. */
+			fold_label = g_hash_table_lookup (view->priv->fold_labels,
+							  fold);
+
+			if (fold_label == NULL && fold->folded)
+			{
+				fold_label = _gtk_source_fold_label_new (view);
+
+				g_hash_table_insert (view->priv->fold_labels,
+						     fold, fold_label);
+
+				gtk_text_view_add_child_in_window (GTK_TEXT_VIEW (view),
+								   fold_label,
+								   GTK_TEXT_WINDOW_TEXT,
+								   0,
+								   0);
+
+				move_fold_label (GTK_TEXT_VIEW (view), fold, fold_label);
+			}
+			/* Hide the label if the fold has expanded. */
+			else if (fold_label != NULL && !fold->folded &&
+				 gtk_widget_get_visible (fold_label))
+			{
+				gtk_widget_hide (fold_label);
+			}
+			break;
+
+		}
+
+		folds = g_list_next (folds);
+	}
 }
 
 static void
@@ -1456,7 +1512,15 @@ renderer_activated (GtkSourceGutter *gutter,
                     GdkEvent        *event,
                     GtkSourceView   *view)
 {
-	if (renderer == view->priv->marks_renderer)
+	if (renderer == view->priv->folds_renderer)
+	{
+		folds_renderer_activated (gutter,
+					  renderer,
+					  iter,
+					  event,
+					  view);
+	}
+	else if (renderer == view->priv->marks_renderer)
 	{
 		g_signal_emit (view,
 		               signals[LINE_MARK_ACTIVATED],
@@ -1721,7 +1785,6 @@ init_left_gutter (GtkSourceView *view)
 	                                      (GtkSourceGutterSizeFunc)folds_renderer_size_func,
 	                                      view,
 	                                      NULL);
-
 
 
 	g_signal_connect (gutter,
@@ -4694,57 +4757,6 @@ gtk_source_view_motion_notify (GtkWidget *widget, GdkEventMotion *event)
 	}
 }
 
-
-static gboolean
-gtk_source_view_button_press (GtkWidget *widget, GdkEventButton *event)
-{
-	GtkSourceView *view;
-	GtkTextBuffer *buf;
-	int y_buf;
-	GtkTextIter line_start;
-	GtkSourceFold *fold;
-
-	view = GTK_SOURCE_VIEW (widget);
-	buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (widget));
-
-	if (gtk_source_view_get_show_folds (view) && event->button == 1 &&
-	    event->window == gtk_text_view_get_window (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT) &&
-	    event->x >= view->priv->line_numbers_width)
-	{
-		gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT,
-						       event->x, event->y,
-						       NULL, &y_buf);
-
-		gtk_text_view_get_line_at_y (GTK_TEXT_VIEW (view),
-					     &line_start,
-					     y_buf,
-					     NULL);
-
-		fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-							    gtk_text_iter_get_line (&line_start));
-
-		if (fold != NULL)
-		{
-			GtkTextIter fold_start;
-
-			gtk_text_buffer_get_iter_at_mark (GTK_TEXT_BUFFER (view->priv->source_buffer),
-							  &fold_start, fold->start_line);
-
-			if (gtk_text_iter_get_line (&line_start) ==
-			    gtk_text_iter_get_line (&fold_start))
-			{
-				view->priv->fold_button_down = TRUE;
-			}
-		}
-
-		return TRUE;
-	}
-
-	return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->button_press_event (widget, event);
-}
-
 static gboolean
 fold_animation_timeout (GtkSourceView *view)
 {
@@ -4809,53 +4821,6 @@ start_fold_animation (GtkSourceView *view)
 
 	view->priv->animation_timeout =
 		g_timeout_add (50, (GSourceFunc) fold_animation_timeout, view);
-}
-
-static gboolean
-gtk_source_view_button_release (GtkWidget *widget, GdkEventButton *event)
-{
-	GtkSourceView *view;
-	int y_buf;
-	GtkTextIter line_start;
-	GtkSourceFold *fold;
-
-	view = GTK_SOURCE_VIEW (widget);
-
-	if (gtk_source_view_get_show_folds (view) && event->button == 1 &&
-	    view->priv->fold_button_down &&
-	    event->window == gtk_text_view_get_window (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT) &&
-	    event->x >= view->priv->line_numbers_width)
-	{
-		gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT,
-						       event->x, event->y,
-						       NULL, &y_buf);
-
-		gtk_text_view_get_line_at_y (GTK_TEXT_VIEW (view),
-					     &line_start,
-					     y_buf,
-					     NULL);
-
-		fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-							    gtk_text_iter_get_line (&line_start));
-
-		if (fold != NULL)
-		{
-			fold->animated = TRUE;
-			gtk_source_fold_set_folded (fold, !fold->folded);
-			view->priv->animate_fold_line = gtk_text_iter_get_line (&line_start);
-			start_fold_animation (view);
-			view->priv->fold_button_down = FALSE;
-		}
-
-		return TRUE;
-	}
-	else
-	{
-		return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->
-				button_release_event (widget, event);
-	}
 }
 
 /**
