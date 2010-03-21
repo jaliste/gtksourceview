@@ -25,6 +25,8 @@ lib_LTLIBRARIES = libgtksourceview-2.0.la
 libgtksourceview_headers =			\
 	gtksourcebuffer.h			\
 	gtksourcefold.h				\
+	gtksourcefoldcellrenderer.h	\
+	gtksourcefoldlabel.h		\
 	gtksourceiter.h				\
 	gtksourceview.h				\
 	gtksourcelanguage.h			\
@@ -50,6 +52,7 @@ NOINST_H_FILES = \
 	gtksourcecompletionui.h		\
 	gtksourcecontextengine.h	\
 	gtksourceengine.h		\
+	gtksourcefold-private.h		\
 	gtksourcegutter-private.h	\
 	gtksourcelanguage-private.h	\
 	gtksourcestyle-private.h	\
@@ -62,9 +65,8 @@ libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcebuffer.c 		\
 	gtksourcebuffer-private.h 	\
 	gtksourcefold.c			\
-	gtksourcefold-private.h		\
+	gtksourcefoldcellrenderer.c	\
 	gtksourcefoldlabel.c		\
-	gtksourcefoldlabel.h		\
 	gtksourceiter.c			\
 	gtksourceview.c 		\
 	gtksourceundomanager.c 		\
@@ -92,7 +94,6 @@ libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcecompletionmodel.c	\
 	gtksourcecompletionutils.c	\
 	gtksourcecompletioncontext.c 	\
-	folds_cell_renderer.c		\
 	$(libgtksourceview_headers)	\
 	$(NOINST_H_FILES)
 

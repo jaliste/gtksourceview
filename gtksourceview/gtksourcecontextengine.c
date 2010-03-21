@@ -83,7 +83,7 @@
 #define LOOKUP_DEFINITION(ctx_data, id) \
 	(g_hash_table_lookup ((ctx_data)->definitions, (id)))
 
-#define HAS_OPTION(def,opt) (((def)->flags & GTK_SOURCE_CONTEXT_##opt) != 0)
+#define HAS_OPTION(def, opt) (((def)->flags & GTK_SOURCE_CONTEXT_##opt) != 0)
 
 /* Can the context be terminated by ancestor? */
 /* Root context can't be terminated; its child may not be terminated by it;

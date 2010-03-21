@@ -45,7 +45,7 @@
 #include "gtksourcegutter-private.h"
 #include "gtksourcefold-private.h"
 #include "gtksourcefoldlabel.h"
-#include "folds_cell_renderer.h"
+#include "gtksourcefoldcellrenderer.h"
 
 /**
  * SECTION:view
@@ -862,6 +862,7 @@ gtk_source_view_get_property (GObject    *object,
 			g_value_set_object (value,
 			                    gtk_source_view_get_completion (view));
 			break;
+
 		case PROP_SHOW_LINE_NUMBERS:
 			g_value_set_boolean (value,
 					     gtk_source_view_get_show_line_numbers (view));
@@ -1303,7 +1304,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	// I get a flattened list of folds. I output the list of folds starting at the "nearest"
 	// fold of the line.
 
-	gint fold_mark;
+	GtkSourceFoldMarkType fold_mark;
 	gint line;
 	// UNUSED: gchar *text;
 
@@ -1312,7 +1313,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	GList	 *folds;
 	GtkTextBuffer *buffer;
 
-	buffer = GTK_TEXT_BUFFER(view->priv->source_buffer);
+	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
 
 	gint start_line, end_line;
 	gint found;
@@ -1328,19 +1329,19 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 
 	last_folds = view->priv->last_folds;
 	folds = last_folds;
-	fold_mark = FOLD_MARK_NULL;
+	fold_mark = GTK_SOURCE_FOLD_MARK_NONE;
 	// printf("Cell render, line %d\n",line+1);
 	while (folds != NULL)
 	{
 		fold = folds->data;
 
-		gtk_source_fold_get_lines(fold,buffer,&start_line,&end_line);
+		gtk_source_fold_get_lines(fold, buffer, &start_line, &end_line);
 		// printf("Found fold between %d and %d\n",start_line+1,end_line+1);
 
 		/*if (line  < start_line)
 		{
 			printf(",null mark");
-			fold_mark = FOLD_MARK_NULL;
+			fold_mark = GTK_SOURCE_FOLD_MARK_NONE;
 			break;
 		}
 		else*/ if (line == start_line)
@@ -1348,7 +1349,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 			// printf(",start mark");
 			// There should be only one fold for line!
 			last_folds = folds;
-			fold_mark =  FOLD_MARK_START;
+			fold_mark =  GTK_SOURCE_FOLD_MARK_START;
 			found = FALSE;
 			break;
 
@@ -1357,7 +1358,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		{
 			// printf(",end_mark");
 			last_folds = folds;
-			fold_mark =  FOLD_MARK_STOP;
+			fold_mark =  GTK_SOURCE_FOLD_MARK_STOP;
 			found = FALSE;
 			break;
 		}
@@ -1386,12 +1387,12 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	// printf("\n");
 	if (found)
 	{
-		fold_mark = FOLD_MARK_INTERIOR;
+		fold_mark = GTK_SOURCE_FOLD_MARK_INTERIOR;
 	}
 
-	if (fold_mark == FOLD_MARK_START && gtk_source_fold_get_folded(last_folds->data))
+	if (fold_mark == GTK_SOURCE_FOLD_MARK_START && gtk_source_fold_get_folded(last_folds->data))
 	{
-		fold_mark = FOLD_MARK_START_FOLDED;
+		fold_mark = GTK_SOURCE_FOLD_MARK_START_FOLDED;
 	}
 	g_object_set (G_OBJECT (renderer),
 	              "fold_mark", fold_mark,
@@ -1710,7 +1711,7 @@ init_left_gutter (GtkSourceView *view)
 
 	view->priv->line_renderer = gtk_cell_renderer_text_new ();
 	view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
-	view->priv->folds_renderer = folds_cell_renderer_new ();
+	view->priv->folds_renderer = gtk_source_fold_cell_renderer_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
@@ -2935,7 +2936,7 @@ draw_tabs_and_spaces (GtkSourceView  *view,
 			draw_spaces_at_iter (cr, view, &s, rect);
 		}
 /*=======
-		/* Since fold labels aren't anchored, we need to update the position
+		/  Since fold labels aren't anchored, we need to update the position
 		 * manually as the textview is scrolled. Also, this applies to all fold
 		 * labels in the visible textview, not just the part that is being painted.
 		 /

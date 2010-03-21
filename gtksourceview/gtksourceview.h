@@ -45,6 +45,8 @@ G_BEGIN_DECLS
  * renderer
  * @GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS: the gutter position of the marks
  * renderer
+ * @GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS: the gutter position of the folds
+ * renderer
  **/
 typedef enum
 {
