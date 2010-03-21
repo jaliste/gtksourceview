@@ -1,7 +1,11 @@
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <glib/gi18n.h>
+
 #include "gtksourcefoldcellrenderer.h"
 #include "gtksourceview-typebuiltins.h"
-
-#define _(X) (X)
 
 #define MAX_DEPTH	20
 #define FIXED_WIDTH	100
@@ -235,6 +239,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
                                       guint            flags)
 {
 	GtkSourceFoldCellRenderer *cell_fold = GTK_SOURCE_FOLD_CELL_RENDERER (cell);
+	GtkStyle                  *style;
 	GtkStateType               state;
 	gint                       width, height;
 	gint                       x_offset, y_offset;
@@ -252,8 +257,11 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 		return;
 	}
 
+	style = gtk_widget_get_style (widget);
+	state = flags;
+
 	cr = gdk_cairo_create (window);
-	// gdk_cairo_set_source_color (cr, (GdkColor *)color);
+	gdk_cairo_set_source_color (cr, &style->fg[state]);
 	cairo_set_line_width (cr, 1);
 	//gtk_source_fold_cell_renderer_get_size (cell, widget, cell_area,
 	//                                  &x_offset, &y_offset,
@@ -297,6 +305,17 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 
 				cairo_move_to (cr, c_x + .5, c_y + l + .5);
 				cairo_line_to (cr, c_x + .5, cell_area->y + cell_area->height);
+			}
+
+			if (state == GTK_STATE_PRELIGHT)
+			{
+				cairo_t *cr = gdk_cairo_create (window);
+				gdk_cairo_set_source_color (cr, &style->bg[state]);
+
+				cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2 * l, 2 * l);
+
+				cairo_fill (cr);
+				cairo_destroy (cr);
 			}
 
 			cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2 * l, 2 * l);
