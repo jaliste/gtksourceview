@@ -8,7 +8,7 @@
 #include "gtksourceview-typebuiltins.h"
 
 #define MAX_DEPTH	20
-#define FIXED_WIDTH	100
+#define FIXED_WIDTH	10
 #define FIXED_HEIGHT	10
 
 enum
@@ -271,7 +271,6 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 	l   = 5;
 	a   = 2;
 
-
 	switch (cell_fold->priv->fold_mark)
 	{
 		case GTK_SOURCE_FOLD_MARK_INTERIOR:
@@ -283,7 +282,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 		case GTK_SOURCE_FOLD_MARK_STOP:
 			cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
 			cairo_rel_line_to (cr, 0, cell_area->height - l);
-			cairo_rel_line_to (cr, cell_area->width / 2,0);
+			cairo_rel_line_to (cr, cell_area->width / 2, 0);
 			if (cell_fold->priv->depth > 0)
 			{
 				cairo_move_to (cr, c_x + .5, c_y + l + .5);
