@@ -25,8 +25,6 @@
 
 G_BEGIN_DECLS
 
-#define INVISIBLE_LINE "GtkSourceBuffer:InvisibleLine"
-
 struct _GtkSourceFold
 {
 	/* Markers for the start & end of the fold. */
