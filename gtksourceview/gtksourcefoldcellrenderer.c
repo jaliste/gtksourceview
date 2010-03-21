@@ -281,29 +281,30 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 
 		case GTK_SOURCE_FOLD_MARK_STOP:
 			cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
-			cairo_rel_line_to (cr, 0, cell_area->height - l);
+			cairo_rel_line_to (cr, 0, cell_area->height / 2);
 			cairo_rel_line_to (cr, cell_area->width / 2, 0);
+
 			if (cell_fold->priv->depth > 0)
 			{
-				cairo_move_to (cr, c_x + .5, c_y + l + .5);
-				cairo_line_to (cr, c_x + .5, cell_area->y + cell_area->height);
+				cairo_move_to (cr, c_x + 0.5, c_y + 0.5);
+				cairo_line_to (cr, c_x + 0.5, cell_area->y + cell_area->height);
 
 			}
 			cairo_stroke (cr);
 			break;
 
 		case GTK_SOURCE_FOLD_MARK_START_FOLDED:
-			cairo_move_to (cr, c_x + .5 , c_y - l + a +.5);
+			cairo_move_to (cr, c_x + 0.5 , c_y - l + a + 0.5);
 			cairo_rel_line_to (cr, 0, 2 * (l - a));
 
 		case GTK_SOURCE_FOLD_MARK_START:
 			if (cell_fold->priv->depth > 0)
 			{
-				cairo_move_to (cr, c_x + .5, cell_area->y + .5);
-				cairo_line_to (cr, c_x + .5, c_y + .5 - l);
+				cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
+				cairo_line_to (cr, c_x + 0.5, c_y + 0.5 - l);
 
-				cairo_move_to (cr, c_x + .5, c_y + l + .5);
-				cairo_line_to (cr, c_x + .5, cell_area->y + cell_area->height);
+				cairo_move_to (cr, c_x + 0.5, c_y + l + 0.5);
+				cairo_line_to (cr, c_x + 0.5, cell_area->y + cell_area->height);
 			}
 
 			if (state == GTK_STATE_PRELIGHT)
@@ -311,14 +312,14 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 				cairo_t *cr = gdk_cairo_create (window);
 				gdk_cairo_set_source_color (cr, &style->bg[state]);
 
-				cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2 * l, 2 * l);
+				cairo_rectangle (cr, c_x  + 0.5 - l, c_y - l  + 0.5, 2 * l, 2 * l);
 
 				cairo_fill (cr);
 				cairo_destroy (cr);
 			}
 
-			cairo_rectangle (cr, c_x  + .5 - l, c_y - l  + .5, 2 * l, 2 * l);
-			cairo_move_to (cr, c_x + a + .5 - l, c_y + 0.5);
+			cairo_rectangle (cr, c_x  + 0.5 - l, c_y - l  + 0.5, 2 * l, 2 * l);
+			cairo_move_to (cr, c_x + a + 0.5 - l, c_y + 0.5);
 			cairo_rel_line_to (cr, 2 * (l - a), 0);
 			cairo_stroke (cr);
 			break;
