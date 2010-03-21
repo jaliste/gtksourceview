@@ -48,6 +48,7 @@ NOINST_H_FILES = \
 	gtksourcecompletionutils.h	\
 	gtksourcecontextengine.h	\
 	gtksourceengine.h		\
+	gtksourcefold-private.h		\
 	gtksourcegutter-private.h	\
 	gtksourcelanguage-private.h	\
 	gtksourcestyle-private.h	\
@@ -71,9 +72,8 @@ libgtksourceview_c_files = \
 	gtksourcegutter.c		\
 	gtksourcebuffer-private.h 	\
 	gtksourcefold.c			\
-	gtksourcefold-private.h		\
+	gtksourcefoldcellrenderer.c	\
 	gtksourcefoldlabel.c		\
-	gtksourcefoldlabel.h		\
 	gtksourceiter.c			\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
