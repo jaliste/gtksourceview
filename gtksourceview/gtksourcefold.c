@@ -175,7 +175,7 @@ collapse_fold (GtkTextBuffer *buffer,
 		gtk_text_iter_forward_line (end);
 
 	_gtk_source_buffer_apply_fold (GTK_SOURCE_BUFFER (buffer),
-				      begin, end);
+				       begin, end);
 
 	gtk_text_buffer_get_iter_at_mark (buffer, &insert,
 					  gtk_text_buffer_get_insert (buffer));
@@ -327,14 +327,16 @@ gtk_source_fold_get_children (GtkSourceFold *fold)
 }
 
 void
-gtk_source_fold_get_lines(GtkSourceFold *fold,
-			  GtkTextBuffer *buffer,
-			  gint *start_line,
-			  gint *end_line)
+gtk_source_fold_get_lines (GtkSourceFold *fold,
+			   GtkTextBuffer *buffer,
+			   gint *start_line,
+			   gint *end_line)
 {
 	GtkTextIter iter_start, iter_stop;
-	gtk_text_buffer_get_iter_at_mark (buffer, &iter_start, fold->start_line);
 
+	g_return_if_fail (fold != NULL);
+
+	gtk_text_buffer_get_iter_at_mark (buffer, &iter_start, fold->start_line);
 	gtk_text_buffer_get_iter_at_mark (buffer, &iter_stop, fold->end_line);
 
 	/* The end iter of the fold is on the next line, so if the end
@@ -343,6 +345,6 @@ gtk_source_fold_get_lines(GtkSourceFold *fold,
 	{
 		gtk_text_iter_backward_line (&iter_stop);
 	}
-	*start_line = gtk_text_iter_get_line(&iter_start);
-	*end_line = gtk_text_iter_get_line(&iter_stop);
+	*start_line = gtk_text_iter_get_line (&iter_start);
+	*end_line = gtk_text_iter_get_line (&iter_stop);
 }
