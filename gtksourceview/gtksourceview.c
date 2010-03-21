@@ -314,17 +314,18 @@ static MarkCategory *
 static MarkCategory *
 		gtk_source_view_ensure_category		(GtkSourceView     *view,
 							 const gchar       *name);
-// the next function has pixbuf
-// argument in the code_folding branch
+
 static MarkCategory *
 		mark_category_new			(gint               priority);
 static void	mark_category_free			(MarkCategory      *cat);
 
-
-static gboolean
-move_fold_label (GtkTextView        *view,
-		 GtkSourceFold      *fold,
-		 GtkWidget          *label);
+static gboolean move_fold_label				(GtkTextView        *view,
+							 GtkSourceFold      *fold,
+							 GtkWidget          *label);
+static void foreach_fold_label				(GtkSourceFold     *fold,
+							 GtkWidget         *label,
+							 FoldLabelLocation *location);
+static void update_fold_label_locations			(GtkSourceView *view);
 
 /* Private functions. */
 static void
@@ -1309,6 +1310,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	// UNUSED: gchar *text;
 
 	GtkSourceFold *fold;
+	GtkWidget     *fold_label;
 	GList	 *last_folds;
 	GList	 *folds;
 	GtkTextBuffer *buffer;
@@ -1334,6 +1336,35 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	while (folds != NULL)
 	{
 		fold = folds->data;
+
+		if (fold != NULL)
+		{
+			/* Add or update the fold label. */
+			fold_label = g_hash_table_lookup (view->priv->fold_labels,
+							  fold);
+
+			if (fold_label == NULL && fold->folded)
+			{
+				fold_label = _gtk_source_fold_label_new (view);
+
+				g_hash_table_insert (view->priv->fold_labels,
+						     fold, fold_label);
+
+				gtk_text_view_add_child_in_window (GTK_TEXT_VIEW (view),
+								   fold_label,
+								   GTK_TEXT_WINDOW_TEXT,
+								   0,
+								   0);
+
+				move_fold_label (GTK_TEXT_VIEW (view), fold, fold_label);
+			}
+			/* Hide the label if the fold has expanded. */
+			else if (fold_label != NULL && !fold->folded &&
+				 gtk_widget_get_visible (fold_label))
+			{
+				gtk_widget_hide (fold_label);
+			}
+		}
 
 		gtk_source_fold_get_lines(fold, buffer, &start_line, &end_line);
 		// printf("Found fold between %d and %d\n",start_line+1,end_line+1);
@@ -2935,24 +2966,6 @@ draw_tabs_and_spaces (GtkSourceView  *view,
 		{
 			draw_spaces_at_iter (cr, view, &s, rect);
 		}
-/*=======
-		/  Since fold labels aren't anchored, we need to update the position
-		 * manually as the textview is scrolled. Also, this applies to all fold
-		 * labels in the visible textview, not just the part that is being painted.
-		 /
-		if (gtk_source_view_get_show_folds (view) &&
-		    (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)) &&
-		    g_hash_table_size (view->priv->fold_labels) > 0)
-		{
-			update_fold_label_locations (view);
-		}
-
-		/ Have GtkTextView draw the text first. /
-		if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event)
-			event_handled =
-				GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event (widget, event);
- code_folding:gtksourceview/gtksourceview.c
-*/
 
 		if (!gtk_text_iter_forward_char (&s))
 		{
@@ -3139,6 +3152,18 @@ gtk_source_view_expose (GtkWidget      *widget,
 
 	if (event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT))
 		gtk_source_view_paint_marks_background (view, event);
+
+	/* Since fold labels aren't anchored, we need to update the position
+	 * manually as the textview is scrolled. Also, this applies to all fold
+	 * labels in the visible textview, not just the part that is being painted.
+	 */
+	if (gtk_source_view_get_show_folds (view) &&
+		(event->window == gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT)) &&
+		g_hash_table_size (view->priv->fold_labels) > 0)
+	{
+		update_fold_label_locations (view);
+	}
+
 
 	/* Have GtkTextView draw the text first. */
 	if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->expose_event)
