@@ -101,7 +101,7 @@ static void       forward_string_cb              (GtkAction       *action,
 static void       backward_string_cb             (GtkAction       *action,
 						  gpointer         user_data);
 
-static void	  add_folds			 (GtkSourceBuffer *buffer);
+static void	  add_folds			 (GtkSourceView *view);
 
 static GtkWidget *create_view_window             (GtkSourceBuffer *buffer,
 						  GtkSourceView   *from);
@@ -501,12 +501,13 @@ out:
 }
 
 static void
-add_folds (GtkSourceBuffer *buffer)
+add_folds (GtkSourceView *view)
 {
-	GtkTextBuffer *text_buffer = GTK_TEXT_BUFFER (buffer);
+	GtkTextBuffer *text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+	GtkSourceBuffer *buffer = GTK_SOURCE_BUFFER (text_buffer);
 	GtkTextIter start, end;
 
-	if (!gtk_source_buffer_get_folds_enabled (buffer))
+	if (!gtk_source_view_get_show_folds (view))
 		return;
 	gtk_text_buffer_get_start_iter (text_buffer, &start);
 	end = start;
@@ -517,7 +518,7 @@ add_folds (GtkSourceBuffer *buffer)
  	end = start;
  	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 10);
  	gtk_source_buffer_add_fold (buffer, &start, &end);
-	
+
 	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 4);
 	end = start;
 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 8);
@@ -583,13 +584,11 @@ hl_bracket_toggled_cb (GtkAction *action, gpointer user_data)
 static void
 folds_toggled_cb (GtkAction *action, gpointer user_data)
 {
-	GtkTextBuffer *buffer;
 	g_return_if_fail (GTK_IS_TOGGLE_ACTION (action) && GTK_IS_SOURCE_VIEW (user_data));
-	buffer = gtk_text_view_get_buffer (user_data);
-	gtk_source_buffer_set_folds_enabled (
-		GTK_SOURCE_BUFFER (buffer),
+	gtk_source_view_set_show_folds (
+		GTK_SOURCE_VIEW (user_data),
 		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
-	add_folds (GTK_SOURCE_BUFFER (buffer));
+	add_folds (GTK_SOURCE_VIEW (user_data));
 }
 
 static void
@@ -1254,7 +1253,7 @@ window_deleted_cb (GtkWidget *widget, GdkEvent *ev, gpointer user_data)
 }
 
 static void
-line_mark_activated (GtkSourceGutter *gutter, 
+line_mark_activated (GtkSourceGutter *gutter,
                      GtkTextIter     *iter,
                      GdkEventButton  *ev,
                      GtkSourceView   *view)
@@ -1303,9 +1302,9 @@ mark_tooltip_func (GtkSourceMark *mark,
 	GtkTextBuffer *buf;
 	GtkTextIter iter;
 	gint line, column;
-	
+
 	buf = gtk_text_mark_get_buffer (GTK_TEXT_MARK (mark));
-	
+
 	gtk_text_buffer_get_iter_at_mark (buf, &iter, GTK_TEXT_MARK (mark));
 	line = gtk_text_iter_get_line (&iter) + 1;
 	column = gtk_text_iter_get_line_offset (&iter);
@@ -1363,7 +1362,7 @@ create_view_window (GtkSourceBuffer *buffer, GtkSourceView *from)
 
 	/* view */
 	view = gtk_source_view_new_with_buffer (buffer);
-	
+
 	if (style_scheme)
 		gtk_source_buffer_set_style_scheme (buffer, style_scheme);
 
@@ -1431,7 +1430,7 @@ create_view_window (GtkSourceBuffer *buffer, GtkSourceView *from)
 		gtk_widget_modify_font (view, font_desc);
 		pango_font_description_free (font_desc);
 	}
-	
+
 	/* change view attributes to match those of from */
 	if (from)
 	{
