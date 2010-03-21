@@ -1302,140 +1302,71 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
                           gboolean         current_line,
                           GtkSourceView   *view)
 {
-	// I get a flattened list of folds. I output the list of folds starting at the "nearest"
-	// fold of the line.
-
-	GtkSourceFoldMarkType fold_mark;
-	gint line;
-	gchar *text;
-
 	GtkSourceFold *fold;
-	GtkWidget     *fold_label;
-	GList	 *last_folds;
-	GList	 *folds;
+	GList *folds;
 	GtkTextBuffer *buffer;
+	GtkSourceFoldMarkType fold_mark;
+	gint start_line;
+	gint end_line;
+	guint depth;
 
-	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
-
-	gint start_line, end_line;
-	gint found;
-	gint depth = 0;
-	found = FALSE;
-	line = line_number;
-
-	if (!view->priv->source_buffer)
+	if (view->priv->source_buffer == NULL)
 	{
 		return;
 	}
 
-
-	last_folds = view->last_folds;
-	folds = last_folds;
+	folds = view->priv->last_folds;
+	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
 	fold_mark = GTK_SOURCE_FOLD_MARK_NONE;
-	// printf("Cell render, line %d\n",line+1);
+	depth = 0;
+
 	while (folds != NULL)
 	{
 		fold = folds->data;
 
-		if (fold != NULL)
+		gtk_source_fold_get_lines (fold, buffer, &start_line, &end_line);
+
+		if (line_number == start_line)
 		{
-			/* Add or update the fold label. */
-			fold_label = g_hash_table_lookup (view->priv->fold_labels,
-							  fold);
-
-			if (fold_label == NULL && fold->folded)
-			{
-				fold_label = _gtk_source_fold_label_new (view);
-
-				g_hash_table_insert (view->priv->fold_labels,
-						     fold, fold_label);
-
-				gtk_text_view_add_child_in_window (GTK_TEXT_VIEW (view),
-								   fold_label,
-								   GTK_TEXT_WINDOW_TEXT,
-								   0,
-								   0);
-
-				move_fold_label (GTK_TEXT_VIEW (view), fold, fold_label);
-			}
-			/* Hide the label if the fold has expanded. */
-			else if (fold_label != NULL && !fold->folded &&
-				 gtk_widget_get_visible (fold_label))
-			{
-				gtk_widget_hide (fold_label);
-			}
-		}
-
-		gtk_source_fold_get_lines(fold, buffer, &start_line, &end_line);
-		// printf("Found fold between %d and %d\n",start_line+1,end_line+1);
-
-		/*if (line  < start_line)
-		{
-			printf(",null mark");
-			fold_mark = GTK_SOURCE_FOLD_MARK_NONE;
-			break;
-		}
-		else*/ if (line == start_line)
-		{
-//			printf(",start mark");
 			// There should be only one fold for line!
-			last_folds = folds;
-			fold_mark =  GTK_SOURCE_FOLD_MARK_START;
-			found = FALSE;
+			if (gtk_source_fold_get_folded (fold))
+			{
+				fold_mark =  GTK_SOURCE_FOLD_MARK_START_FOLDED;
+			}
+			else
+			{
+				fold_mark =  GTK_SOURCE_FOLD_MARK_START;
+			}
 			break;
 
 		}
-		else if (line == end_line)
+		else if (line_number == end_line)
 		{
-//			printf(",end_mark");
-			last_folds = folds;
 			fold_mark =  GTK_SOURCE_FOLD_MARK_STOP;
-			found = FALSE;
 			break;
 		}
-		else if (line > start_line && line < end_line)
+		else if (line_number > start_line && line_number < end_line)
 		{
-//			printf(",interior");
-			// I need to look for the closest fold to the line.
-			last_folds = folds;
-			depth++;
-			found = TRUE;
-		}  else if (line < start_line) {
-		  	// We stop
+			++depth;
+			fold_mark = GTK_SOURCE_FOLD_MARK_INTERIOR;
+		}
+		else if (line_number < start_line)
+		{
 		  	break;
 		}
-		// this case means line > end_line and we found a previous fold containing the line.
-	/*	else if (found)
-		{
 
-			printf("found");
-			break;
-
-		}
-	*/	//printf("\n");
 		folds = g_list_next (folds);
 	}
-//	printf("\n");
-	if (found)
-	{
-		fold_mark = GTK_SOURCE_FOLD_MARK_INTERIOR;
-	}
 
-	if (fold_mark == GTK_SOURCE_FOLD_MARK_START && gtk_source_fold_get_folded(last_folds->data))
-	{
-		fold_mark = GTK_SOURCE_FOLD_MARK_START_FOLDED;
-	}
 	g_object_set (G_OBJECT (renderer),
 	              "fold_mark", fold_mark,
 	              "depth", depth,
 	              "xpad", 2,
-	              "ypad", 1,
-	              "yalign", 0.0,
+	              "ypad", 2,
+	              "yalign", 0.5,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
-	//view->last_folds = last_folds;
-	// I would like not to traverse this list every time... but I can't...
 }
 
 static void
