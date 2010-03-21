@@ -1460,22 +1460,15 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 
 static void
 folds_renderer_size_func (GtkSourceGutter *gutter,
-                         GtkCellRenderer *renderer,
-                         GtkSourceView   *view)
+                          GtkCellRenderer *renderer,
+                          GtkSourceView   *view)
 {
-	gchar *text;
-	gint count;
-
-	text = g_strdup_printf ("+");
-
-	/* measure with bold, just in case font is rendered larger */
 	g_object_set (G_OBJECT (renderer),
-	              "text", text,
-	              "xpad", 2,
-	              "ypad", 0,
-	              "weight", PANGO_WEIGHT_BOLD,
-	               NULL);
-	g_free (text);
+		      "xpad", 2,
+		      "ypad", 2,
+		      "yalign", 0.5,
+		      "xalign", 0.5,
+		      NULL);
 }
 
 static void
@@ -3634,7 +3627,7 @@ gtk_source_view_set_show_folds (GtkSourceView *view,
 
 	if (show)
 	{
-		gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, 12, 0);
+		gtk_cell_renderer_set_fixed_size (view->priv->folds_renderer, -1, -1);
 	}
 	else
 	{
