@@ -41,8 +41,13 @@ GList			*_gtk_source_buffer_get_folds_in_region	(GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *end);
 GtkSourceFold		*_gtk_source_buffer_get_fold_at_line	(GtkSourceBuffer        *buffer,
 								 gint                    line);
+void			 _gtk_source_buffer_apply_fold		(GtkSourceBuffer	*buffer,
+								 const GtkTextIter	*start,
+								 const GtkTextIter	*end);
+void			 _gtk_source_buffer_remove_fold		(GtkSourceBuffer	*buffer,
+								 const GtkTextIter	*start,
+								 const GtkTextIter	*end);
 
-/* fold methods. */
 gboolean		 _gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
 void			 _gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
 								 gboolean                folds_enabled);

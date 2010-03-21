@@ -128,7 +128,7 @@ gtk_source_fold_get_folded (GtkSourceFold *fold)
 }
 
 static void
-reapply_invisibleline_tag (GtkTextBuffer *buffer,
+reapply_fold (GtkTextBuffer *buffer,
 			   GList         *folds)
 {
 	GtkSourceFold *fold;
@@ -145,12 +145,12 @@ reapply_invisibleline_tag (GtkTextBuffer *buffer,
 			gtk_text_iter_forward_to_line_end (&begin);
 			gtk_text_buffer_get_iter_at_mark (buffer, &end,
 							  fold->end_line);
-			gtk_text_buffer_apply_tag_by_name (buffer, INVISIBLE_LINE,
-							   &begin, &end);
+			_gtk_source_buffer_apply_fold (GTK_SOURCE_BUFFER (buffer),
+						      &begin, &end);
 		}
 		else if (fold->children != NULL)
 		{
-			reapply_invisibleline_tag (buffer, fold->children);
+			reapply_fold (buffer, fold->children);
 		}
 
 		folds = g_list_next (folds);
@@ -174,8 +174,8 @@ collapse_fold (GtkTextBuffer *buffer,
 	if (!gtk_text_iter_starts_line (end))
 		gtk_text_iter_forward_line (end);
 
-	gtk_text_buffer_apply_tag_by_name (buffer, INVISIBLE_LINE,
-					   begin, end);
+	_gtk_source_buffer_apply_fold (GTK_SOURCE_BUFFER (buffer),
+				      begin, end);
 
 	gtk_text_buffer_get_iter_at_mark (buffer, &insert,
 					  gtk_text_buffer_get_insert (buffer));
@@ -207,12 +207,12 @@ expand_fold (GtkTextBuffer *buffer,
 	if (!gtk_text_iter_starts_line (end))
 		gtk_text_iter_forward_line (end);
 
-	gtk_text_buffer_remove_tag_by_name (buffer, INVISIBLE_LINE,
-					    begin, end);
+	_gtk_source_buffer_remove_fold (GTK_SOURCE_BUFFER (buffer),
+				      begin, end);
 
-	/* reapply the invisibleline tag to collapsed children. */
+	/* reapply fold to collapsed children. */
 	if (fold->children != NULL)
-		reapply_invisibleline_tag (buffer, fold->children);
+		reapply_fold (buffer, fold->children);
 
 	/* if the fold expansion is animated, the style is gradually
 	 * updated from a timeout handler in the view. If it isn't

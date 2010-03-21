@@ -118,6 +118,7 @@ struct _GtkSourceBufferPrivate
 {
 	gint		       analyze_syntax:1;
 	GList                 *folds;
+	GtkTextTag            *fold_tag;
 	gboolean               folds_enabled : 1;
 
 	gboolean               highlight_syntax : 1;
@@ -520,8 +521,8 @@ gtk_source_buffer_constructor (GType                  type,
 	}
 
 	/* Create invisibility tag for folding lines. */
-	gtk_text_buffer_create_tag (GTK_TEXT_BUFFER (buffer),
-				    INVISIBLE_LINE, "invisible", TRUE, NULL);
+	buffer->priv->fold_tag = gtk_text_buffer_create_tag (GTK_TEXT_BUFFER (object),
+				    NULL, "invisible", TRUE, NULL);
 
 	return object;
 }
@@ -3260,6 +3261,30 @@ _gtk_source_buffer_get_fold_at_line (GtkSourceBuffer *buffer,
 	return find_fold_at_line (GTK_TEXT_BUFFER (buffer),
 				  buffer->priv->folds,
 				  line);
+}
+
+void
+_gtk_source_buffer_apply_fold (GtkSourceBuffer	*buffer,
+			      const GtkTextIter	*start,
+			      const GtkTextIter	*end)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	gtk_text_buffer_apply_tag (GTK_TEXT_BUFFER (buffer),
+				   buffer->priv->fold_tag,
+				   start, end);
+}
+
+void
+_gtk_source_buffer_remove_fold (GtkSourceBuffer	*buffer,
+			      const GtkTextIter	*start,
+			      const GtkTextIter	*end)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	gtk_text_buffer_remove_tag (GTK_TEXT_BUFFER (buffer),
+				    buffer->priv->fold_tag,
+				    start, end);
 }
 
 static GtkSourceFold *
