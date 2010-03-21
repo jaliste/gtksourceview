@@ -20,7 +20,7 @@ struct _GtkSourceFoldCellRendererPrivate
 	guint			depth;
 };
 
-G_DEFINE_TYPE (GtkSourceFoldCellRenderer, gtk_source_fold_cell_renderer, GTK_TYPE_SOURCE_FOLD_CELL_RENDERER)
+G_DEFINE_TYPE (GtkSourceFoldCellRenderer, gtk_source_fold_cell_renderer, GTK_TYPE_CELL_RENDERER)
 
 /* Prototypes. */
 static void     gtk_source_fold_cell_renderer_get_property  (GObject                    *object,
