@@ -65,6 +65,7 @@ struct _GtkSourceBuffer
 {
 	GtkTextBuffer parent_instance;
 
+	/*< private >*/
 	GtkSourceBufferPrivate *priv;
 };
 
