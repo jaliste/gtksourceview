@@ -149,8 +149,8 @@ static GtkToggleActionEntry toggle_entries[] = {
 	{ "ShowMarks", NULL, "Show Line _Marks", NULL,
 	  "Toggle visibility of marks in the left margin",
 	  G_CALLBACK (marks_toggled_cb), FALSE },
-	{ "FoldsEnabled", NULL, "Folds Enabled", NULL,
-	  "Folds enabled",
+	{ "ShowFolds", NULL, "Show Folds", NULL,
+	  "Toggle visibility of folds in the left margin",
 	  G_CALLBACK (folds_toggled_cb), FALSE },
 	{ "ShowMargin", NULL, "Show Right M_argin", NULL,
 	  "Toggle visibility of right margin indicator",
@@ -215,7 +215,7 @@ static const gchar *view_ui_description =
 "      <menuitem action=\"HlBracket\"/>"
 "      <menuitem action=\"ShowNumbers\"/>"
 "      <menuitem action=\"ShowMarks\"/>"
-"      <menuitem action=\"FoldsEnabled\"/>"
+"      <menuitem action=\"ShowFolds\"/>"
 "      <menuitem action=\"ShowMargin\"/>"
 "      <menuitem action=\"HlLine\"/>"
 "      <menuitem action=\"DrawSpaces\"/>"
@@ -1529,13 +1529,13 @@ create_main_window (GtkSourceBuffer *buffer)
 	action = gtk_action_group_get_action (action_group, "HlBracket");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
 
-	action = gtk_action_group_get_action (action_group, "FoldsEnabled");
-	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), FALSE);
-
 	action = gtk_action_group_get_action (action_group, "ShowNumbers");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
 
 	action = gtk_action_group_get_action (action_group, "ShowMarks");
+	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
+
+	action = gtk_action_group_get_action (action_group, "ShowFolds");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
 
 	action = gtk_action_group_get_action (action_group, "ShowMargin");
