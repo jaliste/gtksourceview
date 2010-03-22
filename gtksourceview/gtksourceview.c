@@ -1387,6 +1387,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	gint start_line;
 	gint end_line;
 	guint depth;
+	GtkCellRendererMode mode;
 
 	if (view->priv->source_buffer == NULL)
 	{
@@ -1397,6 +1398,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
 	fold_mark = GTK_SOURCE_FOLD_MARK_NONE;
 	depth = 0;
+	mode = GTK_CELL_RENDERER_MODE_INERT;
 
 	while (folds != NULL)
 	{
@@ -1415,6 +1417,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 			{
 				fold_mark =  GTK_SOURCE_FOLD_MARK_START;
 			}
+			mode = GTK_CELL_RENDERER_MODE_ACTIVATABLE;
 			break;
 
 		}
@@ -1442,7 +1445,7 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 		      "xpad", 2,
 		      "xalign", 0.5,
 		      "yalign", 0.5,
-	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
+	              "mode", mode,
 	              NULL);
 }
 
