@@ -175,6 +175,7 @@ gtk_source_fold_cell_renderer_new (void)
 	return g_object_new (GTK_TYPE_SOURCE_FOLD_CELL_RENDERER, NULL);
 }
 
+/* This function's contents was taken from gtk+/gtkcellrenderertext.c */
 static gint
 get_line_height (GtkWidget	*widget)
 {
@@ -273,6 +274,8 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 	 *       would make the fold line have gaps and the
 	 *       fold mark would not be aligned with the text.
 	 */
+
+	line_height = get_line_height (widget);
 
 	gtk_source_fold_cell_renderer_get_size (cell, widget, cell_area,
 						&x_offset, &y_offset,
