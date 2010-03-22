@@ -292,19 +292,19 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 	switch (cell_fold->priv->fold_mark)
 	{
 		case GTK_SOURCE_FOLD_MARK_INTERIOR:
-			cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
+			cairo_move_to (cr, c_x + 0.5, cell_area->y);
 			cairo_rel_line_to (cr, 0, cell_area->height);
 			cairo_stroke (cr);
 			break;
 
 		case GTK_SOURCE_FOLD_MARK_STOP:
-			cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
-			cairo_rel_line_to (cr, 0, cell_area->height / 2);
-			cairo_rel_line_to (cr, cell_area->width / 2, 0);
+			cairo_move_to (cr, c_x + 0.5, cell_area->y);
+			cairo_rel_line_to (cr, 0, cell_area->height / 2.0);
+			cairo_rel_line_to (cr, (cell_area->width / 2.0), 0);
 
 			if (cell_fold->priv->depth > 0)
 			{
-				cairo_move_to (cr, c_x + 0.5, c_y + 0.5);
+				cairo_move_to (cr, c_x + 0.5, c_y);
 				cairo_line_to (cr, c_x + 0.5, cell_area->y + cell_area->height);
 
 			}
@@ -318,7 +318,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 		case GTK_SOURCE_FOLD_MARK_START:
 			if (cell_fold->priv->depth > 0)
 			{
-				cairo_move_to (cr, c_x + 0.5, cell_area->y + 0.5);
+				cairo_move_to (cr, c_x + 0.5, cell_area->y);
 				cairo_line_to (cr, c_x + 0.5, c_y + 0.5 - l);
 
 				cairo_move_to (cr, c_x + 0.5, c_y + l + 0.5);
