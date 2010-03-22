@@ -175,6 +175,24 @@ gtk_source_fold_cell_renderer_new (void)
 	return g_object_new (GTK_TYPE_SOURCE_FOLD_CELL_RENDERER, NULL);
 }
 
+static gint
+get_line_height (GtkWidget	*widget)
+{
+	PangoContext     *context;
+	PangoFontMetrics *metrics;
+	gint              line_height;
+
+	context = gtk_widget_get_pango_context (widget);
+	metrics = pango_context_get_metrics (context,
+					     gtk_widget_get_style (widget)->font_desc,
+					     pango_context_get_language (context));
+	line_height = PANGO_PIXELS (pango_font_metrics_get_ascent (metrics) +
+				    pango_font_metrics_get_descent (metrics));
+	pango_font_metrics_unref (metrics);
+
+	return line_height;
+}
+
 static void
 gtk_source_fold_cell_renderer_get_size (GtkCellRenderer *cell,
                                         GtkWidget       *widget,
@@ -235,6 +253,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 	gint                       width, height;
 	gint                       x_offset, y_offset;
 	gint                       xpad;
+	gint                       line_height;
 
 	gint c_x, c_y, l, a;
 	cairo_t *cr;
@@ -281,8 +300,8 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 
 		case GTK_SOURCE_FOLD_MARK_STOP:
 			cairo_move_to (cr, c_x + 0.5, cell_area->y);
-			cairo_rel_line_to (cr, 0, cell_area->height / 2.0);
-			cairo_rel_line_to (cr, (cell_area->width / 2.0), 0);
+			cairo_rel_line_to (cr, 0, cell_area->height - line_height / 2.0);
+			cairo_rel_line_to (cr, cell_area->width / 2.0, 0);
 
 			if (cell_fold->priv->depth > 0)
 			{
