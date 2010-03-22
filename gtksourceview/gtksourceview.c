@@ -1355,7 +1355,6 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	              "depth", depth,
 		      "xpad", 2,
 		      "xalign", 0.5,
-		      "yalign", 0.5,
 	              "mode", mode,
 	              NULL);
 }
@@ -1435,7 +1434,6 @@ folds_renderer_size_func (GtkSourceGutter *gutter,
 	g_object_set (G_OBJECT (renderer),
 		      "xpad", 2,
 		      "xalign", 0.5,
-		      "yalign", 0.5,
 		      NULL);
 }
 
