@@ -56,19 +56,6 @@ static void     gtk_source_fold_cell_renderer_render     (GtkCellRenderer       
                                                           GdkRectangle               *expose_area,
                                                           guint                       flags);
 
-/***************************************************************************
- *
- *  gtk_source_fold_cell_renderer_class_init:
- *
- *  set up our own get_property and set_property functions, and
- *  override the parent's functions that we need to implement.
- *  And make our new "percentage" property known to the type system.
- *  If you want cells that can be activated on their own (ie. not
- *  just the whole row selected) or cells that are editable, you
- *  will need to override 'activate' and 'start_editing' as well.
- *
- ***************************************************************************/
-
 static void
 gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
 {
@@ -85,14 +72,22 @@ gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
 	cell_class->get_size = gtk_source_fold_cell_renderer_get_size;
 	cell_class->render   = gtk_source_fold_cell_renderer_render;
 
+	/* Prevent setting the ypad, causes unwanted look.
+	 * Although this still allows the use of gtk_cell_renderer_get_padding
+	 * and gtk_cell_renderer_set_padding, but in this case the ypad is ignored.
+	 */
+	g_object_class_override_property (object_class,
+					  -1,
+					  "ypad");
+
 	g_object_class_install_property (object_class,
 					 PROP_FOLD_MARK,
 					 g_param_spec_enum ("fold_mark",
-							    _("Fold mark"),
-							    _("The fold mark to draw"),
-							    GTK_TYPE_SOURCE_FOLD_MARK_TYPE,
-							    GTK_SOURCE_FOLD_MARK_NONE,
-							    G_PARAM_READWRITE));
+					 		    _("Fold mark"),
+					 		    _("The fold mark to draw"),
+					 		    GTK_TYPE_SOURCE_FOLD_MARK_TYPE,
+					 		    GTK_SOURCE_FOLD_MARK_NONE,
+					 		    G_PARAM_READWRITE));
 
 	g_object_class_install_property (object_class,
 					 PROP_DEPTH,
@@ -163,10 +158,9 @@ gtk_source_fold_cell_renderer_init (GtkSourceFoldCellRenderer *cell)
 	cell->priv = G_TYPE_INSTANCE_GET_PRIVATE (cell, GTK_TYPE_SOURCE_FOLD_CELL_RENDERER,
 						  GtkSourceFoldCellRendererPrivate);
 	g_object_set (G_OBJECT (cell),
-		"mode",	GTK_CELL_RENDERER_MODE_INERT,
-		"xpad",	2,
-		"ypad",	2,
-		NULL);
+		      "xpad", 2,
+		      NULL);
+
 }
 
 static void
@@ -191,21 +185,23 @@ gtk_source_fold_cell_renderer_get_size (GtkCellRenderer *cell,
                                         gint            *height)
 {
 	guint xpad;
-	guint ypad;
 	gfloat xalign;
 	gfloat yalign;
 	gint calc_width;
 	gint calc_height;
 
+	/* Note: we ignore the ypad because it would
+	 *       disturb the look of a fold line.
+	 */
+
 	g_object_get (G_OBJECT (cell),
 		"xpad", &xpad,
-		"ypad", &ypad,
 		"xalign", &xalign,
 		"yalign", &yalign,
 		NULL);
 
 	calc_width  = (gint) xpad * 2 + FIXED_WIDTH;
-	calc_height = (gint) ypad * 2 + FIXED_HEIGHT;
+	calc_height = (gint) FIXED_HEIGHT;
 
 	if (width)
 		*width = calc_width;
@@ -227,6 +223,14 @@ gtk_source_fold_cell_renderer_get_size (GtkCellRenderer *cell,
 			*y_offset = MAX (*y_offset, 0);
 		}
 	}
+	else
+	{
+		if (x_offset)
+			*x_offset = 0;
+
+		if (y_offset)
+			*y_offset = 0;
+	}
 }
 
 static void
@@ -243,7 +247,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 	GtkStateType               state;
 	gint                       width, height;
 	gint                       x_offset, y_offset;
-
+	gint                       xpad;
 
 	GdkRectangle visible_rect;
 	GdkRectangle line_rect;
@@ -263,9 +267,23 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer *cell,
 	cr = gdk_cairo_create (window);
 	gdk_cairo_set_source_color (cr, &style->fg[state]);
 	cairo_set_line_width (cr, 1);
-	//gtk_source_fold_cell_renderer_get_size (cell, widget, cell_area,
-	//                                  &x_offset, &y_offset,
-	//                                  &width, &height);
+
+	/* Note: we ignore the ypad because it would
+	 *       disturb the look of a fold line.
+	 */
+
+	gtk_source_fold_cell_renderer_get_size (cell, widget, cell_area,
+						&x_offset, &y_offset,
+						&width, &height);
+
+        g_object_get (G_OBJECT (cell),
+        	"xpad", &xpad,
+        	NULL);
+
+	cell_area->x += x_offset + xpad;
+	cell_area->y += y_offset;
+	cell_area->width -= xpad * 2;
+
 	c_x = cell_area->x + cell_area->width / 2;
 	c_y = cell_area->y + cell_area->height / 2;
 	l   = 5;

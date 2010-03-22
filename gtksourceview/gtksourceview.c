@@ -1439,10 +1439,9 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	g_object_set (G_OBJECT (renderer),
 	              "fold_mark", fold_mark,
 	              "depth", depth,
-	              "xpad", 2,
-	              "ypad", 2,
-	              "yalign", 0.5,
-	              "xalign", 0.5,
+		      "xpad", 2,
+		      "xalign", 0.5,
+		      "yalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
 }
@@ -1521,9 +1520,8 @@ folds_renderer_size_func (GtkSourceGutter *gutter,
 {
 	g_object_set (G_OBJECT (renderer),
 		      "xpad", 2,
-		      "ypad", 2,
-		      "yalign", 0.5,
 		      "xalign", 0.5,
+		      "yalign", 0.5,
 		      NULL);
 }
 
@@ -1836,6 +1834,7 @@ init_left_gutter (GtkSourceView *view)
 	gtk_source_gutter_insert (gutter, 
 	                          view->priv->folds_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS);
+
 
 	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
 	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);

@@ -957,8 +957,7 @@ on_view_expose_event (GtkSourceView   *view,
 		
 		/* Get iter at first y */
 		gtk_text_view_get_line_at_y (text_view, &iter, y1, NULL);
-
-        /* Get iter at last y */
+		/* Get iter at last y */
 		gtk_text_view_get_line_at_y (text_view, &iter2, y2, NULL);
 		/* forward to line end so we match all folds on the line. */
 		gtk_text_iter_forward_to_line_end (&iter2);
