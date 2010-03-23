@@ -50,13 +50,17 @@ GType			 gtk_source_fold_cell_renderer_get_type (void);
 
 GtkCellRenderer		*gtk_source_fold_cell_renderer_new (void);
 
-void			 gtk_source_fold_cell_renderer_set_fold_mark (GtkSourceFoldCellRenderer *cell,
-								      GtkSourceFoldMarkType fold_mark);
+void			 gtk_source_fold_cell_renderer_set_fold_mark	(GtkSourceFoldCellRenderer *cell,
+									 GtkSourceFoldMarkType fold_mark);
 GtkSourceFoldMarkType
-			 gtk_source_fold_cell_renderer_get_fold_mark (GtkSourceFoldCellRenderer *cell);
+			 gtk_source_fold_cell_renderer_get_fold_mark	(GtkSourceFoldCellRenderer *cell);
 
-void			 gtk_source_fold_cell_renderer_set_depth (GtkSourceFoldCellRenderer *cell,
-								  guint depth);
-guint			 gtk_source_fold_cell_renderer_get_depth (GtkSourceFoldCellRenderer *cell);
+void			 gtk_source_fold_cell_renderer_set_depth	(GtkSourceFoldCellRenderer *cell,
+									 guint depth);
+guint			 gtk_source_fold_cell_renderer_get_depth	(GtkSourceFoldCellRenderer *cell);
+
+void			 gtk_source_fold_cell_renderer_set_percent_fill	(GtkSourceFoldCellRenderer *cell,
+									 gfloat percent_fill);
+gfloat			 gtk_source_fold_cell_renderer_get_percent_fill	(GtkSourceFoldCellRenderer *cell);
 
 #endif /* __GTK_SOURCE_FOLD_CELL_RENDERER_H__ */
