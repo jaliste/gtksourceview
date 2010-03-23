@@ -1440,12 +1440,11 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	}
 
 	g_object_set (G_OBJECT (renderer),
-	              "fold_mark", fold_mark,
-	              "depth", depth,
+		      "fold-mark", fold_mark,
+		      "depth", depth,
 		      "xpad", 2,
-		      "xalign", 0.5,
-	              "mode", mode,
-	              NULL);
+		      "mode", mode,
+		      NULL);
 }
 
 static void
@@ -1522,7 +1521,6 @@ folds_renderer_size_func (GtkSourceGutter *gutter,
 {
 	g_object_set (G_OBJECT (renderer),
 		      "xpad", 2,
-		      "xalign", 0.5,
 		      NULL);
 }
 
