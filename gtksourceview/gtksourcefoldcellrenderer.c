@@ -96,7 +96,7 @@ gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
 					 g_param_spec_float ("percent-fill",
 					 		     _("Percent fill"),
 					 		     _("The percent to fill for the fold mark"),
-					 		     0.0, 1.0, 0.75,
+					 		     0.0, 1.0, 0.60,
 					 		     G_PARAM_READWRITE));
 
 	/* Override the unimplemented properties */
@@ -190,7 +190,7 @@ gtk_source_fold_cell_renderer_init (GtkSourceFoldCellRenderer *cell)
 						  GtkSourceFoldCellRendererPrivate);
 	g_object_set (G_OBJECT (cell),
 		      "xpad", 2,
-		      "percent-fill", 0.75,
+		      "percent-fill", 0.60,
 		      NULL);
 
 }
@@ -209,21 +209,35 @@ gtk_source_fold_cell_renderer_new (void)
 
 /* This function's contents were taken from gtk+/gtkcellrenderertext.c */
 static gint
-get_line_height (GtkWidget	*widget)
+get_text_height (GtkWidget	*widget)
 {
 	PangoContext     *context;
 	PangoFontMetrics *metrics;
-	gint              line_height;
+	gint              text_height;
 
 	context = gtk_widget_get_pango_context (widget);
 	metrics = pango_context_get_metrics (context,
 					     gtk_widget_get_style (widget)->font_desc,
 					     pango_context_get_language (context));
-	line_height = PANGO_PIXELS (pango_font_metrics_get_ascent (metrics) +
+	text_height = PANGO_PIXELS (pango_font_metrics_get_ascent (metrics) +
 				    pango_font_metrics_get_descent (metrics));
 	pango_font_metrics_unref (metrics);
 
-	return line_height;
+	return text_height;
+}
+
+static gboolean
+pointer_within (GdkWindow	*window,
+		gint		 x,
+		gint		 y,
+		gint		 width,
+		gint		 height)
+{
+	GdkPoint p;
+	gdk_window_get_pointer (window, &p.x, &p.y, NULL);
+
+	return p.x >  x && p.x < x + width &&
+	       p.y >= y && p.y < y + height;
 }
 
 static void
@@ -245,7 +259,7 @@ gtk_source_fold_cell_renderer_get_size (GtkCellRenderer *cell,
 		"percent-fill", &percent_fill,
 		NULL);
 
-	calc_height = get_line_height (widget);
+	calc_height = get_text_height (widget);
 	calc_width  = (gint) xpad * 2 + calc_height * percent_fill;
 
 	if (width)
@@ -274,7 +288,8 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 	GtkStyle                  *style;
 	gint                       xpad;
 	gfloat                     percent_fill;
-	gint                       line_height;
+	gint                       text_height;
+	gdouble                    m; /* draw in the middle of the line */
 	cairo_t                   *cr;
 
 	struct {
@@ -297,11 +312,12 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 
 	style = gtk_widget_get_style (widget);
 
+	text_height = get_text_height (widget);
+	m = 1.0 / 2.0;
+
 	cr = gdk_cairo_create (window);
 	gdk_cairo_set_source_color (cr, &style->fg[state]);
-	cairo_set_line_width (cr, 1);
-
-	line_height = get_line_height (widget);
+	cairo_set_line_width (cr, 1.0);
 
         g_object_get (G_OBJECT (cell),
         	"xpad", &xpad,
@@ -317,49 +333,49 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 
 	mark = line;
 
-	mark.height  = line_height * percent_fill;
-	mark.y       = cell_area->y + mark.height * ((1 - percent_fill) / 2);
+	mark.height  = text_height * percent_fill;
+	mark.y       = cell_area->y + (text_height - mark.height) / 2;
 	mark.mid.y   = mark.y + mark.height / 2.0;
 	mark.spacing = mark.width / 5;
 
 	switch (cell_fold->priv->fold_mark)
 	{
 		case GTK_SOURCE_FOLD_MARK_INTERIOR:
-			cairo_move_to (cr, line.mid.x + 0.5, line.y);
+			cairo_move_to (cr, line.mid.x + m, line.y);
 			cairo_rel_line_to (cr, 0, line.height);
 			cairo_stroke (cr);
 			break;
 
 		case GTK_SOURCE_FOLD_MARK_STOP:
-			cairo_move_to (cr, line.mid.x + 0.5, line.y);
-			cairo_rel_line_to (cr, 0, line.height - line_height / 2.0);
+			cairo_move_to (cr, line.mid.x + m, line.y);
+			cairo_rel_line_to (cr, 0, line.height - text_height / 2.0 + m);
 			cairo_rel_line_to (cr, line.width / 2.0, 0);
 
 			if (cell_fold->priv->depth > 0)
 			{
 				cairo_rel_move_to (cr, -(line.width / 2.0), 0);
-				cairo_line_to (cr, line.mid.x + 0.5, line.y + line.height);
+				cairo_line_to (cr, line.mid.x + m, line.y + line.height);
 			}
 			cairo_stroke (cr);
 			break;
 
 		case GTK_SOURCE_FOLD_MARK_START_FOLDED:
-			cairo_move_to (cr, mark.mid.x + 0.5, mark.y + mark.spacing);
+			cairo_move_to (cr, mark.mid.x + m, mark.y + mark.spacing);
 			cairo_rel_line_to (cr, 0, mark.width - mark.spacing * 2);
 
 		case GTK_SOURCE_FOLD_MARK_START:
-			cairo_rectangle (cr, mark.x + 0.5, mark.y + 0.5,
+			cairo_rectangle (cr, mark.x + m, mark.y + m,
 					 mark.width, mark.height);
 
-			cairo_move_to (cr, mark.x + mark.spacing + 0.5, mark.mid.y + 0.5);
+			cairo_move_to (cr, mark.x + mark.spacing + m, mark.mid.y + m);
 			cairo_rel_line_to (cr, mark.width - mark.spacing * 2.0, 0);
 
-			if (state == GTK_STATE_PRELIGHT)
+			if (pointer_within (window, mark.x, mark.y, mark.width, mark.height))
 			{
 				cairo_t *cr = gdk_cairo_create (window);
 				gdk_cairo_set_source_color (cr, &style->light[state]);
 
-				cairo_rectangle (cr, mark.x + 0.5, mark.y + 0.5,
+				cairo_rectangle (cr, mark.x + m, mark.y + m,
 						 mark.width, mark.height);
 
 				cairo_fill (cr);
@@ -369,16 +385,16 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 			if (cell_fold->priv->depth == 0 &&
 			    cell_fold->priv->fold_mark == GTK_SOURCE_FOLD_MARK_START)
 			{
-				cairo_move_to (cr, line.mid.x + 0.5, mark.y + mark.height + line_height / 2.0 + 0.5);
-				cairo_line_to (cr, line.mid.x + 0.5, line.y + line.height);
+				cairo_move_to (cr, line.mid.x + m, mark.y + mark.height + text_height / 2.0 + m);
+				cairo_line_to (cr, line.mid.x + m, line.y + line.height);
 			}
 			else if (cell_fold->priv->depth > 0)
 			{
-				cairo_move_to (cr, line.mid.x + 0.5, line.y);
-				cairo_line_to (cr, line.mid.x + 0.5, mark.y + 0.5);
+				cairo_move_to (cr, line.mid.x + m, line.y);
+				cairo_line_to (cr, line.mid.x + m, mark.y + m);
 
-				cairo_move_to (cr, line.mid.x + 0.5, mark.y + mark.height + 0.5);
-				cairo_line_to (cr, line.mid.x + 0.5, line.y + line.height);
+				cairo_move_to (cr, line.mid.x + m, mark.y + mark.height + m);
+				cairo_line_to (cr, line.mid.x + m, line.y + line.height);
 			}
 			cairo_stroke (cr);
 			break;
@@ -490,7 +506,7 @@ gtk_source_fold_cell_renderer_set_percent_fill (GtkSourceFoldCellRenderer *cell,
 gfloat
 gtk_source_fold_cell_renderer_get_percent_fill (GtkSourceFoldCellRenderer *cell)
 {
-	g_return_val_if_fail (GTK_IS_SOURCE_FOLD_CELL_RENDERER (cell), 0.75);
+	g_return_val_if_fail (GTK_IS_SOURCE_FOLD_CELL_RENDERER (cell), 0.60);
 
 	return cell->priv->percent_fill;
 }

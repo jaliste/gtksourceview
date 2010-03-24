@@ -46,9 +46,9 @@ struct _GtkSourceFoldCellRendererClass
 };
 
 
-GType			 gtk_source_fold_cell_renderer_get_type (void);
+GType			 gtk_source_fold_cell_renderer_get_type		(void);
 
-GtkCellRenderer		*gtk_source_fold_cell_renderer_new (void);
+GtkCellRenderer		*gtk_source_fold_cell_renderer_new		(void);
 
 void			 gtk_source_fold_cell_renderer_set_fold_mark	(GtkSourceFoldCellRenderer *cell,
 									 GtkSourceFoldMarkType fold_mark);
