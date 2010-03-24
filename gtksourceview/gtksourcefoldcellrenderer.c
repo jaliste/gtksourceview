@@ -348,12 +348,12 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 
 		case GTK_SOURCE_FOLD_MARK_STOP:
 			cairo_move_to (cr, line.mid.x + m, line.y);
-			cairo_rel_line_to (cr, 0, line.height - text_height / 2.0 + m);
-			cairo_rel_line_to (cr, line.width / 2.0, 0);
+			cairo_rel_line_to (cr, 0, line.height - text_height / 2 + m);
+			cairo_rel_line_to (cr, line.width / 2 + m, 0);
 
 			if (cell_fold->priv->depth > 0)
 			{
-				cairo_rel_move_to (cr, -(line.width / 2.0), 0);
+				cairo_rel_move_to (cr, -(line.width / 2) - m, 0);
 				cairo_line_to (cr, line.mid.x + m, line.y + line.height);
 			}
 			cairo_stroke (cr);
@@ -368,7 +368,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 					 mark.width, mark.height);
 
 			cairo_move_to (cr, mark.x + mark.spacing + m, mark.mid.y + m);
-			cairo_rel_line_to (cr, mark.width - mark.spacing * 2.0, 0);
+			cairo_rel_line_to (cr, mark.width - mark.spacing * 2, 0);
 
 			if (pointer_within (window, mark.x, mark.y, mark.width, mark.height))
 			{
@@ -388,7 +388,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 				gfloat start_y;
 				gint end_y;
 
-				start_y = mark.y + mark.height + text_height / 2.0 + m;
+				start_y = mark.y + mark.height + text_height / 2 + m;
 				end_y   = line.y + line.height;
 
 				/* Avoid drawing past the end */
@@ -397,7 +397,6 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 					cairo_move_to (cr, line.mid.x + m, start_y);
 					cairo_line_to (cr, line.mid.x + m, end_y);
 				}
-
 			}
 			else if (cell_fold->priv->depth > 0)
 			{
