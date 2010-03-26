@@ -32,9 +32,6 @@ _gtk_source_fold_new (GtkSourceBuffer   *buffer,
 	fold->parent = NULL;
 	fold->children = NULL;
 	fold->folded = FALSE;
-	fold->prelighted = FALSE;
-	fold->animated = FALSE;
-	fold->expander_style = GTK_EXPANDER_EXPANDED;
 
 	fold->start_line = gtk_text_buffer_create_mark (GTK_TEXT_BUFFER (buffer),
 							NULL, begin, FALSE);
@@ -188,13 +185,6 @@ collapse_fold (GtkTextBuffer *buffer,
 
 		gtk_text_buffer_place_cursor (buffer, &insert);
 	}
-
-	/* if the fold collapse is animated, the style is gradually
-	 * updated from a timeout handler in the view. If it isn't
-	 * animated we need to set the style here. This needed when
-	 * the user collapses the fold using the API instead of the GUI. */
-	if (!fold->animated)
-		fold->expander_style = GTK_EXPANDER_COLLAPSED;
 }
 
 static void
@@ -213,13 +203,6 @@ expand_fold (GtkTextBuffer *buffer,
 	/* reapply fold to collapsed children. */
 	if (fold->children != NULL)
 		reapply_fold (buffer, fold->children);
-
-	/* if the fold expansion is animated, the style is gradually
-	 * updated from a timeout handler in the view. If it isn't
-	 * animated we need to set the style here. This needed when
-	 * the user expands the fold using the API instead of the GUI. */
-	if (!fold->animated)
-		fold->expander_style = GTK_EXPANDER_EXPANDED;
 }
 
 /**

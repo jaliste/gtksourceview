@@ -92,9 +92,6 @@
 #define RIGHT_MARING_LINE_ALPHA		40
 #define RIGHT_MARING_OVERLAY_ALPHA	15
 
-#define DEFAULT_EXPANDER_SIZE		12
-#define EXPANDER_EXTRA_PADDING		4
-
 /* Signals */
 enum {
 	UNDO,
@@ -140,7 +137,6 @@ struct _GtkSourceViewPrivate
 	gboolean	 tabs_set;
 	gint		 indent_width;
 	gboolean 	 show_line_numbers;
-	gint		 line_numbers_width;
 	gboolean	 show_line_marks;
 	gboolean	 auto_indent;
 	gboolean	 insert_spaces;
@@ -175,16 +171,10 @@ struct _GtkSourceViewPrivate
 
 	GtkSourceCompletion	*completion;
 
-	gboolean         current_line_color_set : 1;
-	gboolean         destroy_has_run : 1;
+	guint            current_line_color_set : 1;
+	guint            destroy_has_run : 1;
 
-	gint		 old_lines;
 
-	gint		 expander_size;
-	gint		 prelight_fold_line;
-	gboolean	 fold_button_down;
-	guint		 animation_timeout;
-	gint		 animate_fold_line;
 	GHashTable	*fold_labels;
 	GList		*last_folds;
 };
@@ -271,8 +261,6 @@ static void	gtk_source_view_move_lines		(GtkSourceView     *view,
 							 gint               step);
 static gboolean	gtk_source_view_key_press_event		(GtkWidget         *widget,
 							 GdkEventKey       *event);
-static gboolean gtk_source_view_motion_notify		(GtkWidget          *widget,
-							 GdkEventMotion     *event);
 static void 	view_dnd_drop 				(GtkTextView       *view,
 							 GdkDragContext    *context,
 							 gint               x,
@@ -342,7 +330,6 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 	object_class->set_property = gtk_source_view_set_property;
 
 	widget_class->key_press_event = gtk_source_view_key_press_event;
-	widget_class->motion_notify_event = gtk_source_view_motion_notify;
 	widget_class->expose_event = gtk_source_view_expose;
 	widget_class->style_set = gtk_source_view_style_set;
 	widget_class->realize = gtk_source_view_realize;
@@ -529,14 +516,6 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 							    GTK_TYPE_SOURCE_DRAW_SPACES_FLAGS,
 							    0,
 							    G_PARAM_READWRITE));
-	gtk_widget_class_install_style_property (widget_class,
-						 g_param_spec_int ("expander-size",
-								   _("Expander Size"),
-								   _("Size of the expander arrow"),
-								   0,
-								   G_MAXINT,
-								   DEFAULT_EXPANDER_SIZE,
-								   G_PARAM_READABLE));
 
 	signals [UNDO] =
 		g_signal_new ("undo",
@@ -930,7 +909,7 @@ notify_buffer (GtkSourceView *view)
 	/* we use view->buffer directly instead of get_buffer()
 	 * since the latter causes the buffer to be recreated and that
 	 * is not a good idea when finalizing */
-	set_source_buffer (view, gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
+	set_source_buffer (view, GTK_TEXT_VIEW (view)->buffer);
 }
 
 static gint
@@ -1811,10 +1790,7 @@ gtk_source_view_init (GtkSourceView *view)
 	view->priv->smart_home_end = GTK_SOURCE_SMART_HOME_END_DISABLED;
 	view->priv->right_margin_pos = DEFAULT_RIGHT_MARGIN_POSITION;
 	view->priv->cached_right_margin_pos = -1;
-	view->priv->line_numbers_width = 0;
 
-	view->priv->prelight_fold_line = -1;
-	view->priv->fold_button_down = FALSE;
 	view->priv->fold_labels = g_hash_table_new (g_direct_hash, g_direct_equal);
 	gtk_text_view_set_left_margin (GTK_TEXT_VIEW (view), 2);
 	gtk_text_view_set_right_margin (GTK_TEXT_VIEW (view), 2);
@@ -2381,7 +2357,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 			   GArray       *numbers,
 			   gint         *countp)
 {
-	GtkTextIter iter, iter2; // UNUSED: start_fold;
+	GtkTextIter iter, iter2;
 	gint count;
 	gint size;
 	gint last_line_num = -1;
@@ -2450,35 +2426,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 	*countp = count;
 }
-/*--
 
-	if (gtk_text_iter_is_end (&iter))
-	{
-		gint y, height;
-		gint line_num;
-
-		gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
-
-		line_num = gtk_text_iter_get_line (&iter);
-
-		/ Only add the line number if we started at the last line or
-		 * if we didn't add the line number already in the previous
-		 * while loop (line_num != last_line_num).
-
-		if (count == 0 || line_num != last_line_num)
-		{
-			g_array_append_val (buffer_coords, y);
-			g_array_append_val (numbers, line_num);
-			++count;
-		}
-	}
-
-	if (l != NULL)
-		g_list_free (l);
-
-	*countp = count;
-}
-//>>*/
 static void
 gtk_source_view_paint_line_background (GtkTextView    *text_view,
 				       GdkEventExpose *event,
@@ -4651,176 +4599,6 @@ gtk_source_view_key_press_event (GtkWidget   *widget,
 	return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->key_press_event (widget, event);
 }
 
-static gboolean
-gtk_source_view_motion_notify (GtkWidget *widget, GdkEventMotion *event)
-{
-	GtkSourceView *view;
-	int x, y, y_buf;
-	GtkTextIter line_start;
-	GtkSourceFold *fold;
-
-	view = GTK_SOURCE_VIEW (widget);
-
-	if (gtk_source_view_get_show_folds (view) && event->is_hint &&
-	    event->window == gtk_text_view_get_window (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT))
-	{
-		gboolean redraw = FALSE;
-
-		/* disable prelight on previous fold */
-		if (view->priv->prelight_fold_line != -1)
-		{
-			fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-								    view->priv->prelight_fold_line);
-
-			if (fold != NULL)
-			{
-				fold->prelighted = FALSE;
-				redraw = TRUE;
-			}
-
-			view->priv->prelight_fold_line = -1;
-		}
-
-		/* Calling get_pointer will generate a new motion event the
-		   next time we move the pointer. */
-		gdk_window_get_pointer (event->window, &x, &y, NULL);
-
-		/* If the cursor is not over the fold margin, return. */
-		if (x < view->priv->line_numbers_width)
-		{
-			if (redraw)
-				gtk_widget_queue_draw (widget);
-
-			return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->
-					motion_notify_event (widget, event);
-		}
-
-		gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
-						       GTK_TEXT_WINDOW_LEFT,
-						       x, y, NULL, &y_buf);
-
-		gtk_text_view_get_line_at_y (GTK_TEXT_VIEW (view),
-					     &line_start,
-					     y_buf,
-					     NULL);
-
-		fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-							    gtk_text_iter_get_line (&line_start));
-
-		/* check if the starting fold is on the same line as the cursor */
-		if (fold != NULL)
-		{
-			GtkTextIter fold_start;
-
-			gtk_text_buffer_get_iter_at_mark (GTK_TEXT_BUFFER (view->priv->source_buffer),
-							  &fold_start, fold->start_line);
-
-			if (gtk_text_iter_get_line (&line_start) ==
-			    gtk_text_iter_get_line (&fold_start))
-			{
-				fold->prelighted = TRUE;
-				redraw = TRUE;
-				view->priv->prelight_fold_line = gtk_text_iter_get_line (&line_start);
-			}
-		}
-
-		if (redraw)
-			gtk_widget_queue_draw (widget);
-
-		return TRUE;
-	}
-	else if (gtk_source_view_get_show_folds (view) && event->is_hint &&
-	         view->priv->prelight_fold_line != -1)
-	{
-		fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-							    view->priv->prelight_fold_line);
-
-		/* disable prelight on previous fold */
-		if (fold != NULL)
-		{
-			fold->prelighted = FALSE;
-			gtk_widget_queue_draw (widget);
-		}
-
-		view->priv->prelight_fold_line = -1;
-
-		return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->
-				motion_notify_event (widget, event);
-	}
-	else
-	{
-		return GTK_WIDGET_CLASS (gtk_source_view_parent_class)->
-				motion_notify_event (widget, event);
-	}
-}
-
-static gboolean
-fold_animation_timeout (GtkSourceView *view)
-{
-	gboolean finish = FALSE;
-	GtkSourceFold *fold;
-
-	fold = _gtk_source_buffer_get_fold_at_line (view->priv->source_buffer,
-						    view->priv->animate_fold_line);
-
-	if (fold == NULL)
-	{
-		view->priv->animation_timeout = 0;
-		return FALSE;
-	}
-
-	GDK_THREADS_ENTER ();
-
-	if (fold->folded)
-	{
-		if (fold->expander_style == GTK_EXPANDER_EXPANDED)
-		{
-			fold->expander_style = GTK_EXPANDER_SEMI_COLLAPSED;
-		}
-		else
-		{
-			fold->expander_style = GTK_EXPANDER_COLLAPSED;
-			finish = TRUE;
-		}
-	}
-	else
-	{
-		if (fold->expander_style == GTK_EXPANDER_COLLAPSED)
-		{
-			fold->expander_style = GTK_EXPANDER_SEMI_EXPANDED;
-		}
-		else
-		{
-			fold->expander_style = GTK_EXPANDER_EXPANDED;
-			finish = TRUE;
-		}
-	}
-
-	if (finish)
-	{
-		view->priv->animation_timeout = 0;
-		view->priv->animate_fold_line = -1;
-		fold->animated = FALSE;
-	}
-
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-
-	GDK_THREADS_LEAVE ();
-
-	return !finish;
-}
-
-static void
-start_fold_animation (GtkSourceView *view)
-{
-	if (view->priv->animation_timeout)
-		g_source_remove (view->priv->animation_timeout);
-
-	view->priv->animation_timeout =
-		g_timeout_add (50, (GSourceFunc) fold_animation_timeout, view);
-}
-
 /**
  * gtk_source_view_get_auto_indent:
  * @view: a #GtkSourceView.
@@ -5228,11 +5006,6 @@ gtk_source_view_style_set (GtkWidget *widget, GtkStyle *previous_style)
 
 	view = GTK_SOURCE_VIEW (widget);
 
-	gtk_widget_style_get (widget,
-			      "expander-size", &view->priv->expander_size,
-			      NULL);
-	//view->priv->expander_size += EXPANDER_EXTRA_PADDING;
-
 	if (previous_style)
 	{
 		/* If previous_style is NULL this is the initial
@@ -5502,24 +5275,6 @@ gtk_source_view_get_gutter (GtkSourceView     *view,
 		return view->priv->right_gutter;
 	}
 }
-static void
-expand_folds (GtkSourceBuffer *buffer, GList *folds)
-{
-	GtkSourceFold *fold;
-	GList *children;
-
-	while (folds != NULL)
-	{
-		fold = folds->data;
-		children = fold->children;
-
-		expand_folds (buffer, children);
-
-		gtk_source_fold_set_folded (fold, FALSE);
-
-		folds = g_list_next (folds);
-	}
-}
 
 static gboolean
 move_fold_label (GtkTextView        *view,
@@ -5650,5 +5405,5 @@ _gtk_source_view_update_folds_for	(GtkSourceView        *view,
 			const GtkTextIter      *begin,
 			const GtkTextIter      *end)
 {
-	view->priv->last_folds = _gtk_source_buffer_get_folds_in_region(view->priv->source_buffer, begin, end);
+	view->priv->last_folds = _gtk_source_buffer_get_folds_in_region (view->priv->source_buffer, begin, end);
 }
