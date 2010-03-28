@@ -80,6 +80,8 @@ struct _GtkSourceBufferClass
 			     GtkSourceFold   *fold);
 	void (*fold_remove) (GtkSourceBuffer *buffer,
 			     GtkSourceFold   *fold);
+	void (*fold_toggled) (GtkSourceBuffer *buffer,
+			      GtkSourceFold   *fold);
 
 	void (*bracket_matched) (GtkSourceBuffer           *buffer,
 				 GtkTextIter               *iter,

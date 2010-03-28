@@ -68,8 +68,8 @@
 */
 #undef ENABLE_DEBUG
 #undef ENABLE_PROFILE
-#define ENABLE_DEBUG
-#define ENABLE_PROFILE
+#undef ENABLE_DEBUG
+#undef ENABLE_PROFILE
 
 
 #ifdef ENABLE_DEBUG
@@ -97,6 +97,7 @@ enum {
 	BRACKET_MATCHED,
 	FOLD_ADDED,
 	FOLD_REMOVE,
+	FOLD_TOGGLED,
 	LAST_SIGNAL
 };
 
@@ -426,7 +427,18 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 			  1,
 			  GTK_TYPE_SOURCE_FOLD | G_SIGNAL_TYPE_STATIC_SCOPE);
 
-	g_type_class_add_private (object_class, sizeof(GtkSourceBufferPrivate));
+	buffer_signals[FOLD_TOGGLED] =
+	    g_signal_new ("fold_toggled",
+			  G_OBJECT_CLASS_TYPE (object_class),
+			  G_SIGNAL_RUN_LAST,
+			  G_STRUCT_OFFSET (GtkSourceBufferClass, fold_toggled),
+			  NULL, NULL,
+			  _gtksourceview_marshal_VOID__BOXED,
+			  G_TYPE_NONE,
+			  1,
+			  GTK_TYPE_SOURCE_FOLD | G_SIGNAL_TYPE_STATIC_SCOPE);
+
+	g_type_class_add_private (object_class, sizeof (GtkSourceBufferPrivate));
 }
 
 static void
@@ -1012,6 +1024,9 @@ gtk_source_buffer_real_insert_text (GtkTextBuffer *buffer,
 	if (fold != NULL && fold->folded)
 	{
 		gtk_source_fold_set_folded (fold, FALSE);
+		g_signal_emit (buffer,
+			       buffer_signals[FOLD_TOGGLED],
+			       0, fold);
 		return;
 	}
 
@@ -1118,6 +1133,9 @@ gtk_source_buffer_real_delete_range (GtkTextBuffer *buffer,
 			if (!gtk_text_iter_equal (start, &fold_begin))
 			{
 				gtk_source_fold_set_folded (fold, FALSE);
+				g_signal_emit (buffer,
+					       buffer_signals[FOLD_TOGGLED],
+					       0, fold);
 				return;
 			}
 		}
@@ -1135,6 +1153,9 @@ gtk_source_buffer_real_delete_range (GtkTextBuffer *buffer,
 			if (!gtk_text_iter_equal (end, &fold_end))
 			{
 				gtk_source_fold_set_folded (fold, FALSE);
+				g_signal_emit (buffer,
+					       buffer_signals[FOLD_TOGGLED],
+					       0, fold);
 				return;
 			}
 		}
