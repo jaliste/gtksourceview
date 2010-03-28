@@ -65,6 +65,8 @@ struct _GtkSourceBufferClass
 			     GtkSourceFold   *fold);
 	void (*fold_remove) (GtkSourceBuffer *buffer,
 			     GtkSourceFold   *fold);
+	void (*fold_toggled) (GtkSourceBuffer *buffer,
+			      GtkSourceFold   *fold);
 
 	/* Padding for future expansion */
 	void (*_gtk_source_reserved1) (void);

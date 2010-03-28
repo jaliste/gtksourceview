@@ -1986,8 +1986,27 @@ fold_remove_cb (GtkSourceBuffer *buffer,
 
 		g_hash_table_remove (view->priv->fold_labels, fold);
 
-		/* FIXME: this causes excessive redrawing? */
 		gtk_widget_queue_draw (GTK_WIDGET (view));
+		/*gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
+								      GTK_TEXT_WINDOW_TEXT),
+								      NULL, TRUE);*/
+	}
+}
+
+static void
+fold_toggled_cb (GtkSourceBuffer *buffer,
+		 GtkSourceFold   *fold,
+		 GtkSourceView   *view)
+{
+	GtkSourceFoldLabel *label = g_hash_table_lookup (view->priv->fold_labels, fold);
+
+	if (label != NULL &&
+	    gtk_widget_get_visible (GTK_WIDGET (label)) != fold->folded)
+	{
+		gtk_widget_set_visible (GTK_WIDGET (label), fold->folded);
+		gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
+								      GTK_TEXT_WINDOW_TEXT),
+								      NULL, TRUE);
 	}
 }
 
@@ -2041,6 +2060,10 @@ set_source_buffer (GtkSourceView *view,
 		g_signal_connect (buffer,
 				  "fold_remove",
 				  G_CALLBACK (fold_remove_cb),
+				  view);
+		g_signal_connect (buffer,
+				  "fold_toggled",
+				  G_CALLBACK (fold_toggled_cb),
 				  view);
 	}
 	else
@@ -5396,14 +5419,14 @@ update_fold_label_locations (GtkSourceView *view)
 		//gtk_widget_queue_draw (GTK_WIDGET (view));
 		gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
 								      GTK_TEXT_WINDOW_TEXT),
-					    NULL, TRUE);
+								      NULL, TRUE);
 	}
 }
 
 void
-_gtk_source_view_update_folds_for	(GtkSourceView        *view,
-			const GtkTextIter      *begin,
-			const GtkTextIter      *end)
+_gtk_source_view_update_folds_for (GtkSourceView	*view,
+				   const GtkTextIter	*begin,
+				   const GtkTextIter	*end)
 {
 	view->priv->last_folds = _gtk_source_buffer_get_folds_in_region (view->priv->source_buffer, begin, end);
 }
