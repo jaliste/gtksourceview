@@ -7,6 +7,7 @@
 #include "gtksourcefoldcellrenderer.h"
 #include "gtksourceview-typebuiltins.h"
 
+/* Properties */
 enum
 {
 	PROP_0,
@@ -20,6 +21,12 @@ enum
 	PROP_YALIGN
 };
 
+/* Signals */
+enum {
+	TOGGLED,
+	LAST_SIGNAL
+};
+
 struct _GtkSourceFoldCellRendererPrivate
 {
 	GtkSourceFoldMarkType	fold_mark;
@@ -27,37 +34,59 @@ struct _GtkSourceFoldCellRendererPrivate
 	gfloat			percent_fill;
 };
 
+typedef struct {
+	gint x;
+	gint y;
+	gint width;
+	gint height;
+	gint spacing;
+
+	struct {
+		gint x;
+		gint y;
+	} mid;
+} Context;
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 G_DEFINE_TYPE (GtkSourceFoldCellRenderer, gtk_source_fold_cell_renderer, GTK_TYPE_CELL_RENDERER)
 
-/* Prototypes. */
-static void     gtk_source_fold_cell_renderer_get_property  (GObject                    *object,
-                                                             guint                       param_id,
-                                                             GValue                     *value,
-                                                             GParamSpec                 *pspec);
+static void	gtk_source_fold_cell_renderer_get_property  (GObject		*object,
+                                                             guint		 param_id,
+                                                             GValue		*value,
+                                                             GParamSpec		*pspec);
 
-static void     gtk_source_fold_cell_renderer_set_property  (GObject                    *object,
-                                                             guint                       param_id,
-                                                             const GValue               *value,
-                                                             GParamSpec                 *pspec);
+static void	gtk_source_fold_cell_renderer_set_property  (GObject		*object,
+                                                             guint		 param_id,
+                                                             const GValue	*value,
+                                                             GParamSpec		*pspec);
 
-static void     gtk_source_fold_cell_renderer_finalize (GObject *gobject);
+static void	gtk_source_fold_cell_renderer_finalize	(GObject *gobject);
 
 
-static void     gtk_source_fold_cell_renderer_get_size   (GtkCellRenderer            *cell,
-                                                          GtkWidget                  *widget,
-                                                          GdkRectangle               *cell_area,
-                                                          gint                       *x_offset,
-                                                          gint                       *y_offset,
-                                                          gint                       *width,
-                                                          gint                       *height);
+static void	gtk_source_fold_cell_renderer_get_size   (GtkCellRenderer	*cell,
+                                                          GtkWidget		*widget,
+                                                          GdkRectangle		*cell_area,
+                                                          gint			*x_offset,
+                                                          gint			*y_offset,
+                                                          gint			*width,
+                                                          gint			*height);
 
-static void     gtk_source_fold_cell_renderer_render     (GtkCellRenderer            *cell,
-                                                          GdkWindow                  *window,
-                                                          GtkWidget                  *widget,
-                                                          GdkRectangle               *background_area,
-                                                          GdkRectangle               *cell_area,
-                                                          GdkRectangle               *expose_area,
-                                                          GtkCellRendererState        state);
+static void	gtk_source_fold_cell_renderer_render     (GtkCellRenderer	*cell,
+                                                          GdkDrawable		*window,
+                                                          GtkWidget		*widget,
+                                                          GdkRectangle		*background_area,
+                                                          GdkRectangle		*cell_area,
+                                                          GdkRectangle		*expose_area,
+                                                          GtkCellRendererState	 state);
+
+static gboolean	gtk_source_fold_cell_renderer_activate	(GtkCellRenderer	*cell,
+							 GdkEvent		*event,
+                                                         GtkWidget		*widget,
+                                                         const gchar		*path,
+                                                         GdkRectangle		*background_area,
+                                                         GdkRectangle		*cell_area,
+                                                         GtkCellRendererState	 state);
 
 static void
 gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
@@ -74,6 +103,7 @@ gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
 
 	cell_class->get_size = gtk_source_fold_cell_renderer_get_size;
 	cell_class->render   = gtk_source_fold_cell_renderer_render;
+	cell_class->activate = gtk_source_fold_cell_renderer_activate;
 
 	g_object_class_install_property (object_class,
 					 PROP_FOLD_MARK,
@@ -109,6 +139,16 @@ gtk_source_fold_cell_renderer_class_init (GtkSourceFoldCellRendererClass *klass)
 	g_object_class_override_property (object_class,
 					  PROP_YALIGN,
 					  "yalign");
+
+	signals [TOGGLED] =
+		g_signal_new ("toggled",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (GtkSourceFoldCellRendererClass, toggled),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__STRING,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_STRING);
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceFoldCellRendererPrivate));
 }
@@ -227,17 +267,50 @@ get_text_height (GtkWidget	*widget)
 }
 
 static gboolean
-pointer_within (GdkWindow	*window,
+pointer_within (GtkWidget	*widget,
 		gint		 x,
 		gint		 y,
 		gint		 width,
 		gint		 height)
 {
 	GdkPoint p;
-	gdk_window_get_pointer (window, &p.x, &p.y, NULL);
+	gtk_widget_get_pointer (widget, &p.x, &p.y);
 
 	return p.x >  x && p.x < x + width &&
 	       p.y >= y && p.y < y + height;
+}
+
+static void
+get_contexts (GtkCellRenderer	*cell,
+	      GtkWidget		*widget,
+	      GdkRectangle	*cell_area,
+	      Context		*line,
+	      Context		*mark)
+{
+	guint xpad;
+	gfloat percent_fill;
+	gint text_height;
+
+        g_object_get (G_OBJECT (cell),
+        	"xpad", &xpad,
+        	"percent-fill", &percent_fill,
+        	NULL);
+
+	text_height = get_text_height (widget);
+
+	line->x       = cell_area->x + xpad;
+	line->y       = cell_area->y;
+	line->width   = cell_area->width - xpad * 2;
+	line->height  = cell_area->height;
+	line->mid.x   = line->x + line->width  / 2.0;
+	line->mid.y   = line->y + line->height / 2.0;
+
+	*mark = *line;
+
+	mark->height  = text_height * percent_fill;
+	mark->y       = cell_area->y + (text_height - mark->height) / 2;
+	mark->mid.y   = mark->y + mark->height / 2.0;
+	mark->spacing = mark->width / 5;
 }
 
 static void
@@ -277,7 +350,7 @@ gtk_source_fold_cell_renderer_get_size (GtkCellRenderer *cell,
 
 static void
 gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
-                                      GdkWindow            *window,
+                                      GdkDrawable          *window,
                                       GtkWidget            *widget,
                                       GdkRectangle         *background_area,
                                       GdkRectangle         *cell_area,
@@ -286,24 +359,11 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 {
 	GtkSourceFoldCellRenderer *cell_fold = GTK_SOURCE_FOLD_CELL_RENDERER (cell);
 	GtkStyle                  *style;
-	gint                       xpad;
-	gfloat                     percent_fill;
 	gint                       text_height;
+	Context                    line;
+	Context                    mark;
 	gdouble                    m; /* draw in the middle of the line */
 	cairo_t                   *cr;
-
-	struct {
-		gint x;
-		gint y;
-		gint width;
-		gint height;
-		gint spacing;
-
-		struct {
-			gint x;
-			gint y;
-		} mid;
-	} line, mark;
 
 	if (cell_fold->priv->fold_mark == GTK_SOURCE_FOLD_MARK_NONE)
 	{
@@ -319,24 +379,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 	gdk_cairo_set_source_color (cr, &style->fg[state]);
 	cairo_set_line_width (cr, 1.0);
 
-        g_object_get (G_OBJECT (cell),
-        	"xpad", &xpad,
-        	"percent-fill", &percent_fill,
-        	NULL);
-
-	line.x       = cell_area->x + xpad;
-	line.y       = cell_area->y;
-	line.width   = cell_area->width - xpad * 2;
-	line.height  = cell_area->height;
-	line.mid.x   = line.x + line.width  / 2.0;
-	line.mid.y   = line.y + line.height / 2.0;
-
-	mark = line;
-
-	mark.height  = text_height * percent_fill;
-	mark.y       = cell_area->y + (text_height - mark.height) / 2;
-	mark.mid.y   = mark.y + mark.height / 2.0;
-	mark.spacing = mark.width / 5;
+	get_contexts (cell, widget, cell_area, &line, &mark);
 
 	switch (cell_fold->priv->fold_mark)
 	{
@@ -370,7 +413,7 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 			cairo_move_to (cr, mark.x + mark.spacing + m, mark.mid.y + m);
 			cairo_rel_line_to (cr, mark.width - mark.spacing * 2, 0);
 
-			if (pointer_within (window, mark.x, mark.y, mark.width, mark.height))
+			if (pointer_within (widget, mark.x, mark.y, mark.width, mark.height))
 			{
 				cairo_t *cr = gdk_cairo_create (window);
 				gdk_cairo_set_source_color (cr, &style->light[state]);
@@ -413,6 +456,26 @@ gtk_source_fold_cell_renderer_render (GtkCellRenderer      *cell,
 			break;
 	}
 	cairo_destroy (cr);
+}
+
+static gboolean
+gtk_source_fold_cell_renderer_activate (GtkCellRenderer		*cell,
+					GdkEvent		*event,
+					GtkWidget		*widget,
+					const gchar		*path,
+					GdkRectangle		*background_area,
+					GdkRectangle		*cell_area,
+					GtkCellRendererState	 flags)
+{
+	Context line;
+	Context mark;
+
+	get_contexts (cell, widget, cell_area, &line, &mark);
+
+	if (pointer_within (widget, mark.x, mark.y, mark.width, mark.height))
+		g_signal_emit (G_OBJECT (cell),
+			       signals[TOGGLED],
+			       0, path);
 }
 
 /**

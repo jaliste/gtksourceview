@@ -39,6 +39,10 @@ struct _GtkSourceFoldCellRendererClass
 {
 	GtkCellRendererClass  parent_class;
 
+	/* Signals */
+	void (* toggled) (GtkSourceFoldCellRenderer	*cell_renderer,
+			  gchar				*path);
+
 	/* Padding for future expansion */
 	void (*_gtk_source_reserved1) 	(void);
 	void (*_gtk_source_reserved2) 	(void);

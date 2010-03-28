@@ -1332,25 +1332,23 @@ folds_renderer_data_func (GtkSourceGutter *gutter,
 	g_object_set (G_OBJECT (renderer),
 		      "fold-mark", fold_mark,
 		      "depth", depth,
-		      "xpad", 2,
 		      "mode", mode,
 		      NULL);
 }
 
 static void
-folds_renderer_activated (GtkSourceGutter *gutter,
-			  GtkCellRenderer *renderer,
-			  GtkTextIter     *iter,
-			  GdkEvent        *event,
-			  GtkSourceView   *view)
+folds_renderer_activated (GtkCellRenderer	*renderer,
+			  gchar			*path,
+			  gpointer		 data)
 {
+	GtkSourceView *view = GTK_SOURCE_VIEW (data);
 	GtkSourceFold *fold;
 	GtkWidget *fold_label;
 	GList *folds;
 	GtkTextBuffer *buffer;
 	gint start_line;
 	gint end_line;
-	gint line_number;
+	gint64 line_number;
 
 	if (view->priv->source_buffer == NULL)
 	{
@@ -1359,7 +1357,7 @@ folds_renderer_activated (GtkSourceGutter *gutter,
 
 	folds = view->priv->last_folds;
 	buffer = GTK_TEXT_BUFFER (view->priv->source_buffer);
-	line_number = gtk_text_iter_get_line (iter);
+	line_number = g_ascii_strtoll (path, NULL, 10);
 
 	while (folds != NULL)
 	{
@@ -1488,15 +1486,7 @@ renderer_activated (GtkSourceGutter *gutter,
                     GdkEvent        *event,
                     GtkSourceView   *view)
 {
-	if (renderer == view->priv->folds_renderer)
-	{
-		folds_renderer_activated (gutter,
-					  renderer,
-					  iter,
-					  event,
-					  view);
-	}
-	else if (renderer == view->priv->marks_renderer)
+	if (renderer == view->priv->marks_renderer)
 	{
 		g_signal_emit (view,
 		               signals[LINE_MARK_ACTIVATED],
@@ -1763,12 +1753,15 @@ init_left_gutter (GtkSourceView *view)
 	                                      view,
 	                                      NULL);
 
+	g_signal_connect (view->priv->folds_renderer,
+			  "toggled",
+			  G_CALLBACK (folds_renderer_activated),
+			  view);
 
 	g_signal_connect (gutter,
 	                  "cell-activated",
 	                  G_CALLBACK (renderer_activated),
 	                  view);
-
 	g_signal_connect (gutter,
 	                  "query-tooltip",
 	                  G_CALLBACK (renderer_query_tooltip),
@@ -5340,6 +5333,8 @@ move_fold_label (GtkTextView        *view,
 		gtk_widget_show (label);
 
 	return TRUE;
+
+
 }
 
 static void
