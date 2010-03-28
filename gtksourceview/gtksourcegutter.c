@@ -1181,6 +1181,13 @@ on_view_button_press_event (GtkSourceView    *view,
 		                               &line_iter,
 		                               &area.y,
 		                               &area.height);
+
+		gtk_text_view_buffer_to_window_coords (GTK_TEXT_VIEW (view),
+						       gutter->priv->window_type,
+						       0,
+						       area.y,
+						       NULL,
+						       &area.y);
 		area.x = start;
 		area.width = width;
 

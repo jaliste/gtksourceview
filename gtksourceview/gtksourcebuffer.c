@@ -518,9 +518,9 @@ gtk_source_buffer_constructor (GType                  type,
 	GObject *object;
 	GtkSourceBuffer *buffer;
 
-	object = G_OBJECT_CLASS(gtk_source_buffer_parent_class)->constructor (type,
-									      n_construct_properties,
-									      construct_param);
+	object = G_OBJECT_CLASS (gtk_source_buffer_parent_class)->constructor (type,
+									       n_construct_properties,
+									       construct_param);
 
 	/* we need to know that the tag-table was set */
 	buffer = GTK_SOURCE_BUFFER (object);
