@@ -127,6 +127,9 @@ gtk_source_fold_label_expose (GtkWidget      *widget,
 {
 	GTK_WIDGET_CLASS (_gtk_source_fold_label_parent_class)->expose_event (widget, event);
 
+	style = gtk_widget_get_style (widget);
+	gtk_widget_get_allocation (widget, &allocation);
+
 	gdk_draw_rectangle (event->window,
 			    widget->style->fg_gc[GTK_WIDGET_STATE (widget)],
 			    FALSE,
@@ -186,14 +189,26 @@ _gtk_source_fold_label_class_init (GtkSourceFoldLabelClass *klass)
 static void
 _gtk_source_fold_label_init (GtkSourceFoldLabel *label)
 {
-	label->priv = GTK_SOURCE_FOLD_LABEL_GET_PRIVATE (label);
+	PangoAttrList *attr_list;
+
+ 	label->priv = GTK_SOURCE_FOLD_LABEL_GET_PRIVATE (label);
+
+	attr_list = pango_attr_list_new ();
+
+	pango_attr_list_insert (attr_list,
+				pango_attr_letter_spacing_new (-4 * PANGO_SCALE));
+
+	gtk_label_set_attributes (GTK_LABEL (label),
+				  attr_list);
+
+	pango_attr_list_unref (attr_list);
 }
 
 GtkWidget *
 _gtk_source_fold_label_new (GtkSourceView *view)
 {
 	return g_object_new (GTK_TYPE_SOURCE_FOLD_LABEL,
-			     "label", "..",
+			     "label", "...",
 			     "sensitive", FALSE,
 			     "sourceview", view,
 			     "x", -1,
