@@ -25,6 +25,7 @@
 #include "gtksourcelanguage-private.h"
 #include "gtksourcebuffer.h"
 #include "gtksourcestyle-private.h"
+#include "gtksourceview-marshal.h"
 
 #include <glib.h>
 
@@ -409,6 +410,7 @@ struct _GtkSourceContextClass
 struct _ContextClassTag
 {
 	GtkTextTag *tag;
+	GQuark    id;
 	gboolean enabled;
 };
 
@@ -466,6 +468,15 @@ struct _GtkSourceContextEnginePrivate
 #endif
 };
 
+/* Signals */
+enum {
+	CONTEXT_CLASS_APPLIED,
+	CONTEXT_CLASS_REMOVED,
+	LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 
 #ifdef ENABLE_CHECK_TREE
 static void check_tree (GtkSourceContextEngine *ce);
@@ -504,6 +515,15 @@ static Context	       *context_new		(Context		*parent,
 static void		context_unref		(Context		*context);
 static void		context_freeze		(Context		*context);
 static void		context_thaw		(Context		*context);
+
+static GSList         *get_context_classes      (GtkSourceContextEngine *ce,
+						Context                 *context);
+static GtkTextTag     *get_context_class_tag    (GtkSourceContextEngine *ce,
+						 gchar const            *name);
+static void            apply_context_classes    (GtkSourceContextEngine *ce,
+						 GSList                 *context_classes,
+						 gint                    start,
+						 gint                    end);
 static void		erase_segments		(GtkSourceContextEngine *ce,
 						 gint                    start,
 						 gint                    end,
@@ -542,18 +562,6 @@ static void		install_first_update	(GtkSourceContextEngine	*ce);
 static gboolean		mem_usage_timeout	(GtkSourceContextEngine *ce);
 #endif
 
-static GSList *
-get_context_classes (GtkSourceContextEngine *ce,
-                     Context                *context);
-static GtkTextTag *
-get_context_class_tag (GtkSourceContextEngine *ce,
-                       gchar const            *name);
-static void
-apply_context_classes (GtkSourceContextEngine *ce,
-                       GSList                 *context_classes,
-                       gint                    start,
-                       gint                    end);
-
 /* TAGS AND STUFF -------------------------------------------------------------- */
 
 GtkSourceContextClass *
@@ -585,13 +593,18 @@ static ContextClassTag *
 context_class_tag_new (GtkTextTag *tag,
                        gboolean    enabled)
 {
+	gchar *class_name;
 	ContextClassTag *attrtag = g_slice_new (ContextClassTag);
 
+	class_name = (char*)g_object_get_data (G_OBJECT (tag),
+					       TAG_CONTEXT_CLASS_NAME);
 	attrtag->tag = tag;
 	attrtag->enabled = enabled;
+	attrtag->id = g_quark_from_string (class_name);
 
 	return attrtag;
 }
+
 
 static void
 context_class_tag_free (ContextClassTag *attrtag)
@@ -831,6 +844,16 @@ get_context_tag (GtkSourceContextEngine *ce,
 	return context->tag;
 }
 
+GQuark
+gtk_source_context_engine_get_id (GtkSourceContextEngine *ce,
+				  gchar			 *class_name)
+{
+	// FIXME: if the class is not in use return 0
+	//        and use the already calculated id
+
+	return g_quark_from_string (class_name);
+}
+
 static void
 apply_tags (GtkSourceContextEngine *ce,
 	    Segment                *segment,
@@ -860,6 +883,8 @@ apply_tags (GtkSourceContextEngine *ce,
 	classes = get_context_classes (ce,
 	                               segment->context);
 
+/***********************************************************************************************************************
+
 	fold_tag = get_context_class_tag(ce, "fold");
 	for (items = classes; items != NULL; items = g_slist_next (items))
 	{
@@ -875,6 +900,7 @@ apply_tags (GtkSourceContextEngine *ce,
 			break;
 		}
 	}
+**************************************************************************************************************************/
 
 
 	apply_context_classes (ce, classes, start_offset, end_offset);
@@ -1108,6 +1134,7 @@ apply_context_classes (GtkSourceContextEngine *ce,
 	GtkTextIter start_iter;
 	GtkTextIter end_iter;
 	GSList *item;
+	gchar *class_name;
 
 	gtk_text_buffer_get_iter_at_offset (ce->priv->buffer, &start_iter, start);
 	end_iter = start_iter;
@@ -1117,12 +1144,21 @@ apply_context_classes (GtkSourceContextEngine *ce,
 	{
 		ContextClassTag *attrtag = item->data;
 
+		class_name = (gchar*)g_object_get_data (G_OBJECT (attrtag->tag),
+							TAG_CONTEXT_CLASS_NAME);
+
 		if (attrtag->enabled)
 		{
 			gtk_text_buffer_apply_tag (ce->priv->buffer,
 			                           attrtag->tag,
 			                           &start_iter,
 			                           &end_iter);
+
+			g_signal_emit (G_OBJECT (ce),
+				       signals[CONTEXT_CLASS_APPLIED],
+				       0,
+				       attrtag->id,
+				       &start_iter, &end_iter);
 		}
 		else
 		{
@@ -1130,6 +1166,12 @@ apply_context_classes (GtkSourceContextEngine *ce,
 			                            attrtag->tag,
 			                            &start_iter,
 			                            &end_iter);
+
+			g_signal_emit (G_OBJECT (ce),
+				       signals[CONTEXT_CLASS_REMOVED],
+				       0,
+				       attrtag->id,
+				       &start_iter, &end_iter);
 		}
 	}
 }
@@ -2835,6 +2877,34 @@ _gtk_source_context_engine_class_init (GtkSourceContextEngineClass *klass)
 	engine_class->update_highlight = gtk_source_context_engine_update_highlight;
 	engine_class->set_style_scheme = gtk_source_context_engine_set_style_scheme;
 	engine_class->get_context_class_tag = gtk_source_context_engine_get_context_class_tag;
+
+	signals [CONTEXT_CLASS_APPLIED] =
+		g_signal_new ("context-class-applied",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+			      G_STRUCT_OFFSET (GtkSourceContextEngineClass, context_class_applied),
+			      NULL,
+			      NULL,
+			      _gtksourceview_marshal_VOID__UINT_BOXED_BOXED,
+			      G_TYPE_NONE,
+			      3,
+			      G_TYPE_UINT,
+			      GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE,
+			      GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE);
+
+	signals [CONTEXT_CLASS_REMOVED] =
+		g_signal_new ("context-class-removed",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+			      G_STRUCT_OFFSET (GtkSourceContextEngineClass, context_class_removed),
+			      NULL,
+			      NULL,
+			      _gtksourceview_marshal_VOID__UINT_BOXED_BOXED,
+			      G_TYPE_NONE,
+			      3,
+			      GTK_TYPE_UINT,
+			      GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE,
+			      GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE);
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceContextEnginePrivate));
 }

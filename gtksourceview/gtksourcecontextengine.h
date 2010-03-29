@@ -52,6 +52,16 @@ struct _GtkSourceContextEngine
 struct _GtkSourceContextEngineClass
 {
 	GtkSourceEngineClass parent_class;
+
+	/* Signals */
+	void (* context_class_applied) (GtkSourceContextEngine	*ce,
+					GQuark			 id,
+					GtkTextIter		*start,
+					GtkTextIter		*end);
+	void (* context_class_removed) (GtkSourceContextEngine	*ce,
+					GQuark			 id,
+					GtkTextIter		*start,
+					GtkTextIter		*end);
 };
 
 typedef enum {
@@ -82,6 +92,9 @@ GtkSourceContextClass *
 void		gtk_source_context_class_free		(GtkSourceContextClass *cclass);
 
 GtkSourceContextEngine *_gtk_source_context_engine_new  (GtkSourceContextData	*data);
+
+GQuark         gtk_source_context_engine_get_id		(GtkSourceContextEngine	*ce,
+							 gchar			*class_name);
 
 gboolean	 _gtk_source_context_data_define_context
 							(GtkSourceContextData	 *data,

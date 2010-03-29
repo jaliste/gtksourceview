@@ -1467,6 +1467,20 @@ gtk_source_buffer_set_highlight_syntax (GtkSourceBuffer *buffer,
 		g_object_notify (G_OBJECT (buffer), "highlight-syntax");
 	}
 }
+static void
+context_class_applied_cb (GtkSourceContextEngine	*ce,
+			  GQuark			 id,
+			  GtkTextIter			*start,
+			  GtkTextIter			*end,
+			  gpointer			 data)
+{
+	if (gtk_source_context_engine_get_id (ce, "fold") == id)
+	{
+		gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER (data), start, end);
+		g_print ("----------------------------------------\n%s\n----------------------------------------\n",
+			 gtk_text_iter_get_text (start, end));
+	}
+}
 
 /**
  * gtk_source_buffer_set_language:
@@ -1519,6 +1533,11 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 			if (buffer->priv->style_scheme)
 				_gtk_source_engine_set_style_scheme (buffer->priv->highlight_engine,
 								     buffer->priv->style_scheme);
+
+			g_signal_connect (G_OBJECT (buffer->priv->highlight_engine),
+					  "context-class-applied",
+					  G_CALLBACK (context_class_applied_cb),
+					  buffer);
 		}
 	}
 
