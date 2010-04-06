@@ -37,7 +37,7 @@ _gtk_source_fold_new (GtkSourceBuffer   *buffer,
 							NULL, begin, FALSE);
 	g_object_ref (fold->start_line);
 	fold->end_line = gtk_text_buffer_create_mark (GTK_TEXT_BUFFER (buffer),
-						      NULL, end, FALSE);
+						      NULL, end, TRUE);
 	g_object_ref (fold->end_line);
 
 	return fold;
@@ -143,7 +143,7 @@ reapply_fold (GtkTextBuffer *buffer,
 			gtk_text_buffer_get_iter_at_mark (buffer, &end,
 							  fold->end_line);
 			_gtk_source_buffer_apply_fold (GTK_SOURCE_BUFFER (buffer),
-						      &begin, &end);
+						       &begin, &end);
 		}
 		else if (fold->children != NULL)
 		{

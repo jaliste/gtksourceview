@@ -469,13 +469,19 @@ gtk_source_fold_cell_renderer_activate (GtkCellRenderer		*cell,
 {
 	Context line;
 	Context mark;
+	gboolean handled = FALSE;
 
 	get_contexts (cell, widget, cell_area, &line, &mark);
 
 	if (pointer_within (widget, mark.x, mark.y, mark.width, mark.height))
+	{
+		handled = TRUE;
 		g_signal_emit (G_OBJECT (cell),
 			       signals[TOGGLED],
 			       0, path);
+	}
+
+	return handled;
 }
 
 /**

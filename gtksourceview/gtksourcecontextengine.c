@@ -410,8 +410,8 @@ struct _GtkSourceContextClass
 struct _ContextClassTag
 {
 	GtkTextTag *tag;
-	GQuark    id;
-	gboolean enabled;
+	GQuark      id;
+	gboolean    enabled;
 };
 
 struct _GtkSourceContextData
@@ -647,7 +647,7 @@ unhighlight_region (GtkSourceContextEngine *ce,
 
 	if (gtk_text_iter_equal (start, end))
 		return;
-	//gtk_source_buffer_remove_folds_in_region (GTK_SOURCE_BUFFER(data.buffer), start, end);
+	//gtk_source_buffer_remove_folds_in_region (GTK_SOURCE_BUFFER (data.buffer), start, end);
 	g_hash_table_foreach (ce->priv->tags, (GHFunc) unhighlight_region_cb, &data);
 }
 
@@ -688,7 +688,7 @@ set_tag_style (GtkSourceContextEngine *ce,
 
 		/* FIXME Style references really must be fixed, both parser for
 		 * sane use in lang files, and engine for safe use. */
-		info = g_hash_table_lookup (ENGINE_STYLES_MAP(ce), map_to);
+		info = g_hash_table_lookup (ENGINE_STYLES_MAP (ce), map_to);
 
 		map_to = (info != NULL) ? info->map_to : NULL;
 
@@ -2758,7 +2758,7 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
  *
  * @ce: #GtkSourceContextEngine.
  *
- * Dsiables highlighting in case of errors (currently if highlighting
+ * Disables highlighting in case of errors (currently if highlighting
  * a single line took too long, so that highlighting doesn't freeze
  * text editor).
  */
@@ -3136,13 +3136,13 @@ sub_pattern_to_int (const gchar *name)
 	guint64 number;
 	gchar *end_name;
 
-	if (*name == 0)
+	if (*name == '\0')
 		return -1;
 
 	errno = 0;
 	number = g_ascii_strtoull (name, &end_name, 10);
 
-	if (errno !=0 || number > G_MAXINT || *end_name != 0)
+	if (errno != 0 || number > G_MAXINT || *end_name != '\0')
 		return -1;
 
 	return number;

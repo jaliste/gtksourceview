@@ -519,6 +519,12 @@ gtk_source_buffer_dispose (GObject *object)
 	buffer = GTK_SOURCE_BUFFER (object);
 	g_return_if_fail (buffer->priv != NULL);
 
+    if (buffer->priv->folds != NULL)
+    {
+        /* TODO properly remove folds */
+        _gtk_source_buffer_set_folds_enabled (buffer, FALSE);
+    }
+
 	if (buffer->priv->undo_manager != NULL)
 	{
 		set_undo_manager (buffer, NULL);
@@ -837,31 +843,30 @@ gtk_source_buffer_real_insert_text (GtkTextBuffer *buffer,
 				    gint           len)
 {
 	gint start_offset;
-	GtkTextMark *mark;
-	GtkTextIter insert_iter;
-	gint end_offset;
-	GtkSourceBuffer *source_buffer = GTK_SOURCE_BUFFER (buffer);
 	GtkSourceFold *fold;
+	GtkSourceBuffer *source_buffer;
 
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 	g_return_if_fail (iter != NULL);
 	g_return_if_fail (text != NULL);
 	g_return_if_fail (gtk_text_iter_get_buffer (iter) == buffer);
-
+	
 	start_offset = gtk_text_iter_get_offset (iter);
 
 	/* XXX this is very wrong, this method isn't only for user interaction */
 	/* if the user tries to insert text into a folded section, don't insert
 	 * the text, but unfold the region.
 	 */
-	fold = gtk_source_buffer_get_fold_at_iter (GTK_SOURCE_BUFFER (buffer),
+	source_buffer = GTK_SOURCE_BUFFER (buffer);
+	fold = gtk_source_buffer_get_fold_at_iter (source_buffer,
 						   iter);
 	if (fold != NULL && fold->folded)
 	{
 		gtk_source_fold_set_folded (fold, FALSE);
-		g_signal_emit (buffer,
+		g_signal_emit (source_buffer,
 			       buffer_signals[FOLD_TOGGLED],
-			       0, fold);
+			       0,
+			       fold);
 		return;
 	}
 
@@ -2468,7 +2473,7 @@ foreach_fold_region (gpointer data, gpointer user_data)
 
 void
 _gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
-				     gboolean         folds_enabled)
+				      gboolean         folds_enabled)
 {
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 
@@ -2819,7 +2824,7 @@ gtk_source_buffer_add_fold (GtkSourceBuffer   *buffer,
 
 		if (error != NULL)
 		{
-	//		g_critical (error->message);
+			DEBUG (g_critical (error->message));
 			g_error_free (error);
 			gtk_source_fold_free (fold);
 			return NULL;
@@ -2854,7 +2859,8 @@ gtk_source_buffer_real_remove_fold (GtkSourceBuffer *buffer,
 
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 	g_return_if_fail (fold != NULL);
-	printf(" Removing fold");
+
+	DEBUG (g_message (" Removing fold"));
 	if (fold->folded)
 		gtk_source_fold_set_folded (fold, FALSE);
 
@@ -2902,9 +2908,11 @@ get_folds_in_region (GtkTextBuffer     *buffer,
 
 	gtk_text_buffer_get_iter_at_mark (buffer, &fbegin, fold->start_line);
 	gtk_text_buffer_get_iter_at_mark (buffer, &fend, fold->end_line);
-	//printf("Found fold between %d and %d\n",
-	//	 gtk_text_iter_get_line(&fbegin),
-	//	 gtk_text_iter_get_line(&fend));
+
+	DEBUG (g_message ("Found fold between %d and %d\n",
+			  gtk_text_iter_get_line (&fbegin),
+			  gtk_text_iter_get_line (&fend)));
+
 	/* the region lies in the fold, so add possible children in the region. */
 	if (gtk_text_iter_compare (&fbegin, begin) == -1 &&
 	    gtk_text_iter_compare (&fend, begin) == 1)
@@ -2957,7 +2965,7 @@ _gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
 					const GtkTextIter *end)
 {
 	GList *result, *folds;
-//	printf("Get folds in region\n");
+
 	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
 	g_return_val_if_fail (begin != NULL && end != NULL, NULL);
 
@@ -2978,7 +2986,6 @@ _gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
 
 		folds = g_list_next (folds);
 	}
-//	printf("end\n");
 	return result;
 }
 
