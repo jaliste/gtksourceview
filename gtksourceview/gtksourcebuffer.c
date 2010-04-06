@@ -1472,6 +1472,21 @@ gtk_source_buffer_set_highlight_syntax (GtkSourceBuffer *buffer,
 		g_object_notify (G_OBJECT (buffer), "highlight-syntax");
 	}
 }
+
+static void
+engine_updated_cb (GtkSourceContextEngine	*ce,
+		   gpointer			 data)
+{
+	GtkSourceBuffer *buffer = GTK_SOURCE_BUFFER (data);
+	
+	/*
+	g_list_sort (buffer->priv->fold_starts, (GCompareFunc)gtk_text_iter_compare);
+	g_list_sort (buffer->priv->fold_ends, (GCompareFunc)gtk_text_iter_compare);
+	*/
+	
+	/* TODO: remove duplicates gtk_text_iter_compare (lhs, rhs) == 0 ? */
+}
+
 static void
 context_class_applied_cb (GtkSourceContextEngine	*ce,
 			  GQuark			 id,
@@ -1481,10 +1496,21 @@ context_class_applied_cb (GtkSourceContextEngine	*ce,
 {
 	if (gtk_source_context_engine_get_id (ce, "fold") == id)
 	{
-		gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER (data), start, end);
+		/* gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER (data), start, end); */
 		g_print ("----------------------------------------\n%s\n----------------------------------------\n",
 			 gtk_text_iter_get_text (start, end));
 	}
+	/*
+	if (gtk_source_context_engine_get_id (ce, "fold-start") == id)
+	{
+		buffer->priv->fold_starts = g_list_prepend (buffer->priv->fold_starts,
+							    start);
+	}
+	else if (gtk_source_context_engine_get_id (ce, "fold-end") == id)
+	{
+		buffer->priv->fold_ends = g_list_prepend (buffer->priv->fold_ends,
+							  start);
+	}*/
 }
 
 /**
@@ -1538,7 +1564,12 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 			if (buffer->priv->style_scheme)
 				_gtk_source_engine_set_style_scheme (buffer->priv->highlight_engine,
 								     buffer->priv->style_scheme);
-
+			
+			g_signal_connect (G_OBJECT (buffer->priv->highlight_engine),
+					  "updated",
+					  G_CALLBACK (engine_updated_cb),
+					  buffer);
+			
 			g_signal_connect (G_OBJECT (buffer->priv->highlight_engine),
 					  "context-class-applied",
 					  G_CALLBACK (context_class_applied_cb),

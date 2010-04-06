@@ -67,6 +67,9 @@ struct _GtkSourceEngineClass
 	GtkTextTag *(* get_context_class_tag)
 				      (GtkSourceEngine      *engine,
 				       const gchar          *context_class);
+	
+	/* Signals */
+	void     (* updated)          (GtkSourceEngine      *engine);
 };
 
 GType       _gtk_source_engine_get_type		(void) G_GNUC_CONST;

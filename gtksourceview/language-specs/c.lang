@@ -88,13 +88,15 @@
                     </include>
                 </context>
 
-		<context id="cblock" class="fold">
-			<start>{</start>
-			<end>}</end>
-			<include>
-			<context ref="c"/>
-			</include>
-		</context>
+                <context id="cblock" class="fold">
+                    <start>{</start>
+                    <end>}</end>
+                    <include>
+                        <context ref="c"/>
+                        <context sub-pattern="0" where="start" class="fold-start"/>
+                        <context sub-pattern="0" where="end" class="fold-end"/>
+                    </include>
+                </context>
 
                 <context id="comment-multiline" style-ref="comment" class="comment" class-disabled="no-spell-check">
                     <start>/\*</start>

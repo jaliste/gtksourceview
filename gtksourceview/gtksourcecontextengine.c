@@ -470,6 +470,7 @@ struct _GtkSourceContextEnginePrivate
 
 /* Signals */
 enum {
+	UPDATED,
 	CONTEXT_CLASS_APPLIED,
 	CONTEXT_CLASS_REMOVED,
 	LAST_SIGNAL
@@ -865,9 +866,6 @@ apply_tags (GtkSourceContextEngine *ce,
 	GtkTextBuffer *buffer = ce->priv->buffer;
 	SubPattern *sp;
 	Segment *child;
-	GSList *classes;
-	GSList *items;
-	GtkTextTag *fold_tag;
 	g_assert (segment != NULL);
 
 	if (SEGMENT_IS_INVALID (segment))
@@ -880,31 +878,6 @@ apply_tags (GtkSourceContextEngine *ce,
 	end_offset = MIN (end_offset, segment->end_at);
 
 	tag = get_context_tag (ce, segment->context);
-	classes = get_context_classes (ce,
-	                               segment->context);
-
-/***********************************************************************************************************************
-
-	fold_tag = get_context_class_tag(ce, "fold");
-	for (items = classes; items != NULL; items = g_slist_next (items))
-	{
-		ContextClassTag *attrtag = (ContextClassTag *)items->data;
-		if (fold_tag!=NULL && attrtag->tag ==fold_tag)
-		{
-			GtkTextIter start_iter, end_iter;
-			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&start_iter, segment->start_at);
-			gtk_text_buffer_get_iter_at_offset(ce->priv->buffer,&end_iter, segment->end_at);
-
-			printf("%p, Segment (%d,%d) Offset (%d,%d), context = %s\n",segment, segment->start_at,segment->end_at ,start_offset, end_offset,segment->context->definition->id);
-			gtk_source_buffer_add_fold (GTK_SOURCE_BUFFER(ce->priv->buffer), &start_iter, &end_iter);
-			break;
-		}
-	}
-**************************************************************************************************************************/
-
-
-	apply_context_classes (ce, classes, start_offset, end_offset);
-
 
 	if (tag != NULL)
 	{
@@ -2101,6 +2074,8 @@ gtk_source_context_engine_text_inserted (GtkSourceEngine *engine,
 		gtk_text_iter_forward_to_line_end (&iter);
 		invalidate_region (ce, gtk_text_iter_get_offset (&iter), 0);
 	}
+	
+	g_signal_emit (engine, signals[UPDATED], 0);
 }
 
 /**
@@ -2228,6 +2203,8 @@ gtk_source_context_engine_text_deleted (GtkSourceEngine *engine,
 	invalidate_region (GTK_SOURCE_CONTEXT_ENGINE (engine),
 			   offset,
 			   - length);
+	
+	g_signal_emit (engine, signals[UPDATED], 0);
 }
 
 /**
@@ -2878,6 +2855,17 @@ _gtk_source_context_engine_class_init (GtkSourceContextEngineClass *klass)
 	engine_class->set_style_scheme = gtk_source_context_engine_set_style_scheme;
 	engine_class->get_context_class_tag = gtk_source_context_engine_get_context_class_tag;
 
+	signals [UPDATED] =
+		g_signal_new ("updated",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+			      G_STRUCT_OFFSET (GtkSourceEngineClass, updated),
+			      NULL,
+			      NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE,
+			      0);
+			      
 	signals [CONTEXT_CLASS_APPLIED] =
 		g_signal_new ("context-class-applied",
 			      G_TYPE_FROM_CLASS (klass),
