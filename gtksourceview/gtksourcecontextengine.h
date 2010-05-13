@@ -25,6 +25,7 @@
 
 #include <gtksourceview/gtksourceengine.h>
 #include <gtksourceview/gtksourcelanguage.h>
+#include "gtksourcecontextengine-private.h"
 
 G_BEGIN_DECLS
 
@@ -82,7 +83,14 @@ GtkSourceContextClass *
 
 void		gtk_source_context_class_free		(GtkSourceContextClass *cclass);
 
-GtkSourceContextEngine *_gtk_source_context_engine_new  (GtkSourceContextData	*data);
+GtkSourceContextEngine *
+		_gtk_source_context_engine_new  (GtkSourceContextData	*data);
+
+Segment *	_gtk_source_context_engine_get_tree	(GtkSourceContextEngine *ce);
+
+GHashTable *	_gtk_source_context_engine_get_style_tags
+							(GtkSourceContextEngine *ce);
+GtkTextBuffer * _gtk_source_context_engine_get_buffer (GtkSourceContextEngine *ce);
 
 gboolean	 _gtk_source_context_data_define_context
 							(GtkSourceContextData	 *data,

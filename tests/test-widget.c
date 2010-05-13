@@ -72,6 +72,8 @@ static void       marks_toggled_cb               (GtkAction       *action,
 						  gpointer         user_data);
 static void       margin_toggled_cb              (GtkAction       *action,
 						  gpointer         user_data);
+static void	  syntax_highlight_toggled_cb	 (GtkAction 	  *action,
+						  gpointer	   user_data);
 static void       hl_bracket_toggled_cb          (GtkAction       *action,
 						  gpointer         user_data);
 static void       hl_line_toggled_cb             (GtkAction       *action,
@@ -132,6 +134,9 @@ static GtkActionEntry view_action_entries[] = {
 };
 
 static GtkToggleActionEntry toggle_entries[] = {
+	{ "SyntaxHighlight", NULL, "Synta_x Highlighting", NULL, 
+	  "Toggle syntax highlighting",
+	  G_CALLBACK (syntax_highlight_toggled_cb), FALSE },
 	{ "HlBracket", NULL, "Highlight Matching _Bracket", NULL,
 	  "Toggle highlighting of matching bracket",
 	  G_CALLBACK (hl_bracket_toggled_cb), FALSE },
@@ -200,6 +205,7 @@ static const gchar *view_ui_description =
 "    <menu action=\"ViewMenu\">"
 "      <menuitem action=\"NewView\"/>"
 "      <separator/>"
+"      <menuitem action=\"SyntaxHighlight\"/>"
 "      <menuitem action=\"HlBracket\"/>"
 "      <menuitem action=\"ShowNumbers\"/>"
 "      <menuitem action=\"ShowMarks\"/>"
@@ -527,6 +533,18 @@ hl_bracket_toggled_cb (GtkAction *action, gpointer user_data)
 		GTK_SOURCE_BUFFER (buffer),
 		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
 }
+static void
+syntax_highlight_toggled_cb (GtkAction *action, gpointer user_data)
+{
+        GtkTextBuffer *buffer;
+        g_return_if_fail (GTK_IS_TOGGLE_ACTION (action) && GTK_IS_SOURCE_VIEW (user_data));
+        buffer = gtk_text_view_get_buffer (user_data);
+        gtk_source_buffer_set_highlight_syntax (
+                GTK_SOURCE_BUFFER (buffer),
+                gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
+}
+
+
 
 static void
 hl_line_toggled_cb (GtkAction *action, gpointer user_data)
@@ -1648,6 +1666,9 @@ main (int argc, char *argv[])
 
 	/* create buffer */
 	buffer = gtk_source_buffer_new (NULL);
+
+	/* disable highlight syntax for testint the engine and highlighter*/
+	gtk_source_buffer_set_highlight_syntax (buffer, FALSE);
 
 	if (argc > 1)
 		open_file (buffer, argv [1]);
