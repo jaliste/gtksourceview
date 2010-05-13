@@ -40,6 +40,7 @@
 #include "gtksourcestyle-private.h"
 #include "gtksourceundomanagerdefault.h"
 #include "gtksourceview-typebuiltins.h"
+#include "gtksourcehighlighter.h"
 
 /**
  * SECTION:buffer
@@ -103,11 +104,13 @@ enum {
 	PROP_MAX_UNDO_LEVELS,
 	PROP_LANGUAGE,
 	PROP_STYLE_SCHEME,
-	PROP_UNDO_MANAGER
+	PROP_UNDO_MANAGER,
+	PROP_ANALYZE_SYNTAX
 };
 
 struct _GtkSourceBufferPrivate
 {
+	gint		       analyze_syntax:1;
 	gint                   highlight_syntax:1;
 	gint                   highlight_brackets:1;
 
@@ -122,7 +125,8 @@ struct _GtkSourceBufferPrivate
 
 	GtkSourceLanguage     *language;
 
-	GtkSourceEngine       *highlight_engine;
+	GtkSourceEngine       *syntax_analyzer;
+	GtkHighlightEngine    *highlight_engine;
 	GtkSourceStyleScheme  *style_scheme;
 
 	GtkSourceUndoManager  *undo_manager;
@@ -223,6 +227,14 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 							       _("Highlight Syntax"),
 							       _("Whether to highlight syntax "
 								 "in the buffer"),
+							       TRUE,
+							       G_PARAM_READWRITE));
+	g_object_class_install_property (object_class,
+					 PROP_ANALYZE_SYNTAX,
+					 g_param_spec_boolean ("analyze-syntax",
+							     _("Analyze syntax"),
+							     _("Whether the syntax of the "
+							       "buffer should be analyzed"),
 							       TRUE,
 							       G_PARAM_READWRITE));
 
@@ -433,6 +445,7 @@ gtk_source_buffer_init (GtkSourceBuffer *buffer)
 
 	buffer->priv = priv;
 
+	priv->analyze_syntax = TRUE;
 	priv->highlight_syntax = TRUE;
 	priv->highlight_brackets = TRUE;
 	priv->bracket_mark_cursor = NULL;
@@ -504,11 +517,11 @@ gtk_source_buffer_dispose (GObject *object)
 		set_undo_manager (buffer, NULL);
 	}
 
-	if (buffer->priv->highlight_engine != NULL)
+	if (buffer->priv->syntax_analyzer != NULL)
 	{
-		_gtk_source_engine_attach_buffer (buffer->priv->highlight_engine, NULL);
-		g_object_unref (buffer->priv->highlight_engine);
-		buffer->priv->highlight_engine = NULL;
+		_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer, NULL);
+		g_object_unref (buffer->priv->syntax_analyzer);
+		buffer->priv->syntax_analyzer = NULL;
 	}
 
 	if (buffer->priv->language != NULL)
@@ -570,6 +583,10 @@ gtk_source_buffer_set_property (GObject      *object,
 			                                    g_value_get_object (value));
 			break;
 
+		case PROP_ANALYZE_SYNTAX:
+			gtk_source_buffer_set_analyze_syntax (source_buffer, 
+							      g_value_get_boolean (value));
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 			break;
@@ -625,6 +642,10 @@ gtk_source_buffer_get_property (GObject    *object,
 			g_value_set_object (value, source_buffer->priv->undo_manager);
 			break;
 
+                case PROP_ANALYZE_SYNTAX:
+                        g_value_set_boolean (value, 
+					     source_buffer->priv->analyze_syntax);
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 			break;
@@ -913,8 +934,8 @@ gtk_source_buffer_content_inserted (GtkTextBuffer *buffer,
 	gtk_text_buffer_get_iter_at_mark (buffer, &insert_iter, mark);
 	gtk_source_buffer_move_cursor (buffer, &insert_iter, mark);
 
-	if (source_buffer->priv->highlight_engine != NULL)
-		_gtk_source_engine_text_inserted (source_buffer->priv->highlight_engine,
+	if (source_buffer->priv->syntax_analyzer != NULL)
+		_gtk_source_engine_text_inserted (source_buffer->priv->syntax_analyzer,
 						  start_offset,
 						  end_offset);
 }
@@ -1029,8 +1050,8 @@ gtk_source_buffer_real_delete_range (GtkTextBuffer *buffer,
 	gtk_source_buffer_move_cursor (buffer, &iter, mark);
 
 	/* emit text deleted for engines */
-	if (source_buffer->priv->highlight_engine != NULL)
-		_gtk_source_engine_text_deleted (source_buffer->priv->highlight_engine,
+	if (source_buffer->priv->syntax_analyzer != NULL)
+		_gtk_source_engine_text_deleted (source_buffer->priv->syntax_analyzer,
 						 offset, length);
 }
 
@@ -1450,6 +1471,50 @@ gtk_source_buffer_set_highlight_syntax (GtkSourceBuffer *buffer,
 }
 
 /**
+ * gtk_source_buffer_get_analyze_syntax:
+ * @buffer: a #GtkSourceBuffer.
+ *
+ * Determines whether syntax highlighting is activated in the source
+ * buffer.
+ *
+ * Return value: %TRUE if syntax highlighting is enabled, %FALSE otherwise.
+ **/
+gboolean
+gtk_source_buffer_get_analyze_syntax (GtkSourceBuffer *buffer)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
+
+	return (buffer->priv->analyze_syntax != FALSE);
+}
+
+/**
+ * gtk_source_buffer_set_analyze_syntax:
+ * @buffer: a #GtkSourceBuffer.
+ * @analyze: %TRUE to enable syntax analysis, %FALSE to disable it.
+ *
+ * Controls whether to analyze the syntax of the buffer. If @analyze
+ * is %TRUE, a syntax text will be highlighted according to the syntax
+ * patterns specified in the language set with
+ * gtk_source_buffer_set_language(). If @highlight is %FALSE, syntax highlighting
+ * is disabled and all the GtkTextTag objects that have been added by the
+ * syntax highlighting engine are removed from the buffer.
+ **/
+void
+gtk_source_buffer_set_analyze_syntax (GtkSourceBuffer *buffer,
+					gboolean         analyze)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	analyze = (analyze != FALSE);
+
+	if (buffer->priv->analyze_syntax != analyze)
+	{
+		buffer->priv->analyze_syntax = analyze;
+		g_object_notify (G_OBJECT (buffer), "analyze-syntax");
+	}
+}
+
+/**
  * gtk_source_buffer_set_language:
  * @buffer: a #GtkSourceBuffer.
  * @language: (allow-none): a #GtkSourceLanguage to set, or %NULL.
@@ -1472,12 +1537,12 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 	if (buffer->priv->language == language)
 		return;
 
-	if (buffer->priv->highlight_engine != NULL)
+	if (buffer->priv->syntax_analyzer != NULL)
 	{
 		/* disconnect the old engine */
-		_gtk_source_engine_attach_buffer (buffer->priv->highlight_engine, NULL);
-		g_object_unref (buffer->priv->highlight_engine);
-		buffer->priv->highlight_engine = NULL;
+		_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer, NULL);
+		g_object_unref (buffer->priv->syntax_analyzer);
+		buffer->priv->syntax_analyzer = NULL;
 	}
 
 	if (buffer->priv->language != NULL)
@@ -1487,18 +1552,26 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 
 	if (language != NULL)
 	{
+		GtkHighlightEngine *highlight_engine;
 		g_object_ref (language);
 
 		/* get a new engine */
-		buffer->priv->highlight_engine = _gtk_source_language_create_engine (language);
-
-		if (buffer->priv->highlight_engine)
+		buffer->priv->syntax_analyzer = _gtk_source_language_create_engine (language);
+		highlight_engine = _gtk_highlight_engine_new ();
+		buffer->priv->highlight_engine = highlight_engine;
+		
+		if (buffer->priv->syntax_analyzer)
 		{
-			_gtk_source_engine_attach_buffer (buffer->priv->highlight_engine,
+			_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer,
 							  GTK_TEXT_BUFFER (buffer));
-
+			_gtk_highlight_engine_attach_buffer (highlight_engine, 
+							     GTK_TEXT_BUFFER(buffer));
+			_gtk_highlight_engine_set_analyzer (highlight_engine, 
+							    buffer->priv->syntax_analyzer); 
+			_gtk_highlight_engine_set_styles_map (buffer->priv->highlight_engine, 
+							      language->priv->styles);
 			if (buffer->priv->style_scheme)
-				_gtk_source_engine_set_style_scheme (buffer->priv->highlight_engine,
+				_gtk_highlight_engine_set_style_scheme (buffer->priv->highlight_engine,
 								     buffer->priv->style_scheme);
 		}
 	}
@@ -1541,8 +1614,8 @@ _gtk_source_buffer_update_highlight (GtkSourceBuffer   *buffer,
 {
 	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
 
-	if (buffer->priv->highlight_engine != NULL)
-		_gtk_source_engine_update_highlight (buffer->priv->highlight_engine,
+	if (buffer->priv->syntax_analyzer != NULL)
+		_gtk_source_engine_update (buffer->priv->syntax_analyzer,
 						     start,
 						     end,
 						     synchronous);
@@ -1599,9 +1672,9 @@ gtk_source_buffer_set_style_scheme (GtkSourceBuffer      *buffer,
 	buffer->priv->style_scheme = scheme ? g_object_ref (scheme) : NULL;
 	update_bracket_match_style (buffer);
 
-	if (buffer->priv->highlight_engine != NULL)
-		_gtk_source_engine_set_style_scheme (buffer->priv->highlight_engine,
-						     scheme);
+	if (buffer->priv->syntax_analyzer != NULL)
+		_gtk_highlight_engine_set_style_scheme (buffer->priv->highlight_engine,
+						        scheme);
 
 	g_object_notify (G_OBJECT (buffer), "style-scheme");
 }
@@ -2237,12 +2310,12 @@ gtk_source_buffer_iter_has_context_class (GtkSourceBuffer   *buffer,
 	g_return_val_if_fail (iter != NULL, FALSE);
 	g_return_val_if_fail (context_class != NULL, FALSE);
 
-	if (buffer->priv->highlight_engine == NULL)
+	if (buffer->priv->syntax_analyzer == NULL)
 	{
 		return FALSE;
 	}
 
-	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->highlight_engine,
+	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->syntax_analyzer,
 							context_class);
 
 	if (tag != NULL)
@@ -2323,12 +2396,12 @@ gtk_source_buffer_iter_forward_to_context_class_toggle (GtkSourceBuffer *buffer,
 	g_return_val_if_fail (iter != NULL, FALSE);
 	g_return_val_if_fail (context_class != NULL, FALSE);
 
-	if (buffer->priv->highlight_engine == NULL)
+	if (buffer->priv->syntax_analyzer == NULL)
 	{
 		return FALSE;
 	}
 
-	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->highlight_engine,
+	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->syntax_analyzer,
 							context_class);
 
 	if (tag == NULL)
@@ -2368,12 +2441,12 @@ gtk_source_buffer_iter_backward_to_context_class_toggle (GtkSourceBuffer *buffer
 	g_return_val_if_fail (iter != NULL, FALSE);
 	g_return_val_if_fail (context_class != NULL, FALSE);
 
-	if (buffer->priv->highlight_engine == NULL)
+	if (buffer->priv->syntax_analyzer == NULL)
 	{
 		return FALSE;
 	}
 
-	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->highlight_engine,
+	tag = _gtk_source_engine_get_context_class_tag (buffer->priv->syntax_analyzer,
 							context_class);
 
 	if (tag == NULL)

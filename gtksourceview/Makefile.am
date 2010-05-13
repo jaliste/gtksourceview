@@ -53,7 +53,9 @@ NOINST_H_FILES = \
 	gtksourceundomanagerdefault.h	\
 	gtksourceview-i18n.h		\
 	gtksourceview-utils.h		\
-	gtktextregion.h
+	gtktextregion.h			\
+	gtksourcehighlighter.h		\
+	gtksourcecontextengine-private.h 
 
 libgtksourceview_c_files = \
 	gtksourcebuffer.c 		\
@@ -83,6 +85,7 @@ libgtksourceview_c_files = \
 	gtksourceview.c 		\
 	gtksourceview-i18n.c		\
 	gtksourceview-utils.c 		\
+	gtksourcehighlighter.c		\
 	gtktextregion.c
 
 libgtksourceview_3_0_la_SOURCES = 	\
