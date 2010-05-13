@@ -100,6 +100,9 @@ GtkSourceStyleScheme    *gtk_source_buffer_get_style_scheme     (GtkSourceBuffer
 void			 gtk_source_buffer_set_style_scheme     (GtkSourceBuffer        *buffer,
 								 GtkSourceStyleScheme   *scheme);
 
+gboolean		 gtk_source_buffer_get_analyze_syntax	(GtkSourceBuffer        *buffer);
+void			 gtk_source_buffer_set_analyze_syntax	(GtkSourceBuffer        *buffer,
+								 gboolean                analyze);
 /* Force highlighting */
 void			 gtk_source_buffer_ensure_highlight     (GtkSourceBuffer        *buffer,
 								 const GtkTextIter      *start,

@@ -40,7 +40,7 @@ libgtksourceview_headers =			\
 	gtksourcecompletionitem.h		\
 	gtksourcecompletionproposal.h		\
 	gtksourcecompletionprovider.h		\
-	gtksourcecompletioncontext.h
+	gtksourcecompletioncontext.h		
 
 NOINST_H_FILES = \
 	gtksourcecompletionmodel.h	\
@@ -55,7 +55,9 @@ NOINST_H_FILES = \
 	gtksourceundomanagerdefault.h	\
 	gtksourceview-i18n.h		\
 	gtksourceview-utils.h		\
-	gtktextregion.h
+	gtktextregion.h			\
+	gtkhighlightengine.h		\
+	gtksourcecontextengine-private.h 
 
 libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcebuffer.c 		\
@@ -86,6 +88,7 @@ libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcecompletionmodel.c	\
 	gtksourcecompletionutils.c	\
 	gtksourcecompletioncontext.c 	\
+	gtkhighlightengine.c		\
 	$(libgtksourceview_headers)	\
 	$(NOINST_H_FILES)
 
