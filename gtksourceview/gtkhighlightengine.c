@@ -490,54 +490,6 @@ ensure_highlighted (GtkHighlightEngine *ce,
 #endif
 
 /**
- * refresh_range:
- *
- * @ce: a #GtkHighlightEngine.
- * @start: the beginning of updated area.
- * @end: the end of updated area.
- * @modify_refresh_region: whether updated area should be added to
- * refresh_region.
- *
- * Marks the area as updated - notifies view about it, and adds it to
- * refresh_region if @modify_refresh_region is %TRUE (update_syntax may
- * process huge area though actually updated is couple of lines, so in
- * that case update_syntax() takes care of refresh_region, and this
- * function only notifies the view).
- */
-// FIXME: This function should be refactored.
-static void
-refresh_range (GtkHighlightEngine *ce,
-	       const GtkTextIter      *start,
-	       const GtkTextIter      *end,
-	       gboolean                modify_refresh_region)
-{
-	GtkTextIter real_end;
-
-	if (gtk_text_iter_equal (start, end))
-                return;
- 
-        if (modify_refresh_region)
-                gtk_text_region_add (ce->priv->refresh_region, start, end);
-
-       /* Now context classes are refreshed in gtksourcecontextengine */
-       /* Refresh the contex classes here */
-       /* refresh_context_classes (ce, start, end); */
-
-       /* Here we need to make sure we do not make it redraw next line */
-       real_end = *end;
-       if (gtk_text_iter_starts_line (&real_end))
-               /* I don't quite like this here, but at least it won't jump into
-                * the middle of \r\n  */
-		gtk_text_iter_backward_cursor_position (&real_end);
-
-	g_signal_emit_by_name (ce->priv->buffer,
-                              "highlight_updated",
-                              start,
-                              &real_end);
-
-}
-
-/**
  * update_highlight_cb:
  *
  * @ce: a #GtkHighlightEngine.
@@ -587,9 +539,12 @@ enable_highlight (GtkHighlightEngine *ce,
 				    &start, &end);
 
 	if (enable)
-		refresh_range (ce, &start, &end, TRUE);
+		/*FIXME: here we used to call refresh_range (ce, &start, &end, TRUE);
+		  but that is in the SyntaxAnalyzer now. */
+		highlight_region (ce, &start, &end);
 	else
 		unhighlight_region (ce, &start, &end);
+
 }
 
 static void
@@ -748,8 +703,6 @@ void
 _gtk_highlight_engine_set_styles_map (GtkHighlightEngine    *engine,
 				      GHashTable	    *styles)
 {
-	GtkHighlightEngine *ce;
-
 	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
 
 	if (engine->priv->styles_map != styles)

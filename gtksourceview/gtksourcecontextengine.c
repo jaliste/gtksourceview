@@ -128,13 +128,6 @@ typedef enum {
 	GTK_SOURCE_CONTEXT_ENGINE_ERROR_BAD_FILE
 } GtkSourceContextEngineError;
 
-enum {
-	SYNTAX_UPDATED = 0,
-	SIGNAL_LAST
-};
-
-static guint signals[SIGNAL_LAST];
-
 struct _RegexInfo
 {
 	gchar			*pattern;
@@ -716,7 +709,7 @@ refresh_range (GtkSourceContextEngine *ce,
 		/* I don't quite like this here, but at least it won't jump into
 		 * the middle of \r\n  */
 		gtk_text_iter_backward_cursor_position (&real_end);
-	printf("Emitting highlight_updated signal. %p = \n", ce->priv->root_segment);
+		
 	g_signal_emit_by_name (ce->priv->buffer,
 			       "highlight_updated",
 			       start,
@@ -1834,7 +1827,6 @@ first_update_callback (GtkSourceContextEngine *ce)
 	gdk_threads_enter ();
 
 	/* analyze batch of text */
-	printf("UPDATING SYNTAX\n");
 	update_syntax (ce, NULL, FIRST_UPDATE_TIME_SLICE);
 	CHECK_TREE (ce);
 
@@ -5335,7 +5327,6 @@ update_syntax (GtkSourceContextEngine *ce,
 
 	g_timer_destroy (timer);
 
-	printf("Syntax updated\n");
 
 out:
 	/* must call context_thaw, so this is the only return point */

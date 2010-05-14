@@ -308,7 +308,6 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 
 	param_types[0] = GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE;
 	param_types[1] = GTK_TYPE_TEXT_ITER | G_SIGNAL_TYPE_STATIC_SCOPE;
-	//_types[2] = G_TYPE_POINTER;
 
 	buffer_signals[HIGHLIGHT_UPDATED] =
 	    g_signal_newv ("highlight_updated",
