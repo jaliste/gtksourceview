@@ -129,7 +129,7 @@ typedef enum {
 } GtkSourceContextEngineError;
 
 enum {
-	SIGNAL_TREE_UPDATED = 0,
+	SYNTAX_UPDATED = 0,
 	SIGNAL_LAST
 };
 

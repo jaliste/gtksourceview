@@ -392,7 +392,6 @@ apply_tags (GtkHighlightEngine *ce,
 		if (child->end_at > start_offset)
 			apply_tags (ce, child, start_offset, end_offset);
 	}
-	printf("tags applied\n");
 }
 
 /**
