@@ -1450,22 +1450,24 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 
 	if (language != NULL)
 	{
+		GtkHighlightEngine *highlight_engine;
 		g_object_ref (language);
 
 		/* get a new engine */
 		buffer->priv->syntax_analyzer = _gtk_source_language_create_engine (language);
-		buffer->priv->highlight_engine = _gtk_highlight_engine_new ();
-		printf("Highlighting engine NULL ? %d\n", buffer->priv->highlight_engine==NULL);
-
+		highlight_engine = _gtk_highlight_engine_new ();
+		buffer->priv->highlight_engine = highlight_engine;
+		
 		if (buffer->priv->syntax_analyzer)
 		{
 			_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer,
 							  GTK_TEXT_BUFFER (buffer));
-			_gtk_highlight_engine_attach_buffer_and_analyzer (buffer->priv->highlight_engine,
-									  GTK_TEXT_BUFFER(buffer),
-									  buffer->priv->syntax_analyzer);
+			_gtk_highlight_engine_attach_buffer (highlight_engine, 
+							     GTK_TEXT_BUFFER(buffer));
+			_gtk_highlight_engine_set_analyzer (highlight_engine, 
+							    buffer->priv->syntax_analyzer); 
 			_gtk_highlight_engine_set_styles_map (buffer->priv->highlight_engine, 
-								language->priv->styles);
+							      language->priv->styles);
 			if (buffer->priv->style_scheme)
 				_gtk_highlight_engine_set_style_scheme (buffer->priv->highlight_engine,
 								     buffer->priv->style_scheme);

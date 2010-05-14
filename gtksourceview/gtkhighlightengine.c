@@ -70,37 +70,22 @@ struct _GtkHighlightEnginePrivate
 	 * tag priorities */
 	guint			 n_tags;
 
-	GHashTable		*context_classes;
-
+	/* pointer to the styles_map of Language. */ 
 	GHashTable		*styles_map;
 
 	/* Whether or not to actually highlight the buffer. */
 	gboolean		 highlight;
 
-	/* Whether highlighting was disabled because of errors. */
-	gboolean		 disabled;
-
-	/* Region covering the unhighlighted text. */
-	GtkTextRegion		*refresh_region;
+       /* Region covering the unhighlighted text. */
+       GtkTextRegion           *refresh_region;
 
 	/* Pointer to the segment tree created by the syntax analyzer */
 	Segment			*segment_tree;
-        Segment                 *hint;
-        Segment                 *hint2;
-
-	/* Views highlight requests. */
-	GtkTextRegion		*highlight_requests;
 
 #ifdef ENABLE_MEMORY_DEBUG
 	guint			 mem_usage_timeout;
 #endif
 };
-
-
-
-//static GQuark		gtk_highlight_engine_error_quark (void) G_GNUC_CONST;
-
-/* TAGS AND STUFF -------------------------------------------------------------- */
 
 
 static void
@@ -407,6 +392,7 @@ apply_tags (GtkHighlightEngine *ce,
 		if (child->end_at > start_offset)
 			apply_tags (ce, child, start_offset, end_offset);
 	}
+	printf("tags applied\n");
 }
 
 /**
@@ -420,16 +406,18 @@ apply_tags (GtkHighlightEngine *ce,
  */
 static void
 highlight_region (GtkHighlightEngine *ce,
-		  GtkTextIter            *start,
-		  GtkTextIter            *end)
+		  const GtkTextIter  *start,
+		  const GtkTextIter  *end)
 {
 #ifdef ENABLE_PROFILE
 	GTimer *timer;
 #endif
+	GtkTextIter real_end;
 
-	if (gtk_text_iter_starts_line (end))
-		gtk_text_iter_backward_char (end);
-	if (gtk_text_iter_compare (start, end) >= 0)
+	real_end = *end;
+	if (gtk_text_iter_starts_line (&real_end))
+		gtk_text_iter_backward_char (&real_end);
+	if (gtk_text_iter_compare (start, &real_end) >= 0)
 		return;
 
 #ifdef ENABLE_PROFILE
@@ -437,20 +425,21 @@ highlight_region (GtkHighlightEngine *ce,
 #endif
 
 	/* First we need to delete tags in the regions. */
-	unhighlight_region (ce, start, end);
+	unhighlight_region (ce, start, &real_end);
 
 	apply_tags (ce, ce->priv->segment_tree,
 		    gtk_text_iter_get_offset (start),
-		    gtk_text_iter_get_offset (end));
+		    gtk_text_iter_get_offset (&real_end));
 
 #ifdef ENABLE_PROFILE
 	g_print ("highlight (from %d to %d), %g ms elapsed\n",
 		 gtk_text_iter_get_offset (start),
-		 gtk_text_iter_get_offset (end),
+		 gtk_text_iter_get_offset (&real_end),
 		 g_timer_elapsed (timer, NULL) * 1000);
 	g_timer_destroy (timer);
 #endif
 }
+
 
 /**
  * ensure_highlighted:
@@ -465,6 +454,8 @@ highlight_region (GtkHighlightEngine *ce,
  * (gtk_highlight_engine_update_highlight is the method
  * that actually ensures correct highlighting).
  */
+#if 0 
+FIXME: THIS FUNCTION MUST BE REFACTORED 
 static void
 ensure_highlighted (GtkHighlightEngine *ce,
 		    const GtkTextIter      *start,
@@ -497,6 +488,7 @@ ensure_highlighted (GtkHighlightEngine *ce,
 	/* Remove the just highlighted region. */
 	gtk_text_region_subtract (ce->priv->refresh_region, start, end);
 }
+#endif
 
 /**
  * refresh_range:
@@ -513,7 +505,7 @@ ensure_highlighted (GtkHighlightEngine *ce,
  * that case update_syntax() takes care of refresh_region, and this
  * function only notifies the view).
  */
-
+// FIXME: This function should be refactored.
 static void
 refresh_range (GtkHighlightEngine *ce,
 	       const GtkTextIter      *start,
@@ -523,98 +515,28 @@ refresh_range (GtkHighlightEngine *ce,
 	GtkTextIter real_end;
 
 	if (gtk_text_iter_equal (start, end))
-		return;
+                return;
+ 
+        if (modify_refresh_region)
+                gtk_text_region_add (ce->priv->refresh_region, start, end);
 
-	if (modify_refresh_region)
-		gtk_text_region_add (ce->priv->refresh_region, start, end);
+       /* Now context classes are refreshed in gtksourcecontextengine */
+       /* Refresh the contex classes here */
+       /* refresh_context_classes (ce, start, end); */
 
-	/* Now context classes are refreshed in gtksourcecontextengine */
-	/* Refresh the contex classes here */
-	/* refresh_context_classes (ce, start, end); */
-
-	/* Here we need to make sure we do not make it redraw next line */
-	real_end = *end;
-	if (gtk_text_iter_starts_line (&real_end))
-		/* I don't quite like this here, but at least it won't jump into
-		 * the middle of \r\n  */
+       /* Here we need to make sure we do not make it redraw next line */
+       real_end = *end;
+       if (gtk_text_iter_starts_line (&real_end))
+               /* I don't quite like this here, but at least it won't jump into
+                * the middle of \r\n  */
 		gtk_text_iter_backward_cursor_position (&real_end);
 
 	g_signal_emit_by_name (ce->priv->buffer,
-			       "highlight_updated",
-			       start,
-			       &real_end);
+                              "highlight_updated",
+                              start,
+                              &real_end);
+
 }
-
-/**
- * invalidate_region:
- *
- * @ce: a #GtkHighlightEngine.
- * @offset: the start of invalidated area.
- * @length: the length of the area.
- *
- * Adds the area to the invalid region and queues highlighting.
- * @length may be negative which means deletion; positive
- * means insertion; 0 means "something happened here", it's
- * treated as zero-length insertion.
- */
- /*
-static void
-invalidate_region (GtkHighlightEngine *ce,
-		   gint                    offset,
-		   gint                    length)
-{
-	InvalidRegion *region = &ce->priv->invalid_region;
-	GtkTextBuffer *buffer = ce->priv->buffer;
-	GtkTextIter iter;
-	gint end_offset;
-
-	end_offset = length >= 0 ? offset + length : offset;
-
-	if (region->empty)
-	{
-		region->empty = FALSE;
-		region->delta = length;
-
-		gtk_text_buffer_get_iter_at_offset (buffer, &iter, offset);
-		gtk_text_buffer_move_mark (buffer, region->start, &iter);
-
-		gtk_text_iter_set_offset (&iter, end_offset);
-		gtk_text_buffer_move_mark (buffer, region->end, &iter);
-	}
-	else
-	{
-		gtk_text_buffer_get_iter_at_mark (buffer, &iter, region->start);
-
-		if (gtk_text_iter_get_offset (&iter) > offset)
-		{
-			gtk_text_iter_set_offset (&iter, offset);
-			gtk_text_buffer_move_mark (buffer, region->start, &iter);
-		}
-
-		gtk_text_buffer_get_iter_at_mark (buffer, &iter, region->end);
-
-		if (gtk_text_iter_get_offset (&iter) < end_offset)
-		{
-			gtk_text_iter_set_offset (&iter, end_offset);
-			gtk_text_buffer_move_mark (buffer, region->end, &iter);
-		}
-
-		region->delta += length;
-	}
-
-	DEBUG (({
-		gint start, end;
-		gtk_text_buffer_get_iter_at_mark (buffer, &iter, region->start);
-		start = gtk_text_iter_get_offset (&iter);
-		gtk_text_buffer_get_iter_at_mark (buffer, &iter, region->end);
-		end = gtk_text_iter_get_offset (&iter);
-		g_assert (start <= end - region->delta);
-	}));
-
-	CHECK_TREE (ce);
-
-	install_first_update (ce);
-}*/
 
 /**
  * update_highlight_cb:
@@ -632,18 +554,14 @@ invalidate_region (GtkHighlightEngine *ce,
  */
 static void
 update_highlight_cb (GtkHighlightEngine *highlight_engine,
-		     const GtkTextIter *start,
-		     const GtkTextIter *end,
-		   //  GtkTextRegion     *refresh_region, 
-		     GtkSourceBuffer *buffer)
+		     const GtkTextIter  *start,
+		     const GtkTextIter  *end,
+		     GtkSourceBuffer    *buffer)
 {
-	printf("Catched signal. Tree = %p, From %d to %d\n",
-			highlight_engine->priv->segment_tree,
-			gtk_text_iter_get_offset(start), gtk_text_iter_get_offset(end));
 	if (!highlight_engine->priv->highlight)
 		return;
+	highlight_region (highlight_engine, start, end);
 	
-	highlight_region (highlight_engine, start, end);// refresh_region);
 }
 
 /**
@@ -686,17 +604,6 @@ buffer_notify_highlight_syntax_cb (GtkHighlightEngine *ce)
 G_DEFINE_TYPE (GtkHighlightEngine, _gtk_highlight_engine, G_TYPE_OBJECT)
 
 /* GtkHighlightEngine class ------------------------------------------- */
-#if 0
-
-static GQuark
-gtk_highlight_engine_error_quark (void)
-{
-	static GQuark err_q = 0;
-	if (err_q == 0)
-		err_q = g_quark_from_static_string ("gtk-source-context-engine-error-quark");
-	return err_q;
-}
-#endif
 
 static void
 remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
@@ -721,7 +628,7 @@ remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
  *
  * Destroys syntax tags cache.
  */
-/*static void
+static void
 destroy_tags_hash (GtkHighlightEngine *ce)
 {
 	g_hash_table_foreach (ce->priv->tags, (GHFunc) remove_tags_hash_cb,
@@ -729,7 +636,7 @@ destroy_tags_hash (GtkHighlightEngine *ce)
 	g_hash_table_destroy (ce->priv->tags);
 	ce->priv->tags = NULL;
 }
-*/
+
 
 /*
  * gtk_highlight_engine_attach_buffer:
@@ -742,14 +649,12 @@ destroy_tags_hash (GtkHighlightEngine *ce)
  */
  /* THIS SHOULD BE MODIFIED TO ATTACH SYNTAX_ENGINE */
 void
-_gtk_highlight_engine_attach_buffer_and_analyzer (GtkHighlightEngine *engine,
-				  		  GtkTextBuffer      *buffer,
-				  		  GtkSourceEngine    *se)
+_gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
+				     GtkTextBuffer      *buffer)
 {
-	GtkSourceContextEngine *ce = GTK_SOURCE_CONTEXT_ENGINE (se);
 
 	//g_return_if_fail (!buffer || GTK_IS_CONTEXT_ (buffer));
-	printf ("Attaching buffer\n");
+
 	if (engine->priv->buffer == buffer)
 		return;
 
@@ -759,10 +664,10 @@ _gtk_highlight_engine_attach_buffer_and_analyzer (GtkHighlightEngine *engine,
 		g_signal_handlers_disconnect_by_func (engine->priv->buffer,
 						      (gpointer) buffer_notify_highlight_syntax_cb,
 						      engine);
+		/* TODO: Should I clean the root_segment? */
 		/*if (ce->priv->root_segment != NULL)
 			segment_destroy (ce, ce->priv->root_segment);
-		Should I set NULL the segment_tree?
-			ce->priv->root_segment = NULL;
+		ce->priv->root_segment = NULL;
 		*/
 		
 		/* this deletes tags from the tag table, therefore there is no need
@@ -771,16 +676,14 @@ _gtk_highlight_engine_attach_buffer_and_analyzer (GtkHighlightEngine *engine,
 		 * the buffer is destroyed? Removing tags is still slower than doing
 		 * nothing. Caveat: if tag table is shared with other buffer, we do
 		 * need to remove tags. */
-		/*destroy_tags_hash (ce);
-		ce->priv->n_tags = 0;*/
+		destroy_tags_hash (engine);
+		engine->priv->n_tags = 0;
 
-/*		if (ce->priv->refresh_region != NULL)
+		/* FIXME:		
+		if (ce->priv->refresh_region != NULL)
 			gtk_text_region_destroy (ce->priv->refresh_region, FALSE);
-		if (ce->priv->highlight_requests != NULL)
-			gtk_text_region_destroy (ce->priv->highlight_requests, FALSE);
-			*/
-	//	ce->priv->refresh_region = NULL;
-	//	ce->priv->highlight_requests = NULL;
+		ce->priv->refresh_region = NULL;
+		*/
 	}
 
 	engine->priv->buffer = buffer;
@@ -788,34 +691,24 @@ _gtk_highlight_engine_attach_buffer_and_analyzer (GtkHighlightEngine *engine,
 	if (buffer != NULL)
 	{
 		
-		//ce->priv->root_segment = create_segment (ce, NULL, ce->priv->root_context, 0, 0, TRUE, NULL);
 		engine->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-		
-		//gtk_text_buffer_get_bounds (buffer, &start, &end);
-		
-		g_object_get (engine->priv->buffer, "highlight-syntax", &engine->priv->highlight, NULL);
-		//ce->priv->refresh_region = gtk_text_region_new (buffer);
-		//ce->priv->highlight_requests = gtk_text_region_new (buffer);
 
+		g_object_get (engine->priv->buffer, "highlight-syntax", &engine->priv->highlight, NULL);
+		
 		g_signal_connect_swapped (buffer,
 					  "notify::highlight-syntax",
 					  G_CALLBACK (buffer_notify_highlight_syntax_cb),
 					  engine);
-		printf("Tree = %p\n", engine->priv->segment_tree);
-		engine->priv->segment_tree = _gtk_source_context_engine_get_tree (ce);
-		printf("Connecting to signal, tree = %p  \n", engine->priv->segment_tree);
 		g_signal_connect_swapped (buffer, "highlight_updated", 
 					  G_CALLBACK (update_highlight_cb),
 					  engine);
-
-	//	install_first_update (ce);
 	}
 }
 
 
 static void
-set_tag_style_hash_cb (const char             *style,
-		       GSList                 *tags,
+set_tag_style_hash_cb (const char         *style,
+		       GSList             *tags,
 		       GtkHighlightEngine *ce)
 {
 	while (tags != NULL)
@@ -836,47 +729,49 @@ set_tag_style_hash_cb (const char             *style,
  */
 void
 _gtk_highlight_engine_set_style_scheme (GtkHighlightEngine      *engine,
-				       GtkSourceStyleScheme *scheme)
-				  {
-	GtkHighlightEngine *ce;
-
+				        GtkSourceStyleScheme 	*scheme)
+{
 	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
 	g_return_if_fail (GTK_IS_SOURCE_STYLE_SCHEME (scheme) || scheme == NULL);
 
-	ce = GTK_HIGHLIGHT_ENGINE (engine);
-
-	if (scheme != ce->priv->style_scheme)
+	if (scheme != engine->priv->style_scheme)
 	{
-		if (ce->priv->style_scheme != NULL)
-			g_object_unref (ce->priv->style_scheme);
+		if (engine->priv->style_scheme != NULL)
+			g_object_unref (engine->priv->style_scheme);
 
-		ce->priv->style_scheme = scheme ? g_object_ref (scheme) : NULL;
-		g_hash_table_foreach (ce->priv->tags, (GHFunc) set_tag_style_hash_cb, ce);
+		engine->priv->style_scheme = scheme ? g_object_ref (scheme) : NULL;
+		g_hash_table_foreach (engine->priv->tags, (GHFunc) set_tag_style_hash_cb, engine);
 	}
 		 
 }
 
 void
-_gtk_highlight_engine_set_styles_map (GtkHighlightEngine      *engine,
-				       GHashTable	    *styles)
+_gtk_highlight_engine_set_styles_map (GtkHighlightEngine    *engine,
+				      GHashTable	    *styles)
 {
 	GtkHighlightEngine *ce;
 
 	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
-	//g_return_if_fail (G_IS_HASH_TABLE (styles) || styles == NULL);
 
-	ce = GTK_HIGHLIGHT_ENGINE (engine);
-
-	if (ce->priv->styles_map != styles)
-	{
-		if (ce->priv->styles_map != NULL)
-		{
-		//g_object_unref (ce->priv->styles_map);
-		}
-		ce->priv->styles_map = styles;// ? g_object_ref (styles) : NULL;
-	}
-	 
+	if (engine->priv->styles_map != styles)
+		engine->priv->styles_map = styles;
 }
+
+void
+_gtk_highlight_engine_set_analyzer (GtkHighlightEngine      *engine,
+				    GtkSourceEngine  	    *analyzer)
+{
+	GtkSourceContextEngine  *ce; 
+
+	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (analyzer));
+
+	ce = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
+
+	engine->priv->segment_tree = _gtk_source_context_engine_get_tree (ce);	 
+}
+		
+
 static void
 gtk_highlight_engine_finalize (GObject *object)
 {
@@ -904,17 +799,8 @@ static void
 _gtk_highlight_engine_class_init (GtkHighlightEngineClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	//GtkSourceEngineClass *engine_class = GTK_SOURCE_ENGINE_CLASS (klass);
 
 	object_class->finalize = gtk_highlight_engine_finalize;
-	/*
-	engine_class->attach_buffer = gtk_highlight_engine_attach_buffer;
-	engine_class->text_inserted = gtk_highlight_engine_text_inserted;
-	engine_class->text_deleted = gtk_highlight_engine_text_deleted;
-	engine_class->update_highlight = gtk_highlight_engine_update_highlight;
-	engine_class->set_style_scheme = gtk_highlight_engine_set_style_scheme;
-	engine_class->get_context_class_tag = gtk_highlight_engine_get_context_class_tag;
-	*/
 	g_type_class_add_private (object_class, sizeof (GtkHighlightEnginePrivate));
 }
 
@@ -926,7 +812,7 @@ _gtk_highlight_engine_init (GtkHighlightEngine *ce)
 }
 
 GtkHighlightEngine * 	
-_gtk_highlight_engine_new ()
+_gtk_highlight_engine_new (void)
 {
 	GtkHighlightEngine *ce;
 

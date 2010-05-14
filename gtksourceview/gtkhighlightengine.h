@@ -35,9 +35,6 @@ G_BEGIN_DECLS
 #define GTK_IS_HIGHLIGHT_ENGINE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_HIGHLIGHT_ENGINE))
 #define GTK_HIGHLIGHT_ENGINE_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_HIGHLIGHT_ENGINE, GtkHighlightEngineClass))
 
-typedef struct _GtkHighlightData          GtkHighlightData;
-typedef struct _GtkHighlightReplace       GtkHighlightReplace;
-typedef struct _GtkHighlightClass         GtkHighlightClass;
 typedef struct _GtkHighlightEngine        GtkHighlightEngine;
 typedef struct _GtkHighlightEngineClass   GtkHighlightEngineClass;
 typedef struct _GtkHighlightEnginePrivate GtkHighlightEnginePrivate;
@@ -55,32 +52,18 @@ struct _GtkHighlightEngineClass
 	GObjectClass parent_class;
 };
 
-typedef enum {
-	GTK_HIGHLIGHT_EXTEND_PARENT	= 1 << 0,
-	GTK_HIGHLIGHT_END_PARENT		= 1 << 1,
-	GTK_HIGHLIGHT_END_AT_LINE_END	= 1 << 2,
-	GTK_HIGHLIGHT_FIRST_LINE_ONLY	= 1 << 3,
-	GTK_HIGHLIGHT_ONCE_ONLY		= 1 << 4,
-	GTK_HIGHLIGHT_STYLE_INSIDE		= 1 << 5
-} GtkHighlightFlags;
+GType		 	_gtk_highlight_engine_get_type	(void) G_GNUC_CONST;
 
-typedef enum {
-	GTK_HIGHLIGHT_IGNORE_STYLE		= 1 << 0,
-	GTK_HIGHLIGHT_OVERRIDE_STYLE	= 1 << 1,
-	GTK_HIGHLIGHT_REF_ORIGINAL		= 1 << 2
-} GtkHighlightRefOptions;
+GtkHighlightEngine * 	_gtk_highlight_engine_new (void);
+void 			_gtk_highlight_engine_set_style_scheme	(GtkHighlightEngine     *engine,
+				       				 GtkSourceStyleScheme 	*scheme);
+void 			_gtk_highlight_engine_set_styles_map	(GtkHighlightEngine     *engine,
+				       			         GHashTable 		*styles);
+void			_gtk_highlight_engine_set_analyzer     	(GtkHighlightEngine	*engine,
+								 GtkSourceEngine	*se);
 
-GType		 _gtk_highlight_engine_get_type	(void) G_GNUC_CONST;
-
-GtkHighlightEngine * 	_gtk_highlight_engine_new ();
-void 			_gtk_highlight_engine_set_style_scheme (GtkHighlightEngine      *engine,
-				       				GtkSourceStyleScheme *scheme);
-void 			_gtk_highlight_engine_set_styles_map (GtkHighlightEngine      *engine,
-				       			      GHashTable *styles);
-
-void			_gtk_highlight_engine_attach_buffer_and_analyzer (GtkHighlightEngine *engine,
-				  			        GtkTextBuffer    *buffer,
-				  			        GtkSourceEngine    *se);
+void			_gtk_highlight_engine_attach_buffer	(GtkHighlightEngine 	*engine,
+				  			     	 GtkTextBuffer     	*buffer);
 G_END_DECLS
 
 #endif /* __GTK_HIGHLIGHT_ENGINE_H__ */
