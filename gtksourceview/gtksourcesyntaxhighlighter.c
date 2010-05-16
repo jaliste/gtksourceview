@@ -20,7 +20,7 @@
  */
 
 #include "gtksourceview-i18n.h"
-#include "gtkhighlightengine.h"
+#include "gtksourcesyntaxhighlighter.h"
 #include "gtktextregion.h"
 #include "gtksourcelanguage-private.h"
 #include "gtksourcebuffer.h"
@@ -57,12 +57,12 @@
 static void
 set_tag_style_hash_cb (const char         *style,
 		       GSList             *tags,
-		       GtkHighlightEngine *ce);
+		       GtkSourceSyntaxHighlighter *ce);
 
 
 
 
-struct _GtkHighlightEnginePrivate
+struct _GtkSourceSyntaxHighlighterPrivate
 {
 	GtkTextBuffer		*buffer;
 	GtkSourceStyleScheme	*style_scheme;
@@ -106,7 +106,7 @@ unhighlight_region_cb (G_GNUC_UNUSED gpointer style,
 }
 
 static void
-unhighlight_region (GtkHighlightEngine *ce,
+unhighlight_region (GtkSourceSyntaxHighlighter *ce,
 		    const GtkTextIter      *start,
 		    const GtkTextIter      *end)
 {
@@ -125,7 +125,7 @@ unhighlight_region (GtkHighlightEngine *ce,
 #define MAX_STYLE_DEPENDENCY_DEPTH	50
 
 static void
-set_tag_style (GtkHighlightEngine *ce,
+set_tag_style (GtkSourceSyntaxHighlighter *ce,
 	       GtkTextTag             *tag,
 	       const gchar            *style_id)
 {
@@ -179,7 +179,7 @@ set_tag_style (GtkHighlightEngine *ce,
 
 
 static void
-apply_tags (GtkHighlightEngine  *ce,
+apply_tags (GtkSourceSyntaxHighlighter  *ce,
 	    Segment		*segment,
 	    gint		 start_offset,
 	    gint		 end_offset)
@@ -263,14 +263,14 @@ apply_tags (GtkHighlightEngine  *ce,
 /**
  * highlight_region:
  *
- * @ce: a #GtkHighlightEngine.
+ * @ce: a #GtkSourceSyntaxHighlighter.
  * @start: the beginning of the region to highlight.
  * @end: the end of the region to highlight.
  *
  * Highlights the specified region.
  */
 static void
-highlight_region (GtkHighlightEngine *ce,
+highlight_region (GtkSourceSyntaxHighlighter *ce,
 		  const GtkTextIter  *start,
 		  const GtkTextIter  *end)
 {
@@ -314,19 +314,19 @@ highlight_region (GtkHighlightEngine *ce,
 /**
  * ensure_highlighted:
  *
- * @ce: a #GtkHighlightEngine.
+ * @ce: a #GtkSourceSyntaxHighlighter.
  * @start: the beginning of the region to highlight.
  * @end: the end of the region to highlight.
  *
  * Updates text tags in reanalyzed parts of given area.
  * It applies tags according to whatever is in the syntax
  * tree currently, so highlighting may not be correct
- * (gtk_highlight_engine_update_highlight is the method
+ * (gtk_source_syntax_highlighter_update_highlight is the method
  * that actually ensures correct highlighting).
  */
 #if 0 
 static void
-ensure_highlighted (GtkHighlightEngine *ce,
+ensure_highlighted (GtkSourceSyntaxHighlighter *ce,
 		    const GtkTextIter      *start,
 		    const GtkTextIter      *end,
 		    GtkTextRegion	*refresh_region)
@@ -362,7 +362,7 @@ ensure_highlighted (GtkHighlightEngine *ce,
 /**
  * update_highlight_cb:
  *
- * @ce: a #GtkHighlightEngine.
+ * @ce: a #GtkSourceSyntaxHighlighter.
  * @start: start of area to update.
  * @end: start of area to update.
  * @synchronous: whether it should block until everything
@@ -374,21 +374,21 @@ ensure_highlighted (GtkHighlightEngine *ce,
  * is %FALSE, then it queues idle worker.
  */
 static void
-update_highlight_cb (GtkHighlightEngine *highlight_engine,
+update_highlight_cb (GtkSourceSyntaxHighlighter *highlight_handler,
 		     const GtkTextIter  *start,
 		     const GtkTextIter  *end,
 		     GtkSourceBuffer    *buffer)
 {
-	if (!highlight_engine->priv->highlight)
+	if (!highlight_handler->priv->highlight)
 		return;
-	highlight_region (highlight_engine, start, end);
+	highlight_region (highlight_handler, start, end);
 	
 }
 
 /**
  * enable_highlight:
  *
- * @ce: a #GtkHighlightEngine.
+ * @ce: a #GtkSourceSyntaxHighlighter.
  * @enable: whether to enable highlighting.
  *
  * Whether to highlight (i.e. apply tags) analyzed area.
@@ -396,7 +396,7 @@ update_highlight_cb (GtkHighlightEngine *highlight_engine,
  * it affects only text tags.
  */
 static void
-enable_highlight (GtkHighlightEngine *ce,
+enable_highlight (GtkSourceSyntaxHighlighter *ce,
 		  gboolean                enable)
 {
 	GtkTextIter start, end;
@@ -418,29 +418,29 @@ enable_highlight (GtkHighlightEngine *ce,
 }
 
 static void
-buffer_notify_highlight_syntax_cb (GtkHighlightEngine *ce)
+buffer_notify_highlight_syntax_cb (GtkSourceSyntaxHighlighter *ce)
 {
 	gboolean highlight;
 	g_object_get (ce->priv->buffer, "highlight-syntax", &highlight, NULL);
 	enable_highlight (ce, highlight);
 }
 
-G_DEFINE_TYPE (GtkHighlightEngine, _gtk_highlight_engine, G_TYPE_OBJECT)
+G_DEFINE_TYPE (GtkSourceSyntaxHighlighter, _gtk_source_syntax_highlighter, G_TYPE_OBJECT)
 
-/* GtkHighlightEngine class ------------------------------------------- */
+/* GtkSourceSyntaxHighlighter class ------------------------------------------- */
 
 
 /*
- * gtk_highlight_engine_attach_buffer:
+ * gtk_source_syntax_highlighter_attach_buffer:
  *
- * @ce: #GtkHighlightEngine.
+ * @ce: #GtkSourceSyntaxHighlighter.
  * @buffer: buffer.
  *
  * Detaches engine from previous buffer, and attaches to @buffer if
  * it's not %NULL. Only called from set_analyzer
  */
 static void
-_gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
+_gtk_source_syntax_highlighter_attach_buffer (GtkSourceSyntaxHighlighter *engine,
 				     GtkTextBuffer      *buffer)
 {
 
@@ -493,7 +493,7 @@ _gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
 static void
 set_tag_style_hash_cb (const char         *style,
 		       GSList             *tags,
-		       GtkHighlightEngine *ce)
+		       GtkSourceSyntaxHighlighter *ce)
 {
 	while (tags != NULL)
 	{
@@ -503,19 +503,19 @@ set_tag_style_hash_cb (const char         *style,
 }
 
 /**
- * gtk_highlight_engine_set_style_scheme:
+ * gtk_source_syntax_highlighter_set_style_scheme:
  *
- * @engine: #GtkHighlightEngine.
+ * @engine: #GtkSourceSyntaxHighlighter.
  * @scheme: #GtkSourceStyleScheme to set.
  *
  * GtkSourceEngine::set_style_scheme method.
  * Sets current style scheme, updates tag styles and everything.
  */
 void
-_gtk_highlight_engine_set_style_scheme (GtkHighlightEngine      *engine,
+_gtk_source_syntax_highlighter_set_style_scheme (GtkSourceSyntaxHighlighter      *engine,
 				        GtkSourceStyleScheme 	*scheme)
 {
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_SYNTAX_HIGHLIGHTER (engine));
 	g_return_if_fail (GTK_IS_SOURCE_STYLE_SCHEME (scheme) || scheme == NULL);
 
 	if (scheme != engine->priv->style_scheme)
@@ -530,43 +530,43 @@ _gtk_highlight_engine_set_style_scheme (GtkHighlightEngine      *engine,
 }
 
 void
-_gtk_highlight_engine_set_styles_map (GtkHighlightEngine    *engine,
+_gtk_source_syntax_highlighter_set_styles_map (GtkSourceSyntaxHighlighter    *engine,
 				      GHashTable	    *styles)
 {
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_SYNTAX_HIGHLIGHTER (engine));
 
 	if (engine->priv->styles_map != styles)
 		engine->priv->styles_map = styles;
 }
 
 void
-_gtk_highlight_engine_set_analyzer (GtkHighlightEngine      *engine,
+_gtk_source_syntax_highlighter_set_analyzer (GtkSourceSyntaxHighlighter      *engine,
 				    GtkSourceEngine  	    *analyzer)
 {
 	GtkSourceContextEngine  *ce; 
 
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_SYNTAX_HIGHLIGHTER (engine));
 	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (analyzer));
 
 	ce = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
 	
-	_gtk_highlight_engine_attach_buffer (engine, _gtk_source_context_engine_get_buffer (ce));
+	_gtk_source_syntax_highlighter_attach_buffer (engine, _gtk_source_context_engine_get_buffer (ce));
 	engine->priv->segment_tree = _gtk_source_context_engine_get_tree (ce);
 	engine->priv->tags = _gtk_source_context_engine_get_style_tags (ce);	 
 }
 		
 
 static void
-gtk_highlight_engine_finalize (GObject *object)
+gtk_source_syntax_highlighter_finalize (GObject *object)
 {
-	GtkHighlightEngine *ce = GTK_HIGHLIGHT_ENGINE (object);
+	GtkSourceSyntaxHighlighter *ce = GTK_SOURCE_SYNTAX_HIGHLIGHTER (object);
 
 	if (ce->priv->buffer != NULL)
 	{
 		g_critical ("finalizing engine with attached buffer");
 		/* Disconnect the buffer (if there is one), which destroys almost
 		 * everything. */
-		//gtk_highlight_engine_attach_buffer (GTK_SOURCE_ENGINE (ce), NULL);
+		//gtk_source_syntax_highlighter_attach_buffer (GTK_SOURCE_ENGINE (ce), NULL);
 	}
 
 	g_assert (!ce->priv->tags);
@@ -576,31 +576,31 @@ gtk_highlight_engine_finalize (GObject *object)
 	if (ce->priv->style_scheme != NULL)
 		g_object_unref (ce->priv->style_scheme);
 
-	G_OBJECT_CLASS (_gtk_highlight_engine_parent_class)->finalize (object);
+	G_OBJECT_CLASS (_gtk_source_syntax_highlighter_parent_class)->finalize (object);
 }
 
 static void
-_gtk_highlight_engine_class_init (GtkHighlightEngineClass *klass)
+_gtk_source_syntax_highlighter_class_init (GtkSourceSyntaxHighlighterClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-	object_class->finalize = gtk_highlight_engine_finalize;
-	g_type_class_add_private (object_class, sizeof (GtkHighlightEnginePrivate));
+	object_class->finalize = gtk_source_syntax_highlighter_finalize;
+	g_type_class_add_private (object_class, sizeof (GtkSourceSyntaxHighlighterPrivate));
 }
 
 static void
-_gtk_highlight_engine_init (GtkHighlightEngine *ce)
+_gtk_source_syntax_highlighter_init (GtkSourceSyntaxHighlighter *ce)
 {
-	ce->priv = G_TYPE_INSTANCE_GET_PRIVATE (ce, GTK_TYPE_HIGHLIGHT_ENGINE,
-						GtkHighlightEnginePrivate);
+	ce->priv = G_TYPE_INSTANCE_GET_PRIVATE (ce, GTK_TYPE_SOURCE_SYNTAX_HIGHLIGHTER,
+						GtkSourceSyntaxHighlighterPrivate);
 }
 
-GtkHighlightEngine * 	
-_gtk_highlight_engine_new (void)
+GtkSourceSyntaxHighlighter * 	
+_gtk_source_syntax_highlighter_new (void)
 {
-	GtkHighlightEngine *ce;
+	GtkSourceSyntaxHighlighter *ce;
 
-	ce = g_object_new (GTK_TYPE_HIGHLIGHT_ENGINE, NULL);
+	ce = g_object_new (GTK_TYPE_SOURCE_SYNTAX_HIGHLIGHTER, NULL);
 	ce->priv->segment_tree = NULL;
 
 	return ce;

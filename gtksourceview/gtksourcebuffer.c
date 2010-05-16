@@ -40,7 +40,7 @@
 #include "gtksourcestyleschememanager.h"
 #include "gtksourcestyle-private.h"
 #include "gtksourceundomanagerdefault.h"
-#include "gtkhighlightengine.h"
+#include "gtksourcesyntaxhighlighter.h"
 
 /**
  * SECTION:buffer
@@ -124,7 +124,7 @@ struct _GtkSourceBufferPrivate
 	GtkSourceLanguage     *language;
 
 	GtkSourceEngine       *syntax_analyzer;
-	GtkHighlightEngine    *highlight_engine;
+	GtkSourceSyntaxHighlighter  *highlighter;
 	GtkSourceStyleScheme  *style_scheme;
 
 	GtkSourceUndoManager  *undo_manager;
@@ -1449,24 +1449,24 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 
 	if (language != NULL)
 	{
-		GtkHighlightEngine *highlight_engine;
+		GtkSourceSyntaxHighlighter *highlighter;
 		g_object_ref (language);
 
 		/* get a new engine */
 		buffer->priv->syntax_analyzer = _gtk_source_language_create_engine (language);
-		highlight_engine = _gtk_highlight_engine_new ();
-		buffer->priv->highlight_engine = highlight_engine;
+		highlighter = _gtk_source_syntax_highlighter_new ();
+		buffer->priv->highlighter = highlighter;
 		
 		if (buffer->priv->syntax_analyzer)
 		{
 			_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer,
 							  GTK_TEXT_BUFFER (buffer));
-			_gtk_highlight_engine_set_analyzer (highlight_engine, 
+			_gtk_source_syntax_highlighter_set_analyzer (highlighter, 
 							    buffer->priv->syntax_analyzer); 
-			_gtk_highlight_engine_set_styles_map (buffer->priv->highlight_engine, 
+			_gtk_source_syntax_highlighter_set_styles_map (buffer->priv->highlighter, 
 							      language->priv->styles);
 			if (buffer->priv->style_scheme)
-				_gtk_highlight_engine_set_style_scheme (buffer->priv->highlight_engine,
+				_gtk_source_syntax_highlighter_set_style_scheme (buffer->priv->highlighter,
 								     buffer->priv->style_scheme);
 		}
 	}
@@ -1568,7 +1568,7 @@ gtk_source_buffer_set_style_scheme (GtkSourceBuffer      *buffer,
 	update_bracket_match_style (buffer);
 
 	if (buffer->priv->syntax_analyzer != NULL)
-		_gtk_highlight_engine_set_style_scheme (buffer->priv->highlight_engine,
+		_gtk_source_syntax_highlighter_set_style_scheme (buffer->priv->highlighter,
 						        scheme);
 
 	g_object_notify (G_OBJECT (buffer), "style-scheme");

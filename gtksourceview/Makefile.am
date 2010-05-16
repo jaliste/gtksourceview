@@ -56,7 +56,7 @@ NOINST_H_FILES = \
 	gtksourceview-i18n.h		\
 	gtksourceview-utils.h		\
 	gtktextregion.h			\
-	gtkhighlightengine.h		\
+	gtksourcesyntaxhighlighter.h	\
 	gtksourcecontextengine-private.h 
 
 libgtksourceview_2_0_la_SOURCES = 	\
@@ -88,7 +88,7 @@ libgtksourceview_2_0_la_SOURCES = 	\
 	gtksourcecompletionmodel.c	\
 	gtksourcecompletionutils.c	\
 	gtksourcecompletioncontext.c 	\
-	gtkhighlightengine.c		\
+	gtksourcesyntaxhighlighter.c	\
 	$(libgtksourceview_headers)	\
 	$(NOINST_H_FILES)
 
