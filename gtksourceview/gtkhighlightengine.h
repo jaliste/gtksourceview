@@ -61,9 +61,6 @@ void 			_gtk_highlight_engine_set_styles_map	(GtkHighlightEngine     *engine,
 				       			         GHashTable 		*styles);
 void			_gtk_highlight_engine_set_analyzer     	(GtkHighlightEngine	*engine,
 								 GtkSourceEngine	*se);
-
-void			_gtk_highlight_engine_attach_buffer	(GtkHighlightEngine 	*engine,
-				  			     	 GtkTextBuffer     	*buffer);
 G_END_DECLS
 
 #endif /* __GTK_HIGHLIGHT_ENGINE_H__ */

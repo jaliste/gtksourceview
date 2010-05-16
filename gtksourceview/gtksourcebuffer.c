@@ -1461,8 +1461,6 @@ gtk_source_buffer_set_language (GtkSourceBuffer   *buffer,
 		{
 			_gtk_source_engine_attach_buffer (buffer->priv->syntax_analyzer,
 							  GTK_TEXT_BUFFER (buffer));
-			_gtk_highlight_engine_attach_buffer (highlight_engine, 
-							     GTK_TEXT_BUFFER(buffer));
 			_gtk_highlight_engine_set_analyzer (highlight_engine, 
 							    buffer->priv->syntax_analyzer); 
 			_gtk_highlight_engine_set_styles_map (buffer->priv->highlight_engine, 
