@@ -22,11 +22,6 @@
 #ifndef __GTK_SOURCE_CONTEXT_ENGINE_PRIVATE_H__
 #define __GTK_SOURCE_CONTEXT_ENGINE_PRIVATE_H__
 
-#define HAS_OPTION(def,opt) (((def)->flags & GTK_SOURCE_CONTEXT_##opt) != 0)
-#define CONTEXT_IS_SIMPLE(c) ((c)->definition->type == CONTEXT_TYPE_SIMPLE)
-#define CONTEXT_IS_CONTAINER(c) ((c)->definition->type == CONTEXT_TYPE_CONTAINER)
-
-
 struct BufAndIters {
 	GtkTextBuffer *buffer;
 	const GtkTextIter *start, *end;
@@ -38,7 +33,7 @@ typedef enum {
 	SUB_PATTERN_WHERE_END
 } SubPatternWhere;
 
-typedef struct _SubPatternDefinition SubPatternDefinition;
+typedef struct _SubPatternAnnotation SubPatternAnnotation;
 typedef struct _SubPattern SubPattern;
 
 typedef struct _Segment Segment;
@@ -71,15 +66,16 @@ struct _Segment
 
 struct _Annotation 
 {
-	const gchar		*style;
+	gchar			*style;
 	GtkTextTag		*style_tag;
-	guint			 style_inside;
+	guint			 style_inside; //???
 	GSList			*context_classes;
 //	context information;
 };
+
 struct _SubPattern
 {
-	SubPatternDefinition	*definition;
+	Annotation		*annot;
 	gint			 start_at;
 	gint			 end_at;
 	SubPattern		*next;
