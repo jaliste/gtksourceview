@@ -38,6 +38,7 @@
 #include "gtksourcecompletion-private.h"
 #include "gtksourcecompletioncontext.h"
 #include "gtksourcecompletionui.h"
+#include "gseal-gtk-compat.h"
 #include <stdarg.h>
 
 #define WINDOW_WIDTH 350
@@ -352,7 +353,7 @@ select_proposal (GtkSourceCompletion *completion,
 	GtkTreeModel *model;
 	gboolean hasselection;
 	
-	if (!GTK_WIDGET_VISIBLE (completion->priv->tree_view_proposals))
+	if (!gtk_widget_get_visible (completion->priv->tree_view_proposals))
 	{
 		return FALSE;
 	}
@@ -1052,7 +1053,7 @@ static void
 selection_changed_cb (GtkTreeSelection    *selection, 
 		      GtkSourceCompletion *completion)
 {
-	if (!GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (!gtk_widget_get_visible (completion->priv->window))
 	{
 		return;
 	}
@@ -1094,7 +1095,7 @@ static void
 show_info_cb (GtkWidget           *widget,
 	      GtkSourceCompletion *completion)
 {
-	g_return_if_fail (GTK_WIDGET_VISIBLE (GTK_WIDGET (completion->priv->window)));
+	g_return_if_fail (gtk_widget_get_visible (GTK_WIDGET (completion->priv->window)));
 	
 	update_info_position (completion);
 	update_proposal_info (completion);
@@ -1107,7 +1108,7 @@ static void
 show_info_after_cb (GtkWidget           *widget,
 	            GtkSourceCompletion *completion)
 {
-	g_return_if_fail (GTK_WIDGET_VISIBLE (GTK_WIDGET (completion->priv->window)));
+	g_return_if_fail (gtk_widget_get_visible (GTK_WIDGET (completion->priv->window)));
 	
 	/* We do this here because GtkLabel does not properly handle
 	 * can-focus = FALSE and selects all the text when it gets focus from
@@ -1144,7 +1145,7 @@ gtk_source_completion_configure_event (GtkWidget           *widget,
                                        GdkEventConfigure   *event,
                                        GtkSourceCompletion *completion)
 {
-	if (GTK_WIDGET_VISIBLE (completion->priv->info_window))
+	if (gtk_widget_get_visible (completion->priv->info_window))
 	{
 		update_info_position (completion);
 	}
@@ -1175,6 +1176,7 @@ update_column_sizes (GtkSourceCompletion *completion)
 {
 	gint cwidth;
 	GtkTreeView *tv;
+	GtkAllocation allocation;
 	gint xpad;
 	gint separator;
 	GtkStyle *style;
@@ -1203,8 +1205,10 @@ update_column_sizes (GtkSourceCompletion *completion)
 	}
 
 	tv = GTK_TREE_VIEW (completion->priv->tree_view_proposals);
+	gtk_widget_get_allocation (GTK_WIDGET (completion->priv->tree_view_proposals),
+				   &allocation);
 	
-	set_column_width (tv, 0, completion->priv->tree_view_proposals->allocation.width - cwidth);
+	set_column_width (tv, 0, allocation.width - cwidth);
 	set_column_width (tv, 1, cwidth);
 
 	gtk_tree_view_column_set_visible (completion->priv->tree_view_column_accelerator,
@@ -1243,8 +1247,8 @@ view_focus_out_event_cb (GtkWidget     *widget,
 {
 	GtkSourceCompletion *completion = GTK_SOURCE_COMPLETION (user_data);
 	
-	if (GTK_WIDGET_VISIBLE (completion->priv->window)
-	    && !GTK_WIDGET_HAS_FOCUS (completion->priv->window))
+	if (gtk_widget_get_visible (completion->priv->window) &&
+	    !gtk_widget_has_focus (completion->priv->window))
 	{
 		DEBUG({
 			g_print ("Lost focus\n");
@@ -1263,7 +1267,7 @@ view_button_press_event_cb (GtkWidget      *widget,
 {
 	GtkSourceCompletion *completion = GTK_SOURCE_COMPLETION (user_data);
 	
-	if (GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (gtk_widget_get_visible (completion->priv->window))
 	{
 		DEBUG({
 			g_print ("Button press in the view\n");
@@ -1402,7 +1406,7 @@ view_key_press_event_cb (GtkSourceView       *view,
 	
 	mod = gtk_accelerator_get_default_mod_mask () & event->state;
 	
-	if (!GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (!gtk_widget_get_visible (completion->priv->window))
 	{
 		return FALSE;
 	}
@@ -1568,7 +1572,7 @@ auto_completion_prematch (GtkSourceCompletion *completion)
 
 	completion->priv->show_timed_out_id = 0;
 	
-	if (GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (gtk_widget_get_visible (completion->priv->window))
 	{
 		return FALSE;
 	}
@@ -1724,7 +1728,7 @@ buffer_mark_set_cb (GtkTextBuffer       *buffer,
 	gtk_source_completion_context_get_iter (completion->priv->context,
 	                                        &it);
 	
-	if (gtk_text_iter_get_line (iter) != gtk_text_iter_get_line (&it))
+	if (!gtk_text_iter_equal (iter, &it))
 	{
 		gtk_source_completion_hide (completion);
 		return;
@@ -2118,7 +2122,7 @@ on_row_inserted_cb (GtkTreeModel        *tree_model,
                     GtkTreeIter         *iter,
                     GtkSourceCompletion *completion)
 {
-	if (!GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (!gtk_widget_get_visible (completion->priv->window))
 	{
 		if (!completion->priv->remember_info_visibility)
 		{
@@ -3128,7 +3132,7 @@ update_completion (GtkSourceCompletion        *completion,
 
 	update_typing_offsets (completion);
 	
-	if (GTK_WIDGET_VISIBLE (completion->priv->info_window))
+	if (gtk_widget_get_visible (completion->priv->info_window))
 	{
 		/* Move info window accordingly */
 		update_info_position (completion);
@@ -3247,9 +3251,9 @@ _gtk_source_completion_add_proposals (GtkSourceCompletion         *completion,
 
 /**
  * gtk_source_completion_show:
- * @completion: A #GtkSourceCompletion
- * @providers: A list of #GtkSourceCompletionProvider or %NULL
- * @context: The #GtkSourceCompletionContext with which to start the completion
+ * @completion: z #GtkSourceCompletion.
+ * @providers: (allow-none): z list of #GtkSourceCompletionProvider, or %NULL.
+ * @context: The #GtkSourceCompletionContext with which to start the completion.
  *
  * Starts a new completion with the specified #GtkSourceCompletionContext and
  * a list of potential candidate providers for completion.
@@ -3309,12 +3313,12 @@ gtk_source_completion_show (GtkSourceCompletion        *completion,
 
 /**
  * gtk_source_completion_get_providers:
- * @completion: The #GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  *
  * Get list of providers registered on @completion. The returned list is owned
  * by the completion and should not be freed.
  *
- * Returns: list of #GtkSourceCompletionProvider
+ * Returns: (transfer none): list of #GtkSourceCompletionProvider.
  */
 GList *
 gtk_source_completion_get_providers (GtkSourceCompletion *completion)
@@ -3338,11 +3342,11 @@ gtk_source_completion_error_quark (void)
 
 /**
  * gtk_source_completion_new:
- * @view: A #GtkSourceView
+ * @view: a #GtkSourceView.
  *
- * Create a new #GtkSourceCompletion associated with @view.
+ * Creates a new #GtkSourceCompletion associated with @view.
  *
- * Returns: The new #GtkSourceCompletion.
+ * Returns: a new #GtkSourceCompletion.
  */
 GtkSourceCompletion *
 gtk_source_completion_new (GtkSourceView *view)
@@ -3356,9 +3360,9 @@ gtk_source_completion_new (GtkSourceView *view)
 
 /**
  * gtk_source_completion_add_provider:
- * @completion: A #GtkSourceCompletion
- * @provider: A #GtkSourceCompletionProvider
- * @error: A #GError
+ * @completion: a #GtkSourceCompletion.
+ * @provider: a #GtkSourceCompletionProvider.
+ * @error: (allow-none): a #GError.
  *
  * Add a new #GtkSourceCompletionProvider to the completion object. This will
  * add a reference @provider, so make sure to unref your own copy when you
@@ -3421,9 +3425,9 @@ gtk_source_completion_add_provider (GtkSourceCompletion          *completion,
 
 /**
  * gtk_source_completion_remove_provider:
- * @completion: A #GtkSourceCompletion
- * @provider: A #GtkSourceCompletionProvider
- * @error: A #GError
+ * @completion: a #GtkSourceCompletion.
+ * @provider: a #GtkSourceCompletionProvider.
+ * @error: (allow-none): a #GError.
  *
  * Remove @provider from the completion.
  * 
@@ -3488,7 +3492,7 @@ gtk_source_completion_remove_provider (GtkSourceCompletion          *completion,
 
 /**
  * gtk_source_completion_hide:
- * @completion: A #GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  * 
  * Hides the completion if it is active (visible).
  */
@@ -3506,12 +3510,13 @@ gtk_source_completion_hide (GtkSourceCompletion *completion)
 
 /**
  * gtk_source_completion_get_info_window:
- * @completion: A #GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  *
  * The info widget is the window where the completion displays optional extra
  * information of the proposal.
  *
- * Returns: The #GtkSourceCompletionInfo window.
+ * Returns: (transfer none): The #GtkSourceCompletionInfo window
+ *                           associated with @completion.
  */
 GtkSourceCompletionInfo *
 gtk_source_completion_get_info_window (GtkSourceCompletion *completion)
@@ -3521,11 +3526,11 @@ gtk_source_completion_get_info_window (GtkSourceCompletion *completion)
 
 /**
  * gtk_source_completion_get_view:
- * @completion: A #GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  *
  * The #GtkSourceView associated with @completion.
  *
- * Returns: The #GtkSourceView associated with @completion.
+ * Returns: (transfer none): The #GtkSourceView associated with @completion.
  */
 GtkSourceView *
 gtk_source_completion_get_view (GtkSourceCompletion *completion)
@@ -3537,8 +3542,8 @@ gtk_source_completion_get_view (GtkSourceCompletion *completion)
 
 /**
  * gtk_source_completion_create_context:
- * @completion: A #GtkSourceCompletion
- * @position: A #GtkTextIter
+ * @completion: a #GtkSourceCompletion.
+ * @position: (allow-none): a #GtkTextIter, or %NULL.
  *
  * Create a new #GtkSourceCompletionContext for @completion. The position at
  * which the completion using the new context will consider completion can
@@ -3548,7 +3553,6 @@ gtk_source_completion_get_view (GtkSourceCompletion *completion)
  * Returns: a new #GtkSourceCompletionContext. The reference being returned
  * is a 'floating' reference, so if you invoke #gtk_source_completion_show
  * with this context you don't need to unref it.
- *
  */
 GtkSourceCompletionContext *
 gtk_source_completion_create_context (GtkSourceCompletion *completion,
@@ -3572,11 +3576,10 @@ gtk_source_completion_create_context (GtkSourceCompletion *completion,
 
 /**
  * gtk_source_completion_move_window:
- * @completion: A #GtkSourceCompletion
- * @iter: A #GtkTextIter
+ * @completion: a #GtkSourceCompletion.
+ * @iter: a #GtkTextIter.
  *
  * Move the completion window to a specific iter.
- *
  */
 void
 gtk_source_completion_move_window (GtkSourceCompletion *completion,
@@ -3585,7 +3588,7 @@ gtk_source_completion_move_window (GtkSourceCompletion *completion,
 	g_return_if_fail (GTK_IS_SOURCE_COMPLETION (completion));
 	g_return_if_fail (iter != NULL);
 	
-	if (!GTK_WIDGET_VISIBLE (completion->priv->window))
+	if (!gtk_widget_get_visible (completion->priv->window))
 	{
 		return;
 	}
@@ -3597,13 +3600,12 @@ gtk_source_completion_move_window (GtkSourceCompletion *completion,
 
 /**
  * gtk_source_completion_block_interactive:
- * @completion: A # GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  *
  * Block interactive completion. This can be used to disable interactive
  * completion when inserting or deleting text from the buffer associated with
  * the completion. Use #gtk_source_completion_unblock_interactive to enable
  * interactive completion again.
- *
  **/
 void
 gtk_source_completion_block_interactive (GtkSourceCompletion *completion)
@@ -3618,12 +3620,11 @@ gtk_source_completion_block_interactive (GtkSourceCompletion *completion)
 
 /**
  * gtk_source_completion_unblock_interactive:
- * @completion: A # GtkSourceCompletion
+ * @completion: a #GtkSourceCompletion.
  *
  * Unblock interactive completion. This can be used after using
  * #gtk_source_completion_block_interactive to enable interactive completion
  * again.
- *
  **/
 void
 gtk_source_completion_unblock_interactive (GtkSourceCompletion *completion)

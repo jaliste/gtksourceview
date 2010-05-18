@@ -4,7 +4,7 @@ AC_PREREQ(2.64)
 
 m4_define(gtksourceview_major_version, 2)
 m4_define(gtksourceview_minor_version, 10)
-m4_define(gtksourceview_micro_version, 0)
+m4_define(gtksourceview_micro_version, 1)
 m4_define(gtksourceview_version, gtksourceview_major_version.gtksourceview_minor_version.gtksourceview_micro_version)
 
 AC_INIT([gtksourceview],[gtksourceview_version],[http://bugzilla.gnome.org/enter_bug.cgi?product=gtksourceview],[gtksourceview],[http://projects.gnome.org/gtksourceview/])
@@ -30,10 +30,12 @@ LT_INIT([disable-static])
 AC_CHECK_HEADERS([unistd.h])
 
 # Dependencies
-GTK_REQUIRED_VERSION=2.12.0
+GTK_REQUIRED=
+GTK_REQUIRED_VERSION=
 LIBXML_REQUIRED_VERSION=2.5.0
 GLADE_UI_REQUIRED=3.2
 
+AC_SUBST(GTK_REQUIRED)
 AC_SUBST(GTK_REQUIRED_VERSION)
 AC_SUBST(LIBXML_REQUIRED_VERSION)
 
@@ -45,12 +47,20 @@ AC_PATH_PROG(GLIB_MKENUMS, glib-mkenums)
 GNOME_COMPILE_WARNINGS([maximum])
 #GNOME_MAINTAINER_MODE_DEFINES
 
+PKG_CHECK_EXISTS([gtk+-3.0 >= 2.90],
+		 [
+		 	GTK_REQUIRED=gtk+-3.0
+		 	GTK_REQUIRED_VERSION=2.90.0
+		 ],[
+		 	GTK_REQUIRED=gtk+-2.0
+		 	GTK_REQUIRED_VERSION=2.16.0
+		 ])
+
 PKG_CHECK_MODULES(DEP, [
 	gio-2.0
-	gtk+-2.0 >= $GTK_REQUIRED_VERSION
+	$GTK_REQUIRED >= $GTK_REQUIRED_VERSION
 	libxml-2.0 >= $LIBXML_REQUIRED_VERSION
 ])
-
 
 dnl Check to enable completion providers
 AC_ARG_ENABLE(providers,

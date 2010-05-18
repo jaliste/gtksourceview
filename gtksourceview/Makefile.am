@@ -56,6 +56,7 @@ NOINST_H_FILES = \
 	gtksourceview-i18n.h		\
 	gtksourceview-utils.h		\
 	gtktextregion.h			\
+	gseal-gtk-compat.h				\
 	gtksourcesyntaxhighlighter.h	\
 	gtksourcecontextengine-private.h 
 
