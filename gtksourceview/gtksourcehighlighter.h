@@ -19,51 +19,48 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __GTK_HIGHLIGHT_ENGINE_H__
-#define __GTK_HIGHLIGHT_ENGINE_H__
+#ifndef __GTK_SOURCE_HIGHLIGHTER_H__
+#define __GTK_SOURCE_HIGHLIGHTER_H__
 
-#include <gtksourceview/gtksourcebuffer.h>
 #include <gtksourceview/gtksourceengine.h>
-#include <gtksourceview/gtksourcelanguage.h>
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_HIGHLIGHT_ENGINE            (_gtk_highlight_engine_get_type ())
-#define GTK_HIGHLIGHT_ENGINE(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_HIGHLIGHT_ENGINE, GtkHighlightEngine))
-#define GTK_HIGHLIGHT_ENGINE_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GTK_TYPE_HIGHLIGHT_ENGINE, GtkHighlightEngineClass))
-#define GTK_IS_HIGHLIGHT_ENGINE(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GTK_TYPE_HIGHLIGHT_ENGINE))
-#define GTK_IS_HIGHLIGHT_ENGINE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_HIGHLIGHT_ENGINE))
-#define GTK_HIGHLIGHT_ENGINE_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_HIGHLIGHT_ENGINE, GtkHighlightEngineClass))
+#define GTK_TYPE_SOURCE_HIGHLIGHTER            (_gtk_source_highlighter_get_type ())
+#define GTK_SOURCE_HIGHLIGHTER(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_SOURCE_HIGHLIGHTER, GtkSourceHighlighter))
+#define GTK_SOURCE_HIGHLIGHTER_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), GTK_TYPE_SOURCE_HIGHLIGHTER, GtkSourceHighlighterClass))
+#define GTK_IS_SOURCE_HIGHLIGHTER(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GTK_TYPE_SOURCE_HIGHLIGHTER))
+#define GTK_IS_SOURCE_HIGHLIGHTER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_SOURCE_HIGHLIGHTER))
+#define GTK_SOURCE_HIGHLIGHTER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_SOURCE_HIGHLIGHTER, GtkSourceHighlighterClass))
 
-typedef struct _GtkHighlightEngine        GtkHighlightEngine;
-typedef struct _GtkHighlightEngineClass   GtkHighlightEngineClass;
-typedef struct _GtkHighlightEnginePrivate GtkHighlightEnginePrivate;
+typedef struct _GtkSourceHighlighter        GtkSourceHighlighter;
+typedef struct _GtkSourceHighlighterClass   GtkSourceHighlighterClass;
+typedef struct _GtkSourceHighlighterPrivate GtkSourceHighlighterPrivate;
 
-struct _GtkHighlightEngine
+struct _GtkSourceHighlighter
 {
 	GObject parent_instance;
 
 	/*< private >*/
-	GtkHighlightEnginePrivate *priv;
+	GtkSourceHighlighterPrivate *priv;
 };
 
-struct _GtkHighlightEngineClass
+struct _GtkSourceHighlighterClass
 {
 	GObjectClass parent_class;
 };
 
-GType		 	_gtk_highlight_engine_get_type	(void) G_GNUC_CONST;
+GType		 	_gtk_source_highlighter_get_type	(void) G_GNUC_CONST;
 
-GtkHighlightEngine * 	_gtk_highlight_engine_new (void);
-void 			_gtk_highlight_engine_set_style_scheme	(GtkHighlightEngine     *engine,
-				       				 GtkSourceStyleScheme 	*scheme);
-void 			_gtk_highlight_engine_set_styles_map	(GtkHighlightEngine     *engine,
-				       			         GHashTable 		*styles);
-void			_gtk_highlight_engine_set_analyzer     	(GtkHighlightEngine	*engine,
-								 GtkSourceEngine	*se);
-
-void			_gtk_highlight_engine_attach_buffer	(GtkHighlightEngine 	*engine,
-				  			     	 GtkTextBuffer     	*buffer);
+GtkSourceHighlighter * 	_gtk_source_highlighter_new (void);
+void 			_gtk_source_highlighter_set_style_scheme (GtkSourceHighlighter *highlighter,
+				       				  GtkSourceStyleScheme *scheme);
+void 			_gtk_source_highlighter_set_styles_map	 (GtkSourceHighlighter *highlighter,
+				       				  GHashTable 	       *styles);
+void			_gtk_source_highlighter_set_analyzer	 (GtkSourceHighlighter *highlighter,
+								  GtkSourceEngine      *se);
+void			_gtk_source_highlighter_attach_buffer	 (GtkSourceHighlighter *highlighter,
+				  				  GtkTextBuffer        *buffer);
 G_END_DECLS
 
-#endif /* __GTK_HIGHLIGHT_ENGINE_H__ */
+#endif /* __GTK_SOURCE_HIGHLIGHTER_H__ */
