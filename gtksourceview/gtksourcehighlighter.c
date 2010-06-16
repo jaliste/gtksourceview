@@ -59,14 +59,14 @@
 
 
 
-struct _GtkHighlightEnginePrivate
+struct _GtkSourceHighlighterPrivate
 {
 	GtkTextBuffer		*buffer;
 	GtkSourceStyleScheme	*style_scheme;
 
 	/* All tags indexed by style name: values are GSList's of tags, ref()'ed. */
 	GHashTable		*tags;
-	/* Number of all syntax tags created by the engine, needed to set correct
+	/* Number of all syntax tags created by the highlighter, needed to set correct
 	 * tag priorities */
 	guint			 n_tags;
 
@@ -106,26 +106,26 @@ unhighlight_region_cb (G_GNUC_UNUSED gpointer style,
 }
 
 static void
-unhighlight_region (GtkHighlightEngine *ce,
+unhighlight_region (GtkSourceHighlighter *highlighter,
 		    const GtkTextIter      *start,
 		    const GtkTextIter      *end)
 {
 	struct BufAndIters data;
 
-	data.buffer = ce->priv->buffer;
+	data.buffer = highlighter->priv->buffer;
 	data.start = start;
 	data.end = end;
 
 	if (gtk_text_iter_equal (start, end))
 		return;
 
-	g_hash_table_foreach (ce->priv->tags, (GHFunc) unhighlight_region_cb, &data);
+	g_hash_table_foreach (highlighter->priv->tags, (GHFunc) unhighlight_region_cb, &data);
 }
 
 #define MAX_STYLE_DEPENDENCY_DEPTH	50
 
 static void
-set_tag_style (GtkHighlightEngine *ce,
+set_tag_style (GtkSourceHighlighter *highlighter,
 	       GtkTextTag             *tag,
 	       const gchar            *style_id)
 {
@@ -140,10 +140,10 @@ set_tag_style (GtkHighlightEngine *ce,
 
 	_gtk_source_style_apply (NULL, tag);
 
-	if (ce->priv->style_scheme == NULL)
+	if (highlighter->priv->style_scheme == NULL)
 		return;
 
-	style = gtk_source_style_scheme_get_style (ce->priv->style_scheme, style_id);
+	style = gtk_source_style_scheme_get_style (highlighter->priv->style_scheme, style_id);
 
 	while (style == NULL)
 	{
@@ -158,15 +158,15 @@ set_tag_style (GtkHighlightEngine *ce,
 		++guard;
 
 		/* FIXME Style references really must be fixed, both parser for
-		 * sane use in lang files, and engine for safe use. */
-		info = g_hash_table_lookup (ce->priv->styles_map, map_to);
+		 * sane use in lang files, and highlighter for safe use. */
+		info = g_hash_table_lookup (highlighter->priv->styles_map, map_to);
 
 		map_to = (info != NULL) ? info->map_to : NULL;
 
 		if (!map_to)
 			break;
 
-		style = gtk_source_style_scheme_get_style (ce->priv->style_scheme, map_to);
+		style = gtk_source_style_scheme_get_style (highlighter->priv->style_scheme, map_to);
 	}
 
 	/* not having style is fine, since parser checks validity of every style reference,
@@ -176,25 +176,25 @@ set_tag_style (GtkHighlightEngine *ce,
 }
 
 static GtkTextTag *
-create_tag (GtkHighlightEngine *ce,
-	    const gchar        *style_id)
+create_tag (GtkSourceHighlighter *highlighter,
+	    const gchar          *style_id)
 {
 	GSList *tags;
 	GtkTextTag *new_tag;
 
 	g_assert (style_id != NULL);
 
-	tags = g_hash_table_lookup (ce->priv->tags, style_id);
+	tags = g_hash_table_lookup (highlighter->priv->tags, style_id);
 
-	new_tag = gtk_text_buffer_create_tag (ce->priv->buffer, NULL, NULL);
+	new_tag = gtk_text_buffer_create_tag (highlighter->priv->buffer, NULL, NULL);
 	/* It must have priority lower than user tags but still
 	 * higher than highlighting tags created before */
-	gtk_text_tag_set_priority (new_tag, ce->priv->n_tags);
-	set_tag_style (ce, new_tag, style_id);
-	ce->priv->n_tags += 1;
+	gtk_text_tag_set_priority (new_tag, highlighter->priv->n_tags);
+	set_tag_style (highlighter, new_tag, style_id);
+	highlighter->priv->n_tags += 1;
 
 	tags = g_slist_prepend (tags, g_object_ref (new_tag));
-	g_hash_table_insert (ce->priv->tags, g_strdup (style_id), tags);
+	g_hash_table_insert (highlighter->priv->tags, g_strdup (style_id), tags);
 
 	return new_tag;
 }
@@ -222,7 +222,7 @@ get_parent_tag (Context    *context,
 }
 
 static GtkTextTag *
-get_tag_for_parent (GtkHighlightEngine 	   *ce,
+get_tag_for_parent (GtkSourceHighlighter	   *highlighter,
 		    const char             *style,
 		    Context                *parent)
 {
@@ -233,7 +233,7 @@ get_tag_for_parent (GtkHighlightEngine 	   *ce,
 	g_return_val_if_fail (style != NULL, NULL);
 
 	parent_tag = get_parent_tag (parent, style);
-	tags = g_hash_table_lookup (ce->priv->tags, style);
+	tags = g_hash_table_lookup (highlighter->priv->tags, style);
 
 	if (tags && (!parent_tag ||
 		gtk_text_tag_get_priority (tags->data) > gtk_text_tag_get_priority (parent_tag)))
@@ -254,7 +254,7 @@ get_tag_for_parent (GtkHighlightEngine 	   *ce,
 	}
 	else
 	{
-		tag = create_tag (ce, style);
+		tag = create_tag (highlighter, style);
 
 #ifdef ENABLE_DEBUG
 		{
@@ -273,7 +273,7 @@ get_tag_for_parent (GtkHighlightEngine 	   *ce,
 				parent = parent->parent;
 			}
 
-			tags = g_hash_table_lookup (ce->priv->tags, style);
+			tags = g_hash_table_lookup (highlighter->priv->tags, style);
 			n = g_slist_length (tags);
 			g_print ("created %d tag for style %s: %s\n", n, style, style_path->str);
 			g_string_free (style_path, TRUE);
@@ -285,7 +285,7 @@ get_tag_for_parent (GtkHighlightEngine 	   *ce,
 }
 
 static GtkTextTag *
-get_subpattern_tag (GtkHighlightEngine *ce,
+get_subpattern_tag (GtkSourceHighlighter*highlighter,
 		    Context                *context,
 		    SubPatternDefinition   *sp_def)
 {
@@ -298,32 +298,32 @@ get_subpattern_tag (GtkHighlightEngine *ce,
 		context->subpattern_tags = g_new0 (GtkTextTag*, context->definition->n_sub_patterns);
 
 	if (context->subpattern_tags[sp_def->index] == NULL)
-		context->subpattern_tags[sp_def->index] = get_tag_for_parent (ce, sp_def->style, context);
+		context->subpattern_tags[sp_def->index] = get_tag_for_parent (highlighter, sp_def->style, context);
 
 	g_return_val_if_fail (context->subpattern_tags[sp_def->index] != NULL, NULL);
 	return context->subpattern_tags[sp_def->index];
 }
 
 static GtkTextTag *
-get_context_tag (GtkHighlightEngine *ce,
+get_context_tag (GtkSourceHighlighter*highlighter,
 		 Context                *context)
 {
 	if (context->style != NULL && context->tag == NULL)
-		context->tag = get_tag_for_parent (ce,
+		context->tag = get_tag_for_parent (highlighter,
 						   context->style,
 						   context->parent);
 	return context->tag;
 }
 
 static void
-apply_tags (GtkHighlightEngine *ce,
-	    Segment                *segment,
-	    gint                    start_offset,
-	    gint                    end_offset)
+apply_tags (GtkSourceHighlighter  *highlighter,
+	    Segment		*segment,
+	    gint		 start_offset,
+	    gint		 end_offset)
 {
 	GtkTextTag *tag;
 	GtkTextIter start_iter, end_iter;
-	GtkTextBuffer *buffer = ce->priv->buffer;
+	GtkTextBuffer *buffer = highlighter->priv->buffer;
 	SubPattern *sp;
 	Segment *child;
 
@@ -338,7 +338,7 @@ apply_tags (GtkHighlightEngine *ce,
 	start_offset = MAX (start_offset, segment->start_at);
 	end_offset = MIN (end_offset, segment->end_at);
 
-	tag = get_context_tag (ce, segment->context);
+	tag = get_context_tag (highlighter, segment->context);
 
 	if (tag != NULL)
 	{
@@ -362,7 +362,7 @@ apply_tags (GtkHighlightEngine *ce,
 			gtk_text_buffer_get_iter_at_offset (buffer, &start_iter, style_start_at);
 			end_iter = start_iter;
 			gtk_text_iter_forward_chars (&end_iter, style_end_at - style_start_at);
-			gtk_text_buffer_apply_tag (ce->priv->buffer, tag, &start_iter, &end_iter);
+			gtk_text_buffer_apply_tag (highlighter->priv->buffer, tag, &start_iter, &end_iter);
 		}
 	}
 
@@ -373,14 +373,14 @@ apply_tags (GtkHighlightEngine *ce,
 			gint start = MAX (start_offset, sp->start_at);
 			gint end = MIN (end_offset, sp->end_at);
 
-			tag = get_subpattern_tag (ce, segment->context, sp->definition);
+			tag = get_subpattern_tag (highlighter, segment->context, sp->definition);
 
 			if (tag != NULL)
 			{
 				gtk_text_buffer_get_iter_at_offset (buffer, &start_iter, start);
 				end_iter = start_iter;
 				gtk_text_iter_forward_chars (&end_iter, end - start);
-				gtk_text_buffer_apply_tag (ce->priv->buffer, tag, &start_iter, &end_iter);
+				gtk_text_buffer_apply_tag (highlighter->priv->buffer, tag, &start_iter, &end_iter);
 			}
 		}
 	}
@@ -390,21 +390,21 @@ apply_tags (GtkHighlightEngine *ce,
 	     child = child->next)
 	{
 		if (child->end_at > start_offset)
-			apply_tags (ce, child, start_offset, end_offset);
+			apply_tags (highlighter, child, start_offset, end_offset);
 	}
 }
 
 /**
  * highlight_region:
  *
- * @ce: a #GtkHighlightEngine.
+ * @highlighter: a #GtkSourceHighlighter.
  * @start: the beginning of the region to highlight.
  * @end: the end of the region to highlight.
  *
  * Highlights the specified region.
  */
 static void
-highlight_region (GtkHighlightEngine *ce,
+highlight_region (GtkSourceHighlighter *highlighter,
 		  const GtkTextIter  *start,
 		  const GtkTextIter  *end)
 {
@@ -424,9 +424,9 @@ highlight_region (GtkHighlightEngine *ce,
 #endif
 
 	/* First we need to delete tags in the regions. */
-	unhighlight_region (ce, start, &real_end);
+	unhighlight_region (highlighter, start, &real_end);
 
-	apply_tags (ce, ce->priv->segment_tree,
+	apply_tags (highlighter, highlighter->priv->segment_tree,
 		    gtk_text_iter_get_offset (start),
 		    gtk_text_iter_get_offset (&real_end));
 
@@ -443,20 +443,20 @@ highlight_region (GtkHighlightEngine *ce,
 /**
  * ensure_highlighted:
  *
- * @ce: a #GtkHighlightEngine.
+ * @highlighter: a #GtkSourceHighlighter.
  * @start: the beginning of the region to highlight.
  * @end: the end of the region to highlight.
  *
  * Updates text tags in reanalyzed parts of given area.
  * It applies tags according to whatever is in the syntax
  * tree currently, so highlighting may not be correct
- * (gtk_highlight_engine_update_highlight is the method
+ * (gtk_source_highlighter_update_highlight is the method
  * that actually ensures correct highlighting).
  */
 #if 0 
 FIXME: THIS FUNCTION MUST BE REFACTORED 
 static void
-ensure_highlighted (GtkHighlightEngine *ce,
+ensure_highlighted (GtkSourceHighlighter *highlighter,
 		    const GtkTextIter      *start,
 		    const GtkTextIter      *end,
 		    GtkTextRegion	*refresh_region)
@@ -478,21 +478,21 @@ ensure_highlighted (GtkHighlightEngine *ce,
 	{
 		GtkTextIter s, e;
 		gtk_text_region_iterator_get_subregion (&reg_iter, &s, &e);
-		highlight_region (ce, &s, &e);
+		highlight_region (highlighter, &s, &e);
 		gtk_text_region_iterator_next (&reg_iter);
 	}
 
 	gtk_text_region_destroy (region, TRUE);
 
 	/* Remove the just highlighted region. */
-	gtk_text_region_subtract (ce->priv->refresh_region, start, end);
+	gtk_text_region_subtract (highlighter->priv->refresh_region, start, end);
 }
 #endif
 
 /**
  * update_highlight_cb:
  *
- * @ce: a #GtkHighlightEngine.
+ * @highlighter: a #GtkSourceHighlighter.
  * @start: start of area to update.
  * @end: start of area to update.
  * @synchronous: whether it should block until everything
@@ -504,21 +504,21 @@ ensure_highlighted (GtkHighlightEngine *ce,
  * is %FALSE, then it queues idle worker.
  */
 static void
-update_highlight_cb (GtkHighlightEngine *highlight_engine,
+update_highlight_cb (GtkSourceHighlighter *highlight_handler,
 		     const GtkTextIter  *start,
 		     const GtkTextIter  *end,
 		     GtkSourceBuffer    *buffer)
 {
-	if (!highlight_engine->priv->highlight)
+	if (!highlight_handler->priv->highlight)
 		return;
-	highlight_region (highlight_engine, start, end);
+	highlight_region (highlight_handler, start, end);
 	
 }
 
 /**
  * enable_highlight:
  *
- * @ce: a #GtkHighlightEngine.
+ * @highlighter: a #GtkSourceHighlighter.
  * @enable: whether to enable highlighting.
  *
  * Whether to highlight (i.e. apply tags) analyzed area.
@@ -526,38 +526,38 @@ update_highlight_cb (GtkHighlightEngine *highlight_engine,
  * it affects only text tags.
  */
 static void
-enable_highlight (GtkHighlightEngine *ce,
+enable_highlight (GtkSourceHighlighter *highlighter,
 		  gboolean                enable)
 {
 	GtkTextIter start, end;
 
-	if (!enable == !ce->priv->highlight)
+	if (!enable == !highlighter->priv->highlight)
 		return;
 
-	ce->priv->highlight = enable != 0;
-	gtk_text_buffer_get_bounds (GTK_TEXT_BUFFER (ce->priv->buffer),
+	highlighter->priv->highlight = enable != 0;
+	gtk_text_buffer_get_bounds (GTK_TEXT_BUFFER (highlighter->priv->buffer),
 				    &start, &end);
 
 	if (enable)
-		/*FIXME: here we used to call refresh_range (ce, &start, &end, TRUE);
+		/*FIXME: here we used to call refresh_range (highlighter, &start, &end, TRUE);
 		  but that is in the SyntaxAnalyzer now. */
-		highlight_region (ce, &start, &end);
+		highlight_region (highlighter, &start, &end);
 	else
-		unhighlight_region (ce, &start, &end);
+		unhighlight_region (highlighter, &start, &end);
 
 }
 
 static void
-buffer_notify_highlight_syntax_cb (GtkHighlightEngine *ce)
+buffer_notify_highlight_syntax_cb (GtkSourceHighlighter *highlighter)
 {
 	gboolean highlight;
-	g_object_get (ce->priv->buffer, "highlight-syntax", &highlight, NULL);
-	enable_highlight (ce, highlight);
+	g_object_get (highlighter->priv->buffer, "highlight-syntax", &highlight, NULL);
+	enable_highlight (highlighter, highlight);
 }
 
-G_DEFINE_TYPE (GtkHighlightEngine, _gtk_highlight_engine, G_TYPE_OBJECT)
+G_DEFINE_TYPE (GtkSourceHighlighter, _gtk_source_highlighter, G_TYPE_OBJECT)
 
-/* GtkHighlightEngine class ------------------------------------------- */
+/* GtkSourceHighlighter class ------------------------------------------- */
 
 static void
 remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
@@ -578,50 +578,49 @@ remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
 /**
  * destroy_tags_hash:
  *
- * @ce: #GtkHighlightEngine.
+ * @highlighter: #GtkHighlightEngine.
  *
  * Destroys syntax tags cache.
  */
 static void
-destroy_tags_hash (GtkHighlightEngine *ce)
+destroy_tags_hash (GtkSourceHighlighter*highlighter)
 {
-	g_hash_table_foreach (ce->priv->tags, (GHFunc) remove_tags_hash_cb,
-                              gtk_text_buffer_get_tag_table (ce->priv->buffer));
-	g_hash_table_destroy (ce->priv->tags);
-	ce->priv->tags = NULL;
+	g_hash_table_foreach (highlighter->priv->tags, (GHFunc) remove_tags_hash_cb,
+                              gtk_text_buffer_get_tag_table (highlighter->priv->buffer));
+	g_hash_table_destroy (highlighter->priv->tags);
+	highlighter->priv->tags = NULL;
 }
 
 
 /*
- * gtk_highlight_engine_attach_buffer:
+ * gtk_source_highlighter_attach_buffer:
  *
- * @ce: #GtkHighlightEngine.
+ * @highlighter: #GtkSourceHighlighter.
  * @buffer: buffer.
  *
- * Detaches engine from previous buffer, and attaches to @buffer if
+ * Detaches highlighter from previous buffer, and attaches to @buffer if
  * it's not %NULL.
  */
- /* THIS SHOULD BE MODIFIED TO ATTACH SYNTAX_ENGINE */
 void
-_gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
+_gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 				     GtkTextBuffer      *buffer)
 {
 
 	//g_return_if_fail (!buffer || GTK_IS_CONTEXT_ (buffer));
 
-	if (engine->priv->buffer == buffer)
+	if (highlighter->priv->buffer == buffer)
 		return;
 
 	/* Detach previous buffer if there is one. */
-	if (engine->priv->buffer != NULL)
+	if (highlighter->priv->buffer != NULL)
 	{
-		g_signal_handlers_disconnect_by_func (engine->priv->buffer,
+		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
 						      (gpointer) buffer_notify_highlight_syntax_cb,
-						      engine);
+						      highlighter);
 		/* TODO: Should I clean the root_segment? */
-		/*if (ce->priv->root_segment != NULL)
-			segment_destroy (ce, ce->priv->root_segment);
-		ce->priv->root_segment = NULL;
+		/*if (highlighter->priv->root_segment != NULL)
+			segment_destroy (highlighter, highlighter->priv->root_segment);
+		highlighter->priv->root_segment = NULL;
 		*/
 		
 		/* this deletes tags from the tag table, therefore there is no need
@@ -630,32 +629,32 @@ _gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
 		 * the buffer is destroyed? Removing tags is still slower than doing
 		 * nothing. Caveat: if tag table is shared with other buffer, we do
 		 * need to remove tags. */
-		destroy_tags_hash (engine);
-		engine->priv->n_tags = 0;
+		destroy_tags_hash (highlighter);
+		highlighter->priv->n_tags = 0;
 
 		/* FIXME:		
-		if (ce->priv->refresh_region != NULL)
-			gtk_text_region_destroy (ce->priv->refresh_region, FALSE);
-		ce->priv->refresh_region = NULL;
+		if (highlighter->priv->refresh_region != NULL)
+			gtk_text_region_destroy (highlighter->priv->refresh_region, FALSE);
+		highlighter->priv->refresh_region = NULL;
 		*/
 	}
 
-	engine->priv->buffer = buffer;
+	highlighter->priv->buffer = buffer;
 
 	if (buffer != NULL)
 	{
 		
-		engine->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		highlighter->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-		g_object_get (engine->priv->buffer, "highlight-syntax", &engine->priv->highlight, NULL);
+		g_object_get (highlighter->priv->buffer, "highlight-syntax", &highlighter->priv->highlight, NULL);
 		
 		g_signal_connect_swapped (buffer,
 					  "notify::highlight-syntax",
 					  G_CALLBACK (buffer_notify_highlight_syntax_cb),
-					  engine);
+					  highlighter);
 		g_signal_connect_swapped (buffer, "highlight_updated", 
 					  G_CALLBACK (update_highlight_cb),
-					  engine);
+					  highlighter);
 	}
 }
 
@@ -663,114 +662,114 @@ _gtk_highlight_engine_attach_buffer (GtkHighlightEngine *engine,
 static void
 set_tag_style_hash_cb (const char         *style,
 		       GSList             *tags,
-		       GtkHighlightEngine *ce)
+		       GtkSourceHighlighter *highlighter)
 {
 	while (tags != NULL)
 	{
-		set_tag_style (ce, tags->data, style);
+		set_tag_style (highlighter, tags->data, style);
 		tags = tags->next;
 	}
 }
 
 /**
- * gtk_highlight_engine_set_style_scheme:
+ * gtk_source_highlighter_set_style_scheme:
  *
- * @engine: #GtkHighlightEngine.
+ * @highlighter: #GtkSourceHighlighter.
  * @scheme: #GtkSourceStyleScheme to set.
  *
  * GtkSourceEngine::set_style_scheme method.
  * Sets current style scheme, updates tag styles and everything.
  */
 void
-_gtk_highlight_engine_set_style_scheme (GtkHighlightEngine      *engine,
+_gtk_source_highlighter_set_style_scheme (GtkSourceHighlighter      *highlighter,
 				        GtkSourceStyleScheme 	*scheme)
 {
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
 	g_return_if_fail (GTK_IS_SOURCE_STYLE_SCHEME (scheme) || scheme == NULL);
 
-	if (scheme != engine->priv->style_scheme)
+	if (scheme != highlighter->priv->style_scheme)
 	{
-		if (engine->priv->style_scheme != NULL)
-			g_object_unref (engine->priv->style_scheme);
+		if (highlighter->priv->style_scheme != NULL)
+			g_object_unref (highlighter->priv->style_scheme);
 
-		engine->priv->style_scheme = scheme ? g_object_ref (scheme) : NULL;
-		g_hash_table_foreach (engine->priv->tags, (GHFunc) set_tag_style_hash_cb, engine);
+		highlighter->priv->style_scheme = scheme ? g_object_ref (scheme) : NULL;
+		g_hash_table_foreach (highlighter->priv->tags, (GHFunc) set_tag_style_hash_cb, highlighter);
 	}
 		 
 }
 
 void
-_gtk_highlight_engine_set_styles_map (GtkHighlightEngine    *engine,
+_gtk_source_highlighter_set_styles_map (GtkSourceHighlighter    *highlighter,
 				      GHashTable	    *styles)
 {
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
 
-	if (engine->priv->styles_map != styles)
-		engine->priv->styles_map = styles;
+	if (highlighter->priv->styles_map != styles)
+		highlighter->priv->styles_map = styles;
 }
 
 void
-_gtk_highlight_engine_set_analyzer (GtkHighlightEngine      *engine,
-				    GtkSourceEngine  	    *analyzer)
+_gtk_source_highlighter_set_analyzer (GtkSourceHighlighter *highlighter,
+				      GtkSourceEngine  	   *analyzer)
 {
-	GtkSourceContextEngine  *ce; 
+	GtkSourceContextEngine  *engine; 
 
-	g_return_if_fail (GTK_IS_HIGHLIGHT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
 	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (analyzer));
 
-	ce = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
-
-	engine->priv->segment_tree = _gtk_source_context_engine_get_tree (ce);	 
+	engine = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
+	
+	highlighter->priv->segment_tree = _gtk_source_context_engine_get_tree (engine);
 }
 		
 
 static void
-gtk_highlight_engine_finalize (GObject *object)
+gtk_source_highlighter_finalize (GObject *object)
 {
-	GtkHighlightEngine *ce = GTK_HIGHLIGHT_ENGINE (object);
+	GtkSourceHighlighter *highlighter = GTK_SOURCE_HIGHLIGHTER (object);
 
-	if (ce->priv->buffer != NULL)
+	if (highlighter->priv->buffer != NULL)
 	{
-		g_critical ("finalizing engine with attached buffer");
+		g_critical ("finalizing highlighter with attached buffer");
 		/* Disconnect the buffer (if there is one), which destroys almost
 		 * everything. */
-		//gtk_highlight_engine_attach_buffer (GTK_SOURCE_ENGINE (ce), NULL);
+		//gtk_source_highlighter_attach_buffer (GTK_SOURCE_ENGINE (highlighter), NULL);
 	}
 
-	g_assert (!ce->priv->tags);
-	//g_assert (!ce->priv->root_context);
-	g_assert (!ce->priv->segment_tree);
+	g_assert (!highlighter->priv->tags);
+	//g_assert (!highlighter->priv->root_context);
+	g_assert (!highlighter->priv->segment_tree);
 	
-	if (ce->priv->style_scheme != NULL)
-		g_object_unref (ce->priv->style_scheme);
+	if (highlighter->priv->style_scheme != NULL)
+		g_object_unref (highlighter->priv->style_scheme);
 
-	G_OBJECT_CLASS (_gtk_highlight_engine_parent_class)->finalize (object);
+	G_OBJECT_CLASS (_gtk_source_highlighter_parent_class)->finalize (object);
 }
 
 static void
-_gtk_highlight_engine_class_init (GtkHighlightEngineClass *klass)
+_gtk_source_highlighter_class_init (GtkSourceHighlighterClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-	object_class->finalize = gtk_highlight_engine_finalize;
-	g_type_class_add_private (object_class, sizeof (GtkHighlightEnginePrivate));
+	object_class->finalize = gtk_source_highlighter_finalize;
+	g_type_class_add_private (object_class, sizeof (GtkSourceHighlighterPrivate));
 }
 
 static void
-_gtk_highlight_engine_init (GtkHighlightEngine *ce)
+_gtk_source_highlighter_init (GtkSourceHighlighter *highlighter)
 {
-	ce->priv = G_TYPE_INSTANCE_GET_PRIVATE (ce, GTK_TYPE_HIGHLIGHT_ENGINE,
-						GtkHighlightEnginePrivate);
+	highlighter->priv = G_TYPE_INSTANCE_GET_PRIVATE (highlighter, GTK_TYPE_SOURCE_HIGHLIGHTER,
+						GtkSourceHighlighterPrivate);
 }
 
-GtkHighlightEngine * 	
-_gtk_highlight_engine_new (void)
+GtkSourceHighlighter * 	
+_gtk_source_highlighter_new (void)
 {
-	GtkHighlightEngine *ce;
+	GtkSourceHighlighter *highlighter;
 
-	ce = g_object_new (GTK_TYPE_HIGHLIGHT_ENGINE, NULL);
-	ce->priv->segment_tree = NULL;
+	highlighter = g_object_new (GTK_TYPE_SOURCE_HIGHLIGHTER, NULL);
+	highlighter->priv->segment_tree = NULL;
 
-	return ce;
+	return highlighter;
 }
 
