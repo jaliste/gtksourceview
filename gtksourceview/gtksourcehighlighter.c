@@ -232,15 +232,15 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 			gtk_text_buffer_apply_tag (highlighter->priv->buffer, tag, &start_iter, &end_iter);
 		}
 	}
-/*
+
 	for (sp = segment->sub_patterns; sp != NULL; sp = sp->next)
 	{
 		if (sp->start_at >= start_offset && sp->end_at <= end_offset)
 		{
 			gint start = MAX (start_offset, sp->start_at);
 			gint end = MIN (end_offset, sp->end_at);
-
-			tag = get_subpattern_tag (highlighter, segment->context, sp->definition);
+			
+			tag = sp->annot->style_tag;
 
 			if (tag != NULL)
 			{
@@ -251,7 +251,7 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 			}
 		}
 	}
-*/
+
 	for (child = segment->children;
 	     child != NULL && child->start_at < end_offset;
 	     child = child->next)

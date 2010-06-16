@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2003 - Gustavo Giráldez <gustavo.giraldez@gmx.net>
  * Copyright (C) 2005, 2006 - Marco Barisione, Emanuele Aina
- *
+ * Copyright (C) 2010, Jose Aliste <jose.aliste@gmail.com>
  * GtkSourceView is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -104,11 +104,9 @@
 	((ctx)->parent != NULL && (ctx)->parent->parent != NULL && \
 		HAS_OPTION ((ctx)->definition, END_PARENT))
 
-/* Hidden parts of the Segment */
-#define SEGMENT_GET_CONTEXT(s) \
-	(((RealSegment *)(s))->context)
-#define SEGMENT_GET_IS_START(s) \
-	(((RealSegment *)(s))->is_start)
+#define HAS_OPTION(def,opt) (((def)->flags & GTK_SOURCE_CONTEXT_##opt) != 0)
+#define CONTEXT_IS_SIMPLE(c) ((c)->definition->type == CONTEXT_TYPE_SIMPLE)
+#define CONTEXT_IS_CONTAINER(c) ((c)->definition->type == CONTEXT_TYPE_CONTAINER)
 
 
 /* Segment macros */
@@ -157,7 +155,38 @@ typedef struct _DefinitionsIter DefinitionsIter;
 typedef struct _LineInfo LineInfo;
 typedef struct _InvalidRegion InvalidRegion;
 typedef struct _ContextClassTag ContextClassTag;
+typedef struct _SubPatternDefinition SubPatternDefinition;
+
 typedef struct _RealSegment RealSegment;
+typedef struct _RealSubPattern RealSubPattern;
+
+struct _RealSegment 
+{
+	Segment			segment;
+	Context			*context;
+	/* Whether this segment is a whole good segment, or it's an
+	 * an end of bigger one left after erase_segments() call. */
+	guint			is_start : 1;
+
+	/* This is NULL if and only if it's a dummy segment which denotes
+	 * inserted or deleted text. */
+};
+
+struct _RealSubPattern
+{
+	SubPattern		sub_pattern;
+	SubPatternDefinition 	*definition;
+};
+
+/* Accessing hidden elements of the Segment structure */
+#define SEGMENT_GET_CONTEXT(s) \
+	(((RealSegment *)(s))->context)
+#define SEGMENT_GET_IS_START(s) \
+	(((RealSegment *)(s))->is_start)
+/* Accessing hidden sub_pattern definition of a SubPattern */
+#define SUBPATTERN_GET_DEFINITION(subpat) \
+	(((RealSubPattern *)(subpat))->definition)
+
 
 struct _GtkSourceContextClass
 {
@@ -224,19 +253,6 @@ struct _DefinitionsIter
 {
 	GSList			*children_stack;
 };
-
-struct _RealSegment 
-{
-	Segment			segment;
-	Context			*context;
-	/* Whether this segment is a whole good segment, or it's an
-	 * an end of bigger one left after erase_segments() call. */
-	guint			is_start : 1;
-
-	/* This is NULL if and only if it's a dummy segment which denotes
-	 * inserted or deleted text. */
-};
-
 
 struct _ContextPtr
 {
@@ -324,18 +340,15 @@ struct _ContextDefinition
 };
 
 
-
 struct _SubPatternDefinition
 {
 #ifdef NEED_DEBUG_ID
 	/* We need the id only for debugging. */
 	gchar			*id;
 #endif
-	gchar			*style;
-	SubPatternWhere		 where;
+	Annotation		annot;
 
-	/* List of class definitions */
-	GSList                  *context_classes;
+	SubPatternWhere		 where;
 
 	/* index in the ContextDefinition's list */
 	guint			 index;
@@ -641,7 +654,7 @@ get_subpattern_tag (GtkSourceContextEngine *ce,
 		    Context                *context,
 		    SubPatternDefinition   *sp_def)
 {
-	if (sp_def->style == NULL)
+	if (sp_def->annot.style == NULL)
 		return NULL;
 
 	g_assert (sp_def->index < context->definition->n_sub_patterns);
@@ -650,7 +663,7 @@ get_subpattern_tag (GtkSourceContextEngine *ce,
 		context->subpattern_tags = g_new0 (GtkTextTag*, context->definition->n_sub_patterns);
 
 	if (context->subpattern_tags[sp_def->index] == NULL)
-		context->subpattern_tags[sp_def->index] = get_tag_for_parent (ce, sp_def->style, context);
+		context->subpattern_tags[sp_def->index] = get_tag_for_parent (ce, sp_def->annot.style, context);
 
 	g_return_val_if_fail (context->subpattern_tags[sp_def->index] != NULL, NULL);
 	return context->subpattern_tags[sp_def->index];
@@ -801,7 +814,7 @@ get_subpattern_context_classes (GtkSourceContextEngine *ce,
 	{
 		context->subpattern_context_classes[sp_def->index] =
 				extend_context_classes (ce,
-		                                        sp_def->context_classes);
+		                                        sp_def->annot.context_classes);
 	}
 
 	return context->subpattern_context_classes[sp_def->index];
@@ -900,7 +913,7 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 
 			context_classes = get_subpattern_context_classes (ce,
 			                                                  SEGMENT_GET_CONTEXT(segment),
-			                                                  sp->definition);
+			                                                  SUBPATTERN_GET_DEFINITION (sp));
 
 			if (context_classes != NULL)
 			{
@@ -1428,10 +1441,11 @@ sub_pattern_new (Segment              *segment,
 {
 	SubPattern *sp;
 
-	sp = g_slice_new0 (SubPattern);
+	sp = (SubPattern *) g_slice_new0 (RealSubPattern);
 	sp->start_at = start_at;
 	sp->end_at = end_at;
-	sp->definition = sp_def;
+	SUBPATTERN_GET_DEFINITION (sp) = sp_def;
+	sp->annot = &(sp_def->annot);
 
 	segment_add_subpattern (segment, sp);
 	return sp;
@@ -1540,12 +1554,12 @@ simple_segment_split_ (GtkSourceContextEngine *ce,
 			sub_pattern_new (new_segment,
 					 offset,
 					 sp->end_at,
-					 sp->definition);
+					 SUBPATTERN_GET_DEFINITION (sp));
 			if (SEGMENT_GET_CONTEXT (new_segment))
 			{
-				GtkTextTag *tag;
-				tag = get_subpattern_tag (ce, SEGMENT_GET_CONTEXT(new_segment),
-							  sp->definition);
+				sp->annot->style_tag = 
+					get_subpattern_tag (ce, SEGMENT_GET_CONTEXT(new_segment),
+							  SUBPATTERN_GET_DEFINITION (sp));
 			}
 
 			sp->end_at = offset;
@@ -5911,12 +5925,12 @@ context_definition_unref (ContextDefinition *definition)
 #ifdef NEED_DEBUG_ID
 		g_free (sp_def->id);
 #endif
-		g_free (sp_def->style);
+		g_free (sp_def->annot.style);
 		if (sp_def->is_named)
 			g_free (sp_def->u.name);
 
-		g_slist_foreach (sp_def->context_classes, (GFunc) gtk_source_context_class_free, NULL);
-		g_slist_free (sp_def->context_classes);
+		g_slist_foreach (sp_def->annot.context_classes, (GFunc) gtk_source_context_class_free, NULL);
+		g_slist_free (sp_def->annot.context_classes);
 
 		g_slice_free (SubPatternDefinition, sp_def);
 		sub_pattern_list = sub_pattern_list->next;
@@ -6140,7 +6154,7 @@ _gtk_source_context_data_add_sub_pattern (GtkSourceContextData *ctx_data,
 #ifdef NEED_DEBUG_ID
 	sp_def->id = g_strdup (id);
 #endif
-	sp_def->style = g_strdup (style);
+	sp_def->annot.style = g_strdup (style);
 	sp_def->where = where_num;
 	number = sub_pattern_to_int (name);
 
@@ -6158,7 +6172,7 @@ _gtk_source_context_data_add_sub_pattern (GtkSourceContextData *ctx_data,
 	parent->sub_patterns = g_slist_append (parent->sub_patterns, sp_def);
 	sp_def->index = parent->n_sub_patterns++;
 
-	sp_def->context_classes = copy_context_classes (context_classes);
+	sp_def->annot.context_classes = copy_context_classes (context_classes);
 
 	return TRUE;
 }
