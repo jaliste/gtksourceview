@@ -59,8 +59,6 @@ void 			_gtk_source_highlighter_set_styles_map	 (GtkSourceHighlighter *highlight
 				       				  GHashTable 	       *styles);
 void			_gtk_source_highlighter_set_analyzer	 (GtkSourceHighlighter *highlighter,
 								  GtkSourceEngine      *se);
-void			_gtk_source_highlighter_attach_buffer	 (GtkSourceHighlighter *highlighter,
-				  				  GtkTextBuffer        *buffer);
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_HIGHLIGHTER_H__ */
