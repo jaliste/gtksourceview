@@ -549,8 +549,12 @@ _gtk_source_highlighter_set_analyzer (GtkSourceHighlighter *highlighter,
 	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (analyzer));
 
 	engine = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
-	
+
+	_gtk_source_highlighter_attach_buffer (highlighter, 
+					       _gtk_source_context_engine_get_buffer (engine));
 	highlighter->priv->segment_tree = _gtk_source_context_engine_get_tree (engine);
+	highlighter->priv->tags = _gtk_source_context_engine_get_style_tags (engine);
+
 }
 		
 
