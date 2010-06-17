@@ -1617,6 +1617,8 @@ _gtk_source_buffer_update_highlight (GtkSourceBuffer   *buffer,
 						     start,
 						     end,
 						     synchronous);
+	if (buffer->priv->highlighter != NULL && buffer->priv->highlight_syntax != FALSE)
+		_gtk_source_highlighter_ensure_highlight (buffer->priv->highlighter, start, end);
 }
 
 /**

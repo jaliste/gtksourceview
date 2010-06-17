@@ -34,7 +34,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define ENABLE_DEBUG
+#undef ENABLE_DEBUG
 #undef ENABLE_PROFILE
 #undef ENABLE_CHECK_TREE
 #undef ENABLE_MEMORY_DEBUG /* define it to make it print memory usage information */
@@ -433,9 +433,6 @@ struct _GtkSourceContextEnginePrivate
 
 	/* Whether Syntax analysis was disabled because of errors. */
 	gboolean		 disabled;
-
-	/* Region covering the non-analyzed text. */
-	GtkTextRegion		*refresh_region;
 
 	/* Tree of contexts. */
 	Context			*root_context;
@@ -1012,28 +1009,21 @@ refresh_context_classes (GtkSourceContextEngine *ce,
  * @ce: a #GtkSourceContextEngine.
  * @start: the beginning of updated area.
  * @end: the end of updated area.
- * @modify_refresh_region: whether updated area should be added to
- * refresh_region.
  *
- * Marks the area as updated - notifies view about it, and adds it to
- * refresh_region if @modify_refresh_region is %TRUE (update_syntax may
+ * Marks the area as updated - notifies view about it (update_syntax may
  * process huge area though actually updated is couple of lines, so in
- * that case update_syntax() takes care of refresh_region, and this
+ * that case update_syntax() takes care of refresh_region.. FIXME, and this
  * function only notifies the view).
  */
 static void
 refresh_range (GtkSourceContextEngine *ce,
 	       const GtkTextIter      *start,
-	       const GtkTextIter      *end,
-	       gboolean                modify_refresh_region)
+	       const GtkTextIter      *end)
 {
 	GtkTextIter real_end;
 
 	if (gtk_text_iter_equal (start, end))
 		return;
-
-	if (modify_refresh_region)
-		gtk_text_region_add (ce->priv->refresh_region, start, end);
 
 	/* Refresh the contex classes here */
 	refresh_context_classes (ce, start, end);
@@ -1049,7 +1039,6 @@ refresh_range (GtkSourceContextEngine *ce,
 			       "highlight_updated",
 			       start,
 			       &real_end);
-			      // ce->priv->refresh_region);
 }
 
 
@@ -2320,9 +2309,6 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 
 		destroy_context_classes_hash (ce);
 
-		if (ce->priv->refresh_region != NULL)
-			gtk_text_region_destroy (ce->priv->refresh_region, FALSE);
-		ce->priv->refresh_region = NULL;
 	}
 
 	ce->priv->buffer = buffer;
@@ -2365,7 +2351,6 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 		}
 
 		g_object_get (ce->priv->buffer, "analyze-syntax", &ce->priv->analyze_syntax, NULL);
-		ce->priv->refresh_region = gtk_text_region_new (buffer);
 
 		install_first_update (ce);
 	}
@@ -5617,7 +5602,6 @@ update_syntax (GtkSourceContextEngine *ce,
 
 		line_info_destroy (&line);
 
-		gtk_text_region_add (ce->priv->refresh_region, &line_start, &line_end);
 		analyzed_end = line_end_offset;
 		invalid = get_invalid_segment (ce);
 
@@ -5699,7 +5683,7 @@ update_syntax (GtkSourceContextEngine *ce,
 		install_idle_worker (ce);
 
 	gtk_text_iter_set_offset (&end_iter, analyzed_end);
-	refresh_range (ce, &start_iter, &end_iter, FALSE);
+	refresh_range (ce, &start_iter, &end_iter);
 
 	PROFILE (g_print ("analyzed %d chars from %d to %d in %fms\n",
 			  analyzed_end - start_offset, start_offset, analyzed_end,
