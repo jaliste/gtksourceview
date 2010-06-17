@@ -307,11 +307,6 @@ highlight_region (GtkSourceHighlighter *highlighter,
 #endif
 }
 
-
-/* FIXME: ensure_highlighted was used before to highlight regions. 
-   Since we no longer have refresh_region in the highlightengine, 
-   we use highlight_region directly for the moment. I need to investigate more
-   before I can add this method back */
 /**
  * ensure_highlighted:
  *
@@ -325,18 +320,15 @@ highlight_region (GtkSourceHighlighter *highlighter,
  * (gtk_source_highlighter_update_highlight is the method
  * that actually ensures correct highlighting).
  */
-#if 0 
-static void
-ensure_highlighted (GtkSourceHighlighter *highlighter,
+void
+_gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter *highlighter,
 		    const GtkTextIter      *start,
-		    const GtkTextIter      *end,
-		    GtkTextRegion	*refresh_region)
+		    const GtkTextIter      *end)
 {
 	GtkTextRegion *region;
 	GtkTextRegionIterator reg_iter;
-
 	/* Get the subregions not yet highlighted. */
-	region = gtk_text_region_intersect (refresh_region, start, end);
+	region = gtk_text_region_intersect (highlighter->priv->refresh_region, start, end);
 
 	if (region == NULL)
 		return;
@@ -358,7 +350,6 @@ ensure_highlighted (GtkSourceHighlighter *highlighter,
 	/* Remove the just highlighted region. */
 	gtk_text_region_subtract (highlighter->priv->refresh_region, start, end);
 }
-#endif
 
 /**
  * update_highlight_cb:
@@ -380,6 +371,7 @@ update_highlight_cb (GtkSourceHighlighter *highlight_handler,
 		     const GtkTextIter  *end,
 		     GtkSourceBuffer    *buffer)
 {
+	
 	if (!highlight_handler->priv->highlight)
 		return;
 	highlight_region (highlight_handler, start, end);
@@ -393,7 +385,7 @@ update_highlight_cb (GtkSourceHighlighter *highlight_handler,
  * @enable: whether to enable highlighting.
  *
  * Whether to highlight (i.e. apply tags) analyzed area.
- * Note that this does not turn on/off the analyzis stuff,
+ * Note that this does not turn on/off the analysis stuff,
  * it affects only text tags.
  */
 static void
@@ -401,7 +393,7 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 		  gboolean                enable)
 {
 	GtkTextIter start, end;
-
+	
 	if (!enable == !highlighter->priv->highlight)
 		return;
 
@@ -409,13 +401,20 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 	gtk_text_buffer_get_bounds (GTK_TEXT_BUFFER (highlighter->priv->buffer),
 				    &start, &end);
 
-	if (enable)
-		/*FIXME: here we used to call refresh_range (highlighter, &start, &end, TRUE);
-		  but that is in the SyntaxAnalyzer now. */
-		highlight_region (highlighter, &start, &end);
+	if (enable) 
+	{
+		gtk_text_region_add (highlighter->priv->refresh_region, &start, &end);
+		g_signal_connect_swapped (highlighter->priv->buffer, "highlight_updated", 
+					  G_CALLBACK (update_highlight_cb),
+					  highlighter);
+	}
 	else
-		unhighlight_region (highlighter, &start, &end);
-
+	{
+		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
+						      (gpointer) update_highlight_cb,
+						      highlighter);
+		unhighlight_region (highlighter, &start, &end);	
+	}
 }
 
 static void
@@ -440,13 +439,10 @@ G_DEFINE_TYPE (GtkSourceHighlighter, _gtk_source_highlighter, G_TYPE_OBJECT)
  * Detaches highlighter from previous buffer, and attaches to @buffer if
  * it's not %NULL. Only called from set_analyzer
  */
-void
+static void
 _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 				     GtkTextBuffer      *buffer)
 {
-
-	//g_return_if_fail (!buffer || GTK_IS_CONTEXT_ (buffer));
-
 	if (highlighter->priv->buffer == buffer)
 		return;
 
@@ -456,18 +452,12 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
 						      (gpointer) buffer_notify_highlight_syntax_cb,
 						      highlighter);
-		/* TODO: Should I clean the root_segment? */
-		/*if (highlighter->priv->root_segment != NULL)
-			segment_destroy (highlighter, highlighter->priv->root_segment);
-		highlighter->priv->root_segment = NULL;
-		*/
-		
+		/* the root_segment is owned by the engine. */
+		highlighter->priv->segment_tree = NULL;
 
-		/* FIXME:		
 		if (highlighter->priv->refresh_region != NULL)
 			gtk_text_region_destroy (highlighter->priv->refresh_region, FALSE);
 		highlighter->priv->refresh_region = NULL;
-		*/
 	}
 
 	highlighter->priv->buffer = buffer;
@@ -483,9 +473,7 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 					  "notify::highlight-syntax",
 					  G_CALLBACK (buffer_notify_highlight_syntax_cb),
 					  highlighter);
-		g_signal_connect_swapped (buffer, "highlight_updated", 
-					  G_CALLBACK (update_highlight_cb),
-					  highlighter);
+		highlighter->priv->refresh_region = gtk_text_region_new (buffer);
 	}
 }
 
