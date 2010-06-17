@@ -136,7 +136,7 @@ static GtkActionEntry view_action_entries[] = {
 static GtkToggleActionEntry toggle_entries[] = {
 	{ "SyntaxHighlight", NULL, "Synta_x Highlighting", NULL, 
 	  "Toggle syntax highlighting",
-	  G_CALLBACK (syntax_highlight_toggled_cb), TRUE },
+	  G_CALLBACK (syntax_highlight_toggled_cb), FALSE },
 	{ "HlBracket", NULL, "Highlight Matching _Bracket", NULL,
 	  "Toggle highlighting of matching bracket",
 	  G_CALLBACK (hl_bracket_toggled_cb), FALSE },
@@ -1666,6 +1666,9 @@ main (int argc, char *argv[])
 
 	/* create buffer */
 	buffer = gtk_source_buffer_new (NULL);
+
+	/* disable highlight syntax for testint the engine and highlighter*/
+	gtk_source_buffer_set_highlight_syntax (buffer, FALSE);
 
 	if (argc > 1)
 		open_file (buffer, argv [1]);
