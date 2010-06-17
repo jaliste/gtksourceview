@@ -130,6 +130,10 @@
 
 #define ENGINE_ID(ce) ((ce)->priv->ctx_data->lang->priv->id)
 #define ENGINE_STYLES_MAP(ce) ((ce)->priv->ctx_data->lang->priv->styles)
+
+/* Accessing hidden sub_pattern definition of a SubPattern */
+#define REAL_SUBPATTERN(subpat) ((RealSubPattern *)(subpat))
+	
 typedef enum {
 	GTK_SOURCE_CONTEXT_ENGINE_ERROR_DUPLICATED_ID = 0,
 	GTK_SOURCE_CONTEXT_ENGINE_ERROR_INVALID_ARGS,
@@ -180,10 +184,6 @@ struct _RealSubPattern
 	SubPattern		sub_pattern;
 	SubPatternDefinition 	*definition;
 };
-
-/* Accessing hidden sub_pattern definition of a SubPattern */
-#define SUBPATTERN_GET_DEFINITION(subpat) \
-	(((RealSubPattern *)(subpat))->definition)
 
 
 struct _GtkSourceContextClass
@@ -911,7 +911,7 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 
 			context_classes = get_subpattern_context_classes (ce,
 			                                                  REAL_SEGMENT (segment)->context,
-			                                                  SUBPATTERN_GET_DEFINITION (sp));
+			                                                  REAL_SUBPATTERN(sp)->definition);
 
 			if (context_classes != NULL)
 			{
@@ -1438,11 +1438,13 @@ sub_pattern_new (Segment              *segment,
 		 SubPatternDefinition *sp_def)
 {
 	SubPattern *sp;
+	RealSubPattern *real_sp;
 
-	sp = (SubPattern *) g_slice_new0 (RealSubPattern);
+	real_sp = g_slice_new0 (RealSubPattern);
+	sp = (SubPattern *) real_sp;
 	sp->start_at = start_at;
 	sp->end_at = end_at;
-	SUBPATTERN_GET_DEFINITION (sp) = sp_def;
+	real_sp->definition = sp_def;
 	sp->annot = &(sp_def->annot);
 
 	segment_add_subpattern (segment, sp);
@@ -1556,14 +1558,14 @@ simple_segment_split_ (GtkSourceContextEngine *ce,
 			sub_pattern_new (new_segment,
 					 offset,
 					 sp->end_at,
-					 SUBPATTERN_GET_DEFINITION (sp));
+					 REAL_SUBPATTERN (sp)->definition);
 			real_new_seg = REAL_SEGMENT (new_segment);
 			
 			if (real_new_seg->context)
 			{
 				sp->annot->style_tag = 
 					get_subpattern_tag (ce, real_new_seg->context,
-							  SUBPATTERN_GET_DEFINITION (sp));
+							  REAL_SUBPATTERN (sp)->definition);
 			}
 
 			sp->end_at = offset;
