@@ -29,6 +29,7 @@ libgtksourceview_headers =			\
 	gtksourcecompletionproposal.h		\
 	gtksourcecompletionprovider.h		\
 	gtksourcegutter.h			\
+	gtksourcefold.h				\	
 	gtksourceiter.h				\
 	gtksourcelanguage.h			\
 	gtksourcelanguagemanager.h		\
@@ -70,6 +71,11 @@ libgtksourceview_c_files = \
 	gtksourcecontextengine.c	\
 	gtksourceengine.c		\
 	gtksourcegutter.c		\
+	gtksourcebuffer-private.h 	\
+	gtksourcefold.c			\
+	gtksourcefold-private.h		\
+	gtksourcefoldlabel.c		\
+	gtksourcefoldlabel.h		\
 	gtksourceiter.c			\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
@@ -86,7 +92,9 @@ libgtksourceview_c_files = \
 	gtksourceview-i18n.c		\
 	gtksourceview-utils.c 		\
 	gtksourcehighlighter.c		\
-	gtktextregion.c
+	gtktextregion.c				\
+	folds_cell_renderer.c		
+
 
 libgtksourceview_3_0_la_SOURCES = 	\
 	$(libgtksourceview_c_files)	\

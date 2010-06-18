@@ -50,6 +50,13 @@
                 <context ref="def:in-comment"/>
             </include>
         </context>
+        <context id="foldable_tag" class='fold'>
+        	<start>&lt;div&gt;</start>
+        	<end>&lt;/div&gt;</end>
+        	<include>
+        	<context ref='tag'/>
+        	</include>
+        </context>
 
         <context id="dtd" style-ref="dtd" class="no-spell-check">
             <start>&lt;!</start>
@@ -65,7 +72,7 @@
             <end></end>
         </context>
 
-        <context id="generic-tag">
+        <context id="generic-tag" >
             <include>
 
                 <!-- Attribute in the form: name="value" -->
