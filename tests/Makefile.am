@@ -21,7 +21,7 @@ test_widget_LDADD = 			\
 TEST_PROGS += test-fold
 test_fold_SOURCES = test-fold.c
 test_fold_LDADD =			\
-	$(top_builddir)/gtksourceview/libgtksourceview-2.0.la \
+	$(top_builddir)/gtksourceview/libgtksourceview-3.0.la \
 	$(DEP_LIBS)			\
 	$(TESTS_LIBS)
 

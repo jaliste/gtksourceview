@@ -2069,7 +2069,7 @@ fold_remove_cb (GtkSourceBuffer *buffer,
 
 	if (label != NULL)
 	{
-		if (GTK_WIDGET_VISIBLE (label))
+		if (gtk_widget_get_visible (label))
 			gtk_widget_hide (GTK_WIDGET (label));
 
 		g_hash_table_remove (view->priv->fold_labels, fold);
@@ -5693,7 +5693,7 @@ move_fold_label (GtkTextView        *view,
 					     &old_x, &old_y);
 
 	/* Only update if the position has really changed. */
-	if (GTK_WIDGET_VISIBLE (label) && old_x == x && old_y == y)
+	if (gtk_widget_get_visible (label) && old_x == x && old_y == y)
 		return FALSE;
 
 	_gtk_source_fold_label_set_position (GTK_SOURCE_FOLD_LABEL (label), x, y);
@@ -5701,7 +5701,7 @@ move_fold_label (GtkTextView        *view,
 	/* Position the label 2 pixels to the right of the last character. */
 	gtk_text_view_move_child (view, label, x + 2, y);
 
-	if (!GTK_WIDGET_VISIBLE (label))
+	if (!gtk_widget_get_visible (label))
 		gtk_widget_show (label);
 
 	return TRUE;
@@ -5733,7 +5733,7 @@ foreach_fold_label (GtkSourceFold     *fold,
 		if (!location->updated && updated)
 			location->updated = TRUE;
 	}
-	else if (GTK_WIDGET_VISIBLE (label))
+	else if (gtk_widget_get_visible (label))
 	{
 		/* If the label was visible, but no longer is, queue a redraw. */
 		gtk_widget_hide (label);
@@ -5746,9 +5746,11 @@ update_fold_label_locations (GtkSourceView *view)
 {
 	FoldLabelLocation location;
 	int y;
+	GtkAllocation allocation;
 
 	location.view = view;
 	location.updated = FALSE;
+	gtk_widget_get_allocation (GTK_WIDGET (view), &allocation);
 
 	/* Get the visible line range in the textview. */
 	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
@@ -5763,7 +5765,7 @@ update_fold_label_locations (GtkSourceView *view)
 	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
 					       GTK_TEXT_WINDOW_TEXT,
 					       0,
-					       GTK_WIDGET (view)->allocation.height,
+					       allocation.height,
 					       NULL,
 					       &y);
 
