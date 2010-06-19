@@ -1381,9 +1381,11 @@ sub_pattern_new (Segment              *segment,
 	sp = (SubPattern *) real_sp;
 	sp->start_at = start_at;
 	sp->end_at = end_at;
-	real_sp->definition = sp_def;
-	sp->annot = &(sp_def->annot);
-
+	if (sp_def != NULL)
+	{
+		real_sp->definition = sp_def;
+		sp->annot = &(sp_def->annot);
+	}
 	segment_add_subpattern (segment, sp);
 
 	return sp;
@@ -1440,6 +1442,7 @@ segment_make_invalid_ (GtkSourceContextEngine *ce,
 	real_seg->is_start = FALSE;
 	segment->start_len = 0;
 	segment->end_len = 0;
+	segment->annot = NULL;
 	add_invalid (ce, segment);
 	context_unref (ctx);
 }
@@ -3667,18 +3670,21 @@ segment_new (GtkSourceContextEngine *ce,
 	g_assert (!is_start || context != NULL);
 #endif
 
-	segment = (Segment *) g_slice_new0 (RealSegment);
+	real_seg = g_slice_new0 (RealSegment);
+
+	segment = (Segment *) real_seg;
 	segment->parent = parent;
 	segment->start_at = start_at;
 	segment->end_at = end_at;
-	segment->annot = &(context->annot);
 
-	real_seg = REAL_SEGMENT (segment);
 	real_seg->is_start = is_start;
 	real_seg->context = context_ref (context);
 	if (context)
+	{
+		segment->annot = &(context->annot);
 		context->annot.style_tag = get_context_tag (ce, context);
-	
+	}
+		
 	if (context == NULL)
 		add_invalid (ce, segment);
 
