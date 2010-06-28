@@ -56,10 +56,13 @@ struct _GtkSourceEngineClass
 				       gint                  offset,
 				       gint                  length);
 
-	void     (* update) 	      (GtkSourceEngine      *engine,
+	void     (* update_highlight) (GtkSourceEngine      *engine,
 				       const GtkTextIter    *start,
 				       const GtkTextIter    *end,
 				       gboolean              synchronous);
+
+	void     (* set_style_scheme) (GtkSourceEngine      *engine,
+				       GtkSourceStyleScheme *scheme);
 
 	GtkTextTag *(* get_context_class_tag)
 				      (GtkSourceEngine      *engine,
@@ -76,10 +79,13 @@ void        _gtk_source_engine_text_inserted	(GtkSourceEngine      *engine,
 void        _gtk_source_engine_text_deleted	(GtkSourceEngine      *engine,
 						 gint                  offset,
 						 gint                  length);
-void        _gtk_source_engine_update		(GtkSourceEngine      *engine,
+void        _gtk_source_engine_update_highlight	(GtkSourceEngine      *engine,
 						 const GtkTextIter    *start,
 						 const GtkTextIter    *end,
 						 gboolean              synchronous);
+void        _gtk_source_engine_set_style_scheme	(GtkSourceEngine      *engine,
+						 GtkSourceStyleScheme *scheme);
+
 GtkTextTag *_gtk_source_engine_get_context_class_tag
 						 (GtkSourceEngine     *engine,
 						  const gchar         *context_class);

@@ -55,7 +55,7 @@ NOINST_H_FILES = \
 	gtksourceview-utils.h		\
 	gtktextregion.h			\
 	gtksourcehighlighter.h		\
-	gtksourcecontextengine-private.h 
+	gtksourcecontextengine-private.h
 
 libgtksourceview_c_files = \
 	gtksourcebuffer.c 		\

@@ -55,13 +55,13 @@
     defined (ENABLE_CHECK_TREE)
 #define NEED_DEBUG_ID
 #endif
+
+G_DEFINE_TYPE (GtkSourceHighlighter, _gtk_source_highlighter, G_TYPE_OBJECT)
+
 static void
 set_tag_style_hash_cb (const char           *style,
 		       GSList               *tags,
 		       GtkSourceHighlighter *highlighter);
-
-
-
 
 struct _GtkSourceHighlighterPrivate
 {
@@ -77,8 +77,8 @@ struct _GtkSourceHighlighterPrivate
 	/* Whether or not to actually highlight the buffer. */
 	gboolean		 highlight;
 
-       /* Region covering the unhighlighted text. */
-       GtkTextRegion           *refresh_region;
+	/* Region covering the unhighlighted text. */
+	GtkTextRegion           *refresh_region;
 
 	/* Pointer to the segment tree created by the syntax analyzer */
 	Segment			*segment_tree;
@@ -87,7 +87,6 @@ struct _GtkSourceHighlighterPrivate
 	guint			 mem_usage_timeout;
 #endif
 };
-
 
 static void
 unhighlight_region_cb (G_GNUC_UNUSED gpointer style,
@@ -112,7 +111,7 @@ unhighlight_region (GtkSourceHighlighter *highlighter,
 		    const GtkTextIter      *end)
 {
 	struct BufAndIters data;
-
+	
 	data.buffer = highlighter->priv->buffer;
 	data.start = start;
 	data.end = end;
@@ -130,7 +129,6 @@ set_tag_style (GtkSourceHighlighter *highlighter,
 	       GtkTextTag             *tag,
 	       const gchar            *style_id)
 {
-	printf ("Set Tag style\n");
 	GtkSourceStyle *style;
 
 	const char *map_to = style_id;
@@ -177,8 +175,6 @@ set_tag_style (GtkSourceHighlighter *highlighter,
 		_gtk_source_style_apply (style, tag);
 }
 
-
-
 static void
 apply_tags (GtkSourceHighlighter  *highlighter,
 	    Segment		*segment,
@@ -203,11 +199,10 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 	start_offset = MAX (start_offset, segment->start_at);
 	end_offset = MIN (end_offset, segment->end_at);
 
-	tag = segment->annot->style_tag; //get_context_tag
+	tag = segment->annot->style_tag; 
 
 	if (tag != NULL)
 	{
-		//printf("tag is not null\n");
 		gint style_start_at, style_end_at;
 
 		style_start_at = start_offset;
@@ -327,6 +322,9 @@ _gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter *highlighter,
 {
 	GtkTextRegion *region;
 	GtkTextRegionIterator reg_iter;
+
+	if (!highlighter->priv->highlight_syntax)
+		return;
 	/* Get the subregions not yet highlighted. */
 	region = gtk_text_region_intersect (highlighter->priv->refresh_region, start, end);
 
@@ -371,11 +369,9 @@ update_highlight_cb (GtkSourceHighlighter *highlight_handler,
 		     const GtkTextIter  *end,
 		     GtkSourceBuffer    *buffer)
 {
-	
 	if (!highlight_handler->priv->highlight)
 		return;
-	highlight_region (highlight_handler, start, end);
-	
+	highlight_region (highlight_handler, start, end);	
 }
 
 /**
@@ -393,7 +389,7 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 		  gboolean                enable)
 {
 	GtkTextIter start, end;
-	
+		
 	if (!enable == !highlighter->priv->highlight)
 		return;
 
@@ -425,11 +421,6 @@ buffer_notify_highlight_syntax_cb (GtkSourceHighlighter *highlighter)
 	enable_highlight (highlighter, highlight);
 }
 
-G_DEFINE_TYPE (GtkSourceHighlighter, _gtk_source_highlighter, G_TYPE_OBJECT)
-
-/* GtkSourceHighlighter class ------------------------------------------- */
-
-
 /*
  * gtk_source_highlighter_attach_buffer:
  *
@@ -437,12 +428,16 @@ G_DEFINE_TYPE (GtkSourceHighlighter, _gtk_source_highlighter, G_TYPE_OBJECT)
  * @buffer: buffer.
  *
  * Detaches highlighter from previous buffer, and attaches to @buffer if
- * it's not %NULL. Only called from set_analyzer
+ * it's not %NULL.
  */
-static void
+void
 _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
-				     GtkTextBuffer      *buffer)
+				       GtkTextBuffer        *buffer,
+				       Segment		    *root_segment, 
+				       GHashTable	    *tags)
 {
+	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
+
 	if (highlighter->priv->buffer == buffer)
 		return;
 
@@ -464,10 +459,11 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 
 	if (buffer != NULL)
 	{
-		
-		highlighter->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-
-		g_object_get (highlighter->priv->buffer, "highlight-syntax", &highlighter->priv->highlight, NULL);
+		highlighter->priv->segment_tree = root_segment;
+		highlighter->priv->tags = tags;
+	
+		g_object_get (highlighter->priv->buffer, "highlight-syntax", 
+							&highlighter->priv->highlight, NULL);
 		
 		g_signal_connect_swapped (buffer,
 					  "notify::highlight-syntax",
@@ -519,7 +515,7 @@ _gtk_source_highlighter_set_style_scheme (GtkSourceHighlighter      *highlighter
 
 void
 _gtk_source_highlighter_set_styles_map (GtkSourceHighlighter    *highlighter,
-				      GHashTable	    *styles)
+					GHashTable	    	*styles)
 {
 	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
 
@@ -527,40 +523,12 @@ _gtk_source_highlighter_set_styles_map (GtkSourceHighlighter    *highlighter,
 		highlighter->priv->styles_map = styles;
 }
 
-void
-_gtk_source_highlighter_set_analyzer (GtkSourceHighlighter *highlighter,
-				      GtkSourceEngine  	   *analyzer)
-{
-	GtkSourceContextEngine  *engine; 
-
-	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
-	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (analyzer));
-
-	engine = GTK_SOURCE_CONTEXT_ENGINE (analyzer);
-
-	_gtk_source_highlighter_attach_buffer (highlighter, 
-					       _gtk_source_context_engine_get_buffer (engine));
-	highlighter->priv->segment_tree = _gtk_source_context_engine_get_tree (engine);
-	highlighter->priv->tags = _gtk_source_context_engine_get_style_tags (engine);
-
-}
-		
-
 static void
 gtk_source_highlighter_finalize (GObject *object)
 {
 	GtkSourceHighlighter *highlighter = GTK_SOURCE_HIGHLIGHTER (object);
 
-	if (highlighter->priv->buffer != NULL)
-	{
-		g_critical ("finalizing highlighter with attached buffer");
-		/* Disconnect the buffer (if there is one), which destroys almost
-		 * everything. */
-		//gtk_source_highlighter_attach_buffer (GTK_SOURCE_ENGINE (highlighter), NULL);
-	}
-
 	g_assert (!highlighter->priv->tags);
-	//g_assert (!highlighter->priv->root_context);
 	g_assert (!highlighter->priv->segment_tree);
 	
 	if (highlighter->priv->style_scheme != NULL)
@@ -586,7 +554,7 @@ _gtk_source_highlighter_init (GtkSourceHighlighter *highlighter)
 }
 
 GtkSourceHighlighter * 	
-_gtk_source_highlighter_new (void)
+_gtk_source_highlighter_new ()
 {
 	GtkSourceHighlighter *highlighter;
 

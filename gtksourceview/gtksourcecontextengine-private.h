@@ -54,23 +54,22 @@ struct _Segment
 	gint			 end_at;
 
 	/* In case of container contexts, start_len/end_len is length in chars
-	 * of start/end match. */	 
+	 * of start/end match. */
 	gint			 start_len;
 	gint			 end_len;
-	
+
 	/* Annotation with style and class information.
-	 * Eventually, we may add a GInterface (implemented by Analyzers) 
-	 * so handlers can add custom data to the annotation. */  
+	 * Eventually, we may add a GInterface (implemented by Analyzers)
+	 * so handlers can add custom data to the annotation. */
 	Annotation		*annot;
 };
 
-struct _Annotation 
+struct _Annotation
 {
 	gchar			*style;
 	GtkTextTag		*style_tag;
-	guint			 style_inside; //???
+	guint			 style_inside;
 	GSList			*context_classes;
-//	context information;
 };
 
 struct _SubPattern

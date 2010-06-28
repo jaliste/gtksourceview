@@ -23,6 +23,7 @@
 #define __GTK_SOURCE_HIGHLIGHTER_H__
 
 #include <gtksourceview/gtksourceengine.h>
+#include <gtksourceview/gtksourcecontextengine-private.h>
 
 G_BEGIN_DECLS
 
@@ -57,11 +58,13 @@ void 			_gtk_source_highlighter_set_style_scheme (GtkSourceHighlighter *highligh
 				       				  GtkSourceStyleScheme *scheme);
 void 			_gtk_source_highlighter_set_styles_map	 (GtkSourceHighlighter *highlighter,
 				       				  GHashTable 	       *styles);
-void			_gtk_source_highlighter_set_analyzer	 (GtkSourceHighlighter *highlighter,
-								  GtkSourceEngine      *se);
+void			_gtk_source_highlighter_attach_buffer 	 (GtkSourceHighlighter *highlighter,
+								  GtkTextBuffer        *buffer,
+								  Segment	       *root_segment, 
+								  GHashTable	       *tags);
 void			_gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter *highlighter,
-		    						  const GtkTextIter      *start,
-		    						  const GtkTextIter      *end);
+								  const GtkTextIter    *start,
+								  const GtkTextIter    *end);
 
 G_END_DECLS
 

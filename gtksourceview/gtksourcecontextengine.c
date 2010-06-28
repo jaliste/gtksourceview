@@ -5,7 +5,7 @@
  * Copyright (C) 2003 - Gustavo Giráldez <gustavo.giraldez@gmx.net>
  * Copyright (C) 2005, 2006 - Marco Barisione, Emanuele Aina
  * Copyright (C) 2010, Jose Aliste <jose.aliste@gmail.com>
- * 
+ *
  * GtkSourceView is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -28,6 +28,7 @@
 #include "gtksourcelanguage-private.h"
 #include "gtksourcebuffer.h"
 #include "gtksourcestyle-private.h"
+#include "gtksourcehighlighter.h"
 
 #include <glib.h>
 
@@ -324,9 +325,6 @@ struct _RealSegment
 	/* Whether this segment is a whole good segment, or it's an
 	 * an end of bigger one left after erase_segments() call. */
 	guint			is_start : 1;
-
-	/* This is NULL if and only if it's a dummy segment which denotes
-	 * inserted or deleted text. */
 };
 
 struct _RealSubPattern
@@ -401,6 +399,8 @@ struct _GtkSourceContextData
 
 struct _GtkSourceContextEnginePrivate
 {
+	GtkSourceHighlighter	*highlighter;
+
 	GtkSourceContextData	*ctx_data;
 
 	GtkTextBuffer		*buffer;
@@ -413,8 +413,8 @@ struct _GtkSourceContextEnginePrivate
 
 	GHashTable		*context_classes;
 
-	/* Whether or not to actually analyze the syntax of the buffer. */
-	gboolean		 analyze_syntax;
+	/* Whether or not to actually highlight the syntax of the buffer. */
+	gboolean		 highlight_syntax;
 
 	/* Whether Syntax analysis was disabled because of errors. */
 	gboolean		 disabled;
@@ -1995,7 +1995,7 @@ update_tree (GtkSourceContextEngine *ce)
 }
 
 /**
- * gtk_source_context_engine_update:
+ * gtk_source_context_engine_update_highlight:
  *
  * @ce: a #GtkSourceContextEngine.
  * @start: start of area to update.
@@ -2003,22 +2003,22 @@ update_tree (GtkSourceContextEngine *ce)
  * @synchronous: whether it should block until everything
  * is analyzed/highlighted.
  *
- * GtkSourceEngine::update method.
+ * GtkSourceEngine::update_highlight method.
  *
- * Makes sure the area is analyzed. If @synchronous
+ * Makes sure the area is analyzed and highlighted. If @synchronous
  * is %FALSE, then it queues idle worker.
  */
 static void
-gtk_source_context_engine_update (GtkSourceEngine   *engine,
-				  const GtkTextIter *start,
-				  const GtkTextIter *end,
-				  gboolean           synchronous)
+gtk_source_context_engine_update_highlight (GtkSourceEngine   *engine,
+					    const GtkTextIter *start,
+					    const GtkTextIter *end,
+					    gboolean           synchronous)
 {
 	gint invalid_line;
 	gint end_line;
 	GtkSourceContextEngine *ce = GTK_SOURCE_CONTEXT_ENGINE (engine);
 
-	if (!ce->priv->analyze_syntax || ce->priv->disabled)
+	if (ce->priv->disabled)
 		return;
 
 	invalid_line = get_invalid_line (ce);
@@ -2029,26 +2029,31 @@ gtk_source_context_engine_update (GtkSourceEngine   *engine,
 
 	if (invalid_line < 0 || invalid_line > end_line)
 	{
-		/* The region is already analyzed */
-		return;
+		_gtk_source_highlighter_ensure_highlight (ce->priv->highlighter, start, end);
+
 	}
 	else if (synchronous)
 	{
 		/* analyze whole region */
 		update_syntax (ce, end, 0);
+		_gtk_source_highlighter_ensure_highlight (ce->priv->highlighter, start, end);
+
 	}
 	else
 	{
 		if (gtk_text_iter_get_line (start) < invalid_line)
 		{
 			GtkTextIter valid_end = *start;
+
 			gtk_text_iter_set_line (&valid_end, invalid_line);
+			_gtk_source_highlighter_ensure_highlight (ce->priv->highlighter,
+								  start,
+								  &valid_end);
 		}
 
 		install_first_update (ce);
 	}
 }
-
 
 /* IDLE WORKER CODE ------------------------------------------------------- */
 
@@ -2232,6 +2237,12 @@ destroy_context_classes_hash (GtkSourceContextEngine *ce)
 	ce->priv->context_classes = NULL;
 }
 
+static void
+buffer_notify_highlight_syntax_cb (GtkSourceContextEngine *ce)
+{
+	g_object_get (ce->priv->buffer, "highlight-syntax", &ce->priv->highlight_syntax, NULL);
+}
+
 /**
  * gtk_source_context_engine_attach_buffer:
  *
@@ -2255,7 +2266,9 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 	/* Detach previous buffer if there is one. */
 	if (ce->priv->buffer != NULL)
 	{
-
+		 g_signal_handlers_disconnect_by_func (ce->priv->buffer,			
+						       (gpointer) buffer_notify_highlight_syntax_cb,			
+						       ce);
 		if (ce->priv->first_update != 0)
 			g_source_remove (ce->priv->first_update);
 		if (ce->priv->incremental_update != 0)
@@ -2311,10 +2324,11 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 		/* If we don't abort here, we will crash later (#485661). But it should
 		 * never happen, _gtk_source_context_data_finish_parse checks main context. */
 		g_assert (main_definition != NULL);
-		ce->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		
 		ce->priv->root_context = context_new (NULL, main_definition, NULL, NULL, FALSE);
 		ce->priv->root_segment = create_segment (ce, NULL, ce->priv->root_context, 0, 0, TRUE, NULL);
 
+		ce->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 		ce->priv->context_classes = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 		gtk_text_buffer_get_bounds (buffer, &start, &end);
@@ -2334,8 +2348,16 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 			ce->priv->invalid_region.delta = 0;
 		}
 
-		g_object_get (ce->priv->buffer, "analyze-syntax", &ce->priv->analyze_syntax, NULL);
+		g_object_get (buffer, "highlight-syntax", &(ce->priv->highlight_syntax), NULL);
 
+		g_signal_connect_swapped (buffer,
+					  "notify::highlight-syntax",
+					  G_CALLBACK (buffer_notify_highlight_syntax_cb),
+					  ce);
+		_gtk_source_highlighter_attach_buffer (ce->priv->highlighter,
+						       ce->priv->buffer, 
+						       ce->priv->root_segment,
+						       ce->priv->tags);
 		install_first_update (ce);
 	}
 }
@@ -2358,6 +2380,29 @@ disable_syntax_analysis (GtkSourceContextEngine *ce)
 		gtk_source_context_engine_attach_buffer (GTK_SOURCE_ENGINE (ce), NULL);
 		/* FIXME maybe emit some signal here? */
 	}
+}
+
+/**
+ * gtk_source_context_engine_set_style_scheme:
+ *
+ * @engine: #GtkSourceContextEngine.
+ * @scheme: #GtkSourceStyleScheme to set.
+ *
+ * GtkSourceEngine::set_style_scheme method.
+ * Sets current style scheme, updates tag styles and everything.
+ */
+static void
+gtk_source_context_engine_set_style_scheme (GtkSourceEngine      *engine,
+					    GtkSourceStyleScheme *scheme)
+{
+	GtkSourceContextEngine *ce;
+
+	g_return_if_fail (GTK_IS_SOURCE_CONTEXT_ENGINE (engine));
+	g_return_if_fail (GTK_IS_SOURCE_STYLE_SCHEME (scheme) || scheme == NULL);
+
+	ce = GTK_SOURCE_CONTEXT_ENGINE (engine);
+
+	_gtk_source_highlighter_set_style_scheme (ce->priv->highlighter, scheme);
 }
 
 static void
@@ -2416,11 +2461,11 @@ _gtk_source_context_engine_class_init (GtkSourceContextEngineClass *klass)
 	engine_class->attach_buffer = gtk_source_context_engine_attach_buffer;
 	engine_class->text_inserted = gtk_source_context_engine_text_inserted;
 	engine_class->text_deleted = gtk_source_context_engine_text_deleted;
-	engine_class->update = gtk_source_context_engine_update;
+	engine_class->update_highlight = gtk_source_context_engine_update_highlight;
+	engine_class->set_style_scheme = gtk_source_context_engine_set_style_scheme;
 	engine_class->get_context_class_tag = gtk_source_context_engine_get_context_class_tag;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceContextEnginePrivate));
-
 }
 
 static void
@@ -2428,32 +2473,6 @@ _gtk_source_context_engine_init (GtkSourceContextEngine *ce)
 {
 	ce->priv = G_TYPE_INSTANCE_GET_PRIVATE (ce, GTK_TYPE_SOURCE_CONTEXT_ENGINE,
 						GtkSourceContextEnginePrivate);
-}
-
-GtkTextBuffer *
-_gtk_source_context_engine_get_buffer (GtkSourceContextEngine *ce)
-{
-	if (ce)
-		return ce->priv->buffer;
-	else
-		return NULL;
-}
-Segment *
-_gtk_source_context_engine_get_tree (GtkSourceContextEngine *ce)
-{
-	if (ce)
-		return ce->priv->root_segment;
-	else
-		return NULL;
-}
-
-GHashTable *	
-_gtk_source_context_engine_get_style_tags (GtkSourceContextEngine *ce)
-{
-	if (ce)
-		return ce->priv->tags;
-	else
-		return NULL;
 }
 
 GtkSourceContextEngine *
@@ -2466,6 +2485,10 @@ _gtk_source_context_engine_new (GtkSourceContextData *ctx_data)
 
 	ce = g_object_new (GTK_TYPE_SOURCE_CONTEXT_ENGINE, NULL);
 	ce->priv->ctx_data = _gtk_source_context_data_ref (ctx_data);
+
+	ce->priv->highlighter = _gtk_source_highlighter_new ();
+	
+	_gtk_source_highlighter_set_styles_map (ce->priv->highlighter, ENGINE_STYLES_MAP (ce));
 
 #ifdef ENABLE_MEMORY_DEBUG
 	ce->priv->mem_usage_timeout =
