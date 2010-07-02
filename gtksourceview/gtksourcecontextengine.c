@@ -105,35 +105,28 @@
 #define CONTEXT_ENDS_PARENT(ctx) \
 	((ctx)->parent != NULL && (ctx)->parent->parent != NULL && \
 		HAS_OPTION ((ctx)->definition, END_PARENT))
-#define REAL_SEGMENT(s) ((RealSegment *)(s))
-#define SEGMENT_ENDS_PARENT(s) CONTEXT_ENDS_PARENT (REAL_SEGMENT (s)->context)
+#define SEGMENT_ENDS_PARENT(s) CONTEXT_ENDS_PARENT ((s)->context)
 
 /* Does the segment terminate at line end? */
 /* Root segment doesn't, children look at the flag */
 #define CONTEXT_END_AT_LINE_END(ctx) \
 	((ctx)->parent != NULL && HAS_OPTION ((ctx)->definition, END_AT_LINE_END))
-#define SEGMENT_END_AT_LINE_END(s) CONTEXT_END_AT_LINE_END(REAL_SEGMENT (s)->context)
+#define SEGMENT_END_AT_LINE_END(s) CONTEXT_END_AT_LINE_END((s)->context)
 
 #define CONTEXT_IS_SIMPLE(c) ((c)->definition->type == CONTEXT_TYPE_SIMPLE)
 #define CONTEXT_IS_CONTAINER(c) ((c)->definition->type == CONTEXT_TYPE_CONTAINER)
-#define SEGMENT_IS_INVALID(s) ((REAL_SEGMENT (s))->context == NULL)
-#define SEGMENT_IS_SIMPLE(s) CONTEXT_IS_SIMPLE (REAL_SEGMENT (s)->context)
-#define SEGMENT_IS_CONTAINER(s) CONTEXT_IS_CONTAINER (REAL_SEGMENT (s)->context)
+
+#define SEGMENT_IS_SIMPLE(s) CONTEXT_IS_SIMPLE ((s)->context)
+#define SEGMENT_IS_CONTAINER(s) CONTEXT_IS_CONTAINER ((s)->context)
 
 #define ENGINE_ID(ce) ((ce)->priv->ctx_data->lang->priv->id)
 #define ENGINE_STYLES_MAP(ce) ((ce)->priv->ctx_data->lang->priv->styles)
 
 #define TAG_CONTEXT_CLASS_NAME "GtkSourceViewTagContextClassName"
 
-#define REAL_SUBPATTERN(subpat) ((RealSubPattern *)(subpat))
-
 typedef struct _RegexInfo RegexInfo;
 typedef struct _RegexAndMatch RegexAndMatch;
 typedef struct _Regex Regex;
-typedef struct _SubPatternDefinition SubPatternDefinition;
-typedef struct _RealSubPattern RealSubPattern;
-typedef struct _RealSegment RealSegment;
-typedef struct _Context Context;
 typedef struct _ContextPtr ContextPtr;
 typedef struct _ContextDefinition ContextDefinition;
 typedef struct _DefinitionChild DefinitionChild;
@@ -225,9 +218,11 @@ struct _SubPatternDefinition
 	/* We need the id only for debugging. */
 	gchar			*id;
 #endif
-	Annotation		annot;
-
+	gchar			*style;
 	SubPatternWhere		 where;
+
+	/* List of class definitions */
+	GSList                  *context_classes;
 
 	/* index in the ContextDefinition's list */
 	guint			 index;
@@ -282,10 +277,13 @@ struct _Context
 	 * could be matched in this context. */
 	Regex			*reg_all;
 
-	Annotation		annot;
-
+	/* Either definition->default_style or child_def->style, not copied. */
+	const gchar		*style;
 	GtkTextTag		*tag;
 	GtkTextTag	       **subpattern_tags;
+
+	/* Cache for generated list of class tags */
+	GSList                  *context_classes;
 
 	/* Cache for generated list of subpattern class tags */
 	GSList                 **subpattern_context_classes;
@@ -318,20 +316,7 @@ struct _GtkSourceContextReplace
 	gchar			*replace_with;
 };
 
-struct _RealSegment 
-{
-	Segment			segment;
-	Context			*context;
-	/* Whether this segment is a whole good segment, or it's an
-	 * an end of bigger one left after erase_segments() call. */
-	guint			is_start : 1;
-};
 
-struct _RealSubPattern
-{
-	SubPattern		sub_pattern;
-	SubPatternDefinition 	*definition;
-};
 
 /* Line terminator characters (\n, \r, \r\n, or unicode paragraph separator)
  * are removed from the line text. The problem is that pcre does not understand
@@ -413,8 +398,8 @@ struct _GtkSourceContextEnginePrivate
 
 	GHashTable		*context_classes;
 
-	/* Whether or not to actually highlight the syntax of the buffer. */
-	gboolean		 highlight_syntax;
+	/* Whether or not to actually highlight the buffer. */
+	gboolean		 highlight;
 
 	/* Whether Syntax analysis was disabled because of errors. */
 	gboolean		 disabled;
@@ -561,7 +546,7 @@ context_class_tag_free (ContextClassTag *attrtag)
 
 static GtkTextTag *
 create_tag (GtkSourceContextEngine *ce,
-	    const gchar        *style_id)
+	    const gchar		   *style_id)
 {
 	GSList *tags;
 	GtkTextTag *new_tag;
@@ -592,8 +577,8 @@ get_parent_tag (Context    *context,
 	{
 		/* Lang files may repeat same style for nested contexts,
 		 * ignore them. */
-		if (context->annot.style &&
-		    strcmp (context->annot.style, style) != 0)
+		if (context->style &&
+		    strcmp (context->style, style) != 0)
 		{
 			g_assert (context->tag != NULL);
 			return context->tag;
@@ -647,11 +632,11 @@ get_tag_for_parent (GtkSourceContextEngine *ce,
 
 			while (parent != NULL)
 			{
-				if (parent->annot.style != NULL)
+				if (parent->style != NULL)
 				{
 					g_string_prepend (style_path, "/");
 					g_string_prepend (style_path,
-							  parent->annot.style);
+							  parent->style);
 				}
 
 				parent = parent->parent;
@@ -673,7 +658,7 @@ get_subpattern_tag (GtkSourceContextEngine *ce,
 		    Context                *context,
 		    SubPatternDefinition   *sp_def)
 {
-	if (sp_def->annot.style == NULL)
+	if (sp_def->style == NULL)
 		return NULL;
 
 	g_assert (sp_def->index < context->definition->n_sub_patterns);
@@ -682,7 +667,7 @@ get_subpattern_tag (GtkSourceContextEngine *ce,
 		context->subpattern_tags = g_new0 (GtkTextTag*, context->definition->n_sub_patterns);
 
 	if (context->subpattern_tags[sp_def->index] == NULL)
-		context->subpattern_tags[sp_def->index] = get_tag_for_parent (ce, sp_def->annot.style, context);
+		context->subpattern_tags[sp_def->index] = get_tag_for_parent (ce, sp_def->style, context);
 
 	g_return_val_if_fail (context->subpattern_tags[sp_def->index] != NULL, NULL);
 	return context->subpattern_tags[sp_def->index];
@@ -692,9 +677,9 @@ static GtkTextTag *
 get_context_tag (GtkSourceContextEngine *ce,
 		 Context                *context)
 {
-	if (context->annot.style != NULL && context->tag == NULL)
+	if (context->style != NULL && context->tag == NULL)
 		context->tag = get_tag_for_parent (ce,
-						   context->annot.style,
+						   context->style,
 						   context->parent);
 	return context->tag;
 }
@@ -757,7 +742,7 @@ get_subpattern_context_classes (GtkSourceContextEngine *ce,
 	{
 		context->subpattern_context_classes[sp_def->index] =
 				extend_context_classes (ce,
-		                                        sp_def->annot.context_classes);
+		                                        sp_def->context_classes);
 	}
 
 	return context->subpattern_context_classes[sp_def->index];
@@ -767,14 +752,14 @@ static GSList *
 get_context_classes (GtkSourceContextEngine *ce,
                      Context                *context)
 {
-	if (context->annot.context_classes == NULL)
+	if (context->context_classes == NULL)
 	{
-		context->annot.context_classes =
+		context->context_classes =
 				extend_context_classes (ce,
 		                                        context->definition->context_classes);
 	}
 
-	return context->annot.context_classes;
+	return context->context_classes;
 }
 
 static void
@@ -837,7 +822,7 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 	start_offset = MAX (start_offset, segment->start_at);
 	end_offset = MIN (end_offset, segment->end_at);
 
-	context_classes = get_context_classes (ce, REAL_SEGMENT (segment)->context);
+	context_classes = get_context_classes (ce,segment->context);
 
 	if (context_classes != NULL)
 	{
@@ -855,8 +840,8 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 			gint end = MIN (end_offset, sp->end_at);
 
 			context_classes = get_subpattern_context_classes (ce,
-			                                                  REAL_SEGMENT (segment)->context,
-			                                                  REAL_SUBPATTERN(sp)->definition);
+			                                                 segment->context,
+			                                                  sp->definition);
 
 			if (context_classes != NULL)
 			{
@@ -1375,17 +1360,11 @@ sub_pattern_new (Segment              *segment,
 		 SubPatternDefinition *sp_def)
 {
 	SubPattern *sp;
-	RealSubPattern *real_sp;
 
-	real_sp = g_slice_new0 (RealSubPattern);
-	sp = (SubPattern *) real_sp;
+	sp = g_slice_new0 (SubPattern);
 	sp->start_at = start_at;
 	sp->end_at = end_at;
-	if (sp_def != NULL)
-	{
-		real_sp->definition = sp_def;
-		sp->annot = &(sp_def->annot);
-	}
+	sp->definition = sp_def;
 	segment_add_subpattern (segment, sp);
 
 	return sp;
@@ -1422,7 +1401,6 @@ segment_make_invalid_ (GtkSourceContextEngine *ce,
 {
 	Context *ctx;
 	SubPattern *sp;
-	RealSegment *real_seg;
 
 	g_assert (!SEGMENT_IS_INVALID (segment));
 
@@ -1435,14 +1413,11 @@ segment_make_invalid_ (GtkSourceContextEngine *ce,
 		sub_pattern_free (sp);
 		sp = next;
 	}
-	real_seg = REAL_SEGMENT (segment);
-	
-	ctx = real_seg->context;
-	real_seg->context = NULL;
-	real_seg->is_start = FALSE;
+	ctx = segment->context;
+	segment->context = NULL;
+	segment->is_start = FALSE;
 	segment->start_len = 0;
 	segment->end_len = 0;
-	segment->annot = NULL;
 	add_invalid (ce, segment);
 	context_unref (ctx);
 }
@@ -1477,7 +1452,7 @@ simple_segment_split_ (GtkSourceContextEngine *ce,
 	segment->end_at = offset;
 
 	invalid = create_segment (ce, segment->parent, NULL, offset, offset, FALSE, segment);
-	new_segment = create_segment (ce, segment->parent, REAL_SEGMENT (segment)->context, offset, end_at, FALSE, invalid);
+	new_segment = create_segment (ce, segment->parent, segment->context, offset, end_at, FALSE, invalid);
 
 	while (sp != NULL)
 	{
@@ -1494,20 +1469,16 @@ simple_segment_split_ (GtkSourceContextEngine *ce,
 		}
 		else
 		{
-			RealSegment *real_new_seg;
-
 			sub_pattern_new (new_segment,
 					 offset,
 					 sp->end_at,
-					 REAL_SUBPATTERN (sp)->definition);
-			real_new_seg = REAL_SEGMENT (new_segment);
-			
-			if (real_new_seg->context)
+					 sp->definition);
+			/*	if (real_new_seg->context)
 			{
-				sp->annot->style_tag = 
+				sp->definition->style_tag = 
 					get_subpattern_tag (ce, real_new_seg->context,
-							  REAL_SUBPATTERN (sp)->definition);
-			}
+							  sp->definition);
+			}*/
 
 			sp->end_at = offset;
 			append_to = segment;
@@ -2238,9 +2209,9 @@ destroy_context_classes_hash (GtkSourceContextEngine *ce)
 }
 
 static void
-buffer_notify_highlight_syntax_cb (GtkSourceContextEngine *ce)
+buffer_notify_highlight_cb (GtkSourceContextEngine *ce)
 {
-	g_object_get (ce->priv->buffer, "highlight-syntax", &ce->priv->highlight_syntax, NULL);
+	g_object_get (ce->priv->buffer, "highlight-syntax", &ce->priv->highlight, NULL);
 }
 
 /**
@@ -2267,7 +2238,7 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 	if (ce->priv->buffer != NULL)
 	{
 		 g_signal_handlers_disconnect_by_func (ce->priv->buffer,			
-						       (gpointer) buffer_notify_highlight_syntax_cb,			
+						       (gpointer) buffer_notify_highlight_cb,			
 						       ce);
 		if (ce->priv->first_update != 0)
 			g_source_remove (ce->priv->first_update);
@@ -2348,11 +2319,11 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 			ce->priv->invalid_region.delta = 0;
 		}
 
-		g_object_get (buffer, "highlight-syntax", &(ce->priv->highlight_syntax), NULL);
+		g_object_get (buffer, "highlight-syntax", &(ce->priv->highlight), NULL);
 
 		g_signal_connect_swapped (buffer,
 					  "notify::highlight-syntax",
-					  G_CALLBACK (buffer_notify_highlight_syntax_cb),
+					  G_CALLBACK (buffer_notify_highlight_cb),
 					  ce);
 		_gtk_source_highlighter_attach_buffer (ce->priv->highlighter,
 						       ce->priv->buffer, 
@@ -2949,7 +2920,7 @@ apply_sub_patterns (Segment         *state,
 		    Regex           *regex,
 		    SubPatternWhere  where)
 {
-	GSList *sub_pattern_list = REAL_SEGMENT(state)->context->definition->sub_patterns;
+	GSList *sub_pattern_list = state->context->definition->sub_patterns;
 
 	if (SEGMENT_IS_CONTAINER (state))
 	{
@@ -3124,7 +3095,7 @@ apply_match (Segment         *state,
 {
 	gint match_end;
 
-	if (!can_apply_match (REAL_SEGMENT (state)->context, line, *line_pos, &match_end, regex))
+	if (!can_apply_match (state->context, line, *line_pos, &match_end, regex))
 		return FALSE;
 
 	segment_extend (state, line_pos_to_offset (line, match_end));
@@ -3303,13 +3274,13 @@ context_new (Context           *parent,
 	context->definition = definition;
 	context->parent = parent;
 
-	context->annot.style = style;
+	context->style = style;
 	context->ignore_children_style = ignore_children_style;
 
 	if (parent != NULL && parent->ignore_children_style)
 	{
 		context->ignore_children_style = TRUE;
-		context->annot.style = NULL;
+		context->style = NULL;
 	}
 
 	if (!parent || (parent->all_ancestors_extend && CONTEXT_EXTENDS_PARENT (parent)))
@@ -3488,8 +3459,8 @@ context_unref (Context *context)
 		}
 	}
 
-	g_slist_foreach (context->annot.context_classes, (GFunc)context_class_tag_free, NULL);
-	g_slist_free (context->annot.context_classes);
+	g_slist_foreach (context->context_classes, (GFunc)context_class_tag_free, NULL);
+	g_slist_free (context->context_classes);
 
 	g_free (context->subpattern_context_classes);
 	g_free (context->subpattern_tags);
@@ -3688,24 +3659,22 @@ segment_new (GtkSourceContextEngine *ce,
 	     gboolean                is_start)
 {
 	Segment *segment;
-	RealSegment *real_seg;
+
 #ifdef ENABLE_CHECK_TREE
 	g_assert (!is_start || context != NULL);
 #endif
 
-	real_seg = g_slice_new0 (RealSegment);
+	segment = g_slice_new0 (Segment);
 
-	segment = (Segment *) real_seg;
 	segment->parent = parent;
 	segment->start_at = start_at;
 	segment->end_at = end_at;
 
-	real_seg->is_start = is_start;
-	real_seg->context = context_ref (context);
+	segment->is_start = is_start;
+	segment->context = context_ref (context);
 	if (context)
 	{
-		segment->annot = &(context->annot);
-		context->annot.style_tag = get_context_tag (ce, context);
+		context->tag = get_context_tag (ce, context);
 	}
 		
 	if (context == NULL)
@@ -3983,7 +3952,7 @@ segment_destroy (GtkSourceContextEngine *ce,
 	if (SEGMENT_IS_INVALID (segment))
 		remove_invalid (ce, segment);
 
-	context_unref (REAL_SEGMENT(segment)->context);
+	context_unref (segment->context);
 
 #ifdef ENABLE_DEBUG
 	g_assert (!g_slist_find (ce->priv->invalid, segment));
@@ -4024,7 +3993,7 @@ container_context_starts_here (GtkSourceContextEngine  *ce,
 		return FALSE;
 	}
 
-	new_context = create_child_context (REAL_SEGMENT (state)->context, child_def, line->text);
+	new_context = create_child_context (state->context, child_def, line->text);
 	g_return_val_if_fail (new_context != NULL, FALSE);
 
 	if (!can_apply_match (new_context, line, *line_pos, &match_end,
@@ -4051,7 +4020,7 @@ container_context_starts_here (GtkSourceContextEngine  *ce,
 	 * checking before creating the segment because it's more convenient. */
 	if (*line_pos == match_end &&
 	    new_segment->prev != NULL &&
-	    REAL_SEGMENT (new_segment->prev)->context == REAL_SEGMENT (new_segment)->context &&
+	    new_segment->prev->context == new_segment->context &&
 	    new_segment->prev->start_at == new_segment->prev->end_at &&
 	    new_segment->prev->start_at == line_pos_to_offset (line, *line_pos))
 	{
@@ -4093,7 +4062,7 @@ simple_context_starts_here (GtkSourceContextEngine *ce,
 	if (!regex_match (definition->u.match, line->text, line->byte_length, *line_pos))
 		return FALSE;
 
-	new_context = create_child_context (REAL_SEGMENT (state)->context, child_def, line->text);
+	new_context = create_child_context (state->context, child_def, line->text);
 	g_return_val_if_fail (new_context != NULL, FALSE);
 
 	if (!can_apply_match (new_context, line, *line_pos, &match_end, definition->u.match))
@@ -4214,8 +4183,8 @@ segment_ends_here (Segment  *state,
 {
 	g_assert (SEGMENT_IS_CONTAINER (state));
 
-	return REAL_SEGMENT (state)->context->definition->u.start_end.end &&
-		regex_match (REAL_SEGMENT (state)->context->end,
+	return state->context->definition->u.start_end.end &&
+		regex_match (state->context->end,
 			     line->text,
 			     line->byte_length,
 			     pos);
@@ -4306,7 +4275,7 @@ ancestor_ends_here (Segment                *state,
 {
 	Context *terminating_context;
 
-	terminating_context = ancestor_context_ends_here (REAL_SEGMENT (state)->context, line, line_pos);
+	terminating_context = ancestor_context_ends_here (state->context, line, line_pos);
 
 	if (new_state != NULL && terminating_context != NULL)
 	{
@@ -4315,7 +4284,7 @@ ancestor_ends_here (Segment                *state,
 		 * closed by next next_segment() call from analyze_line. */
 		Segment *current_segment = state;
 
-		while (REAL_SEGMENT (current_segment)->context != terminating_context)
+		while (current_segment->context != terminating_context)
 			current_segment = current_segment->parent;
 
 		*new_state = current_segment;
@@ -4359,7 +4328,7 @@ next_segment (GtkSourceContextEngine  *ce,
 		DefinitionChild *child_def;
 		Context *context;
 
-		context = REAL_SEGMENT (state)->context;
+		context = state->context;
 		if (context->reg_all)
 		{
 			if (!regex_match (context->reg_all,
@@ -4411,8 +4380,8 @@ next_segment (GtkSourceContextEngine  *ce,
 
 				for (prev = state->children; prev != NULL; prev = prev->next)
 				{
-					if (REAL_SEGMENT (prev)->context != NULL &&
-					    REAL_SEGMENT (prev)->context->definition == child_def->u.definition)
+					if (prev->context != NULL &&
+					    prev->context->definition == child_def->u.definition)
 					{
 						try_this = FALSE;
 						break;
@@ -4446,7 +4415,7 @@ next_segment (GtkSourceContextEngine  *ce,
 			 * Still, it may happen that parent context ends in
 			 * the middle of the end regex match, apply_match()
 			 * checks this. */
-			if (apply_match (state, line, &pos, REAL_SEGMENT (state)->context->end, SUB_PATTERN_WHERE_END))
+			if (apply_match (state, line, &pos, state->context->end, SUB_PATTERN_WHERE_END))
 			{
 				g_assert (pos <= line->byte_length);
 
@@ -4497,7 +4466,7 @@ check_line_end (GtkSourceContextEngine *ce,
 	{
 		if (SEGMENT_END_AT_LINE_END (current_segment))
 			terminating_segment = current_segment;
-		else if (!ANCESTOR_CAN_END_CONTEXT(REAL_SEGMENT (current_segment)->context))
+		else if (!ANCESTOR_CAN_END_CONTEXT(current_segment->context))
 			break;
 		current_segment = current_segment->parent;
 	}
@@ -4649,7 +4618,7 @@ analyze_line (GtkSourceContextEngine *ce,
 
 	/* Verify if we need to close the context because we are at
 	 * the end of the line. */
-	if (ANCESTOR_CAN_END_CONTEXT (REAL_SEGMENT (state)->context) ||
+	if (ANCESTOR_CAN_END_CONTEXT (state->context) ||
 	    SEGMENT_END_AT_LINE_END (state))
 	{
 		state = check_line_end (ce, state);
@@ -5068,7 +5037,7 @@ segment_erase_middle_ (GtkSourceContextEngine *ce,
 
 	new_segment = segment_new (ce,
 				   segment->parent,
-				   REAL_SEGMENT (segment)->context,
+				  segment->context,
 				   end,
 				   segment->end_at,
 				   FALSE);
@@ -5262,13 +5231,10 @@ segment_erase_range_ (GtkSourceContextEngine *ce,
 
 			if (segment->end_at > end)
 			{
-				RealSegment *real_seg;
-				
-				real_seg = REAL_SEGMENT (segment);
 				/* If we erase the beginning, we need to clear
 				 * is_start flag. */
 				segment->start_at = end;
-				real_seg->is_start = FALSE;
+				segment->is_start = FALSE;
 			}
 			else
 			{
@@ -5299,7 +5265,7 @@ segment_merge (GtkSourceContextEngine *ce,
 		return;
 
 	g_assert (!SEGMENT_IS_INVALID (first));
-	g_assert (REAL_SEGMENT(first)->context == REAL_SEGMENT(second)->context);
+	g_assert (first->context == second->context);
 	g_assert (first->end_at == second->start_at);
 
 	if (first->parent != second->parent)
@@ -5605,7 +5571,7 @@ update_syntax (GtkSourceContextEngine *ce,
 						       line_start_offset - 1);
 		}
 
-		g_assert (REAL_SEGMENT (state)->context != NULL);
+		g_assert (state->context != NULL);
 
 		ce->priv->hint2 = ce->priv->hint;
 
@@ -5660,8 +5626,8 @@ update_syntax (GtkSourceContextEngine *ce,
 			 * and the segment on the next line is continuation of the
 			 * segment from previous line. */
 			if (old_state != state &&
-			    (REAL_SEGMENT (old_state)->context != REAL_SEGMENT (state)->context || 
-			    	REAL_SEGMENT(state)->is_start ))
+			    (old_state->context != state->context || 
+			    	state->is_start ))
 			{
 				need_invalidate_next = TRUE;
 				next_line_invalid = TRUE;
@@ -5929,12 +5895,12 @@ context_definition_unref (ContextDefinition *definition)
 #ifdef NEED_DEBUG_ID
 		g_free (sp_def->id);
 #endif
-		g_free (sp_def->annot.style);
+		g_free (sp_def->style);
 		if (sp_def->is_named)
 			g_free (sp_def->u.name);
 
-		g_slist_foreach (sp_def->annot.context_classes, (GFunc) gtk_source_context_class_free, NULL);
-		g_slist_free (sp_def->annot.context_classes);
+		g_slist_foreach (sp_def->context_classes, (GFunc) gtk_source_context_class_free, NULL);
+		g_slist_free (sp_def->context_classes);
 
 		g_slice_free (SubPatternDefinition, sp_def);
 		sub_pattern_list = sub_pattern_list->next;
@@ -6158,7 +6124,7 @@ _gtk_source_context_data_add_sub_pattern (GtkSourceContextData *ctx_data,
 #ifdef NEED_DEBUG_ID
 	sp_def->id = g_strdup (id);
 #endif
-	sp_def->annot.style = g_strdup (style);
+	sp_def->style = g_strdup (style);
 	sp_def->where = where_num;
 	number = sub_pattern_to_int (name);
 
@@ -6176,7 +6142,7 @@ _gtk_source_context_data_add_sub_pattern (GtkSourceContextData *ctx_data,
 	parent->sub_patterns = g_slist_append (parent->sub_patterns, sp_def);
 	sp_def->index = parent->n_sub_patterns++;
 
-	sp_def->annot.context_classes = copy_context_classes (context_classes);
+	sp_def->context_classes = copy_context_classes (context_classes);
 
 	return TRUE;
 }

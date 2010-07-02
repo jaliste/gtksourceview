@@ -22,6 +22,9 @@
 #ifndef __GTK_SOURCE_CONTEXT_ENGINE_PRIVATE_H__
 #define __GTK_SOURCE_CONTEXT_ENGINE_PRIVATE_H__
 
+#define SEGMENT_IS_INVALID(s) ((s)->context == NULL)
+
+
 struct BufAndIters {
 	GtkTextBuffer *buffer;
 	const GtkTextIter *start, *end;
@@ -33,11 +36,12 @@ typedef enum {
 	SUB_PATTERN_WHERE_END
 } SubPatternWhere;
 
-typedef struct _SubPatternAnnotation SubPatternAnnotation;
+typedef struct _SubPatternDefinition SubPatternDefinition;
 typedef struct _SubPattern SubPattern;
 
 typedef struct _Segment Segment;
-typedef struct _Annotation Annotation;
+typedef struct _Context Context;
+
 struct _Segment
 {
 	Segment			*parent;
@@ -46,10 +50,14 @@ struct _Segment
 	Segment			*children;
 	Segment			*last_child;
 
+	/* This is NULL if and only if it's a dummy segment which denotes
+	 * inserted or deleted text. */
+	Context			*context;
+
 	/* Subpatterns found in this segment. */
 	SubPattern		*sub_patterns;
 
-	/* Offsets of the segment [start_at; end_at). */
+	/* The context is used in the interval [start_at; end_at). */
 	gint			 start_at;
 	gint			 end_at;
 
@@ -58,25 +66,22 @@ struct _Segment
 	gint			 start_len;
 	gint			 end_len;
 
-	/* Annotation with style and class information.
-	 * Eventually, we may add a GInterface (implemented by Analyzers)
-	 * so handlers can add custom data to the annotation. */
-	Annotation		*annot;
-};
-
-struct _Annotation
-{
-	gchar			*style;
-	GtkTextTag		*style_tag;
-	guint			 style_inside;
-	GSList			*context_classes;
+	/* Whether this segment is a whole good segment, or it's an
+	 * an end of bigger one left after erase_segments() call. */
+	guint			 is_start : 1;
 };
 
 struct _SubPattern
 {
-	Annotation		*annot;
+	SubPatternDefinition	*definition;
 	gint			 start_at;
 	gint			 end_at;
 	SubPattern		*next;
 };
+
+const gchar * 			_context_get_style_tag    (Context *context);
+const gchar * 			_context_get_style_inside (Context *context);
+const gchar * 			_subpattern_get_style_tag (SubPattern *sp);
+
+
 #endif /* __GTK_SOURCE_CONTEXT_ENGINE_PRIVATE_H__ */

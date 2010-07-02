@@ -190,7 +190,7 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 	g_assert (segment != NULL);
 
 	/* Non-annotated segments are invalid.*/
-	if (!segment->annot)
+	if (SEGMENT_IS_INVALID (segment))
 		return;
 
 	if (segment->start_at >= end_offset || segment->end_at <= start_offset)
@@ -199,7 +199,7 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 	start_offset = MAX (start_offset, segment->start_at);
 	end_offset = MIN (end_offset, segment->end_at);
 
-	tag = segment->annot->style_tag; 
+	tag = _context_get_style_tag (segment->context); 
 
 	if (tag != NULL)
 	{
@@ -208,7 +208,7 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 		style_start_at = start_offset;
 		style_end_at = end_offset;
 
-		if (segment->annot->style_inside)
+		if (_context_get_style_inside (segment->context))
 		{
 			style_start_at = MAX (segment->start_at + segment->start_len, start_offset);
 			style_end_at = MIN (segment->end_at - segment->end_len, end_offset);
@@ -235,7 +235,7 @@ apply_tags (GtkSourceHighlighter  *highlighter,
 			gint start = MAX (start_offset, sp->start_at);
 			gint end = MIN (end_offset, sp->end_at);
 			
-			tag = sp->annot->style_tag;
+			tag = _subpattern_get_style_tag (sp);
 
 			if (tag != NULL)
 			{
@@ -323,7 +323,7 @@ _gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter *highlighter,
 	GtkTextRegion *region;
 	GtkTextRegionIterator reg_iter;
 
-	if (!highlighter->priv->highlight_syntax)
+	if (!highlighter->priv->highlight)
 		return;
 	/* Get the subregions not yet highlighted. */
 	region = gtk_text_region_intersect (highlighter->priv->refresh_region, start, end);
@@ -400,6 +400,7 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 	if (enable) 
 	{
 		gtk_text_region_add (highlighter->priv->refresh_region, &start, &end);
+		// before I called refresh_range, which emits highlight_updated for the whole buffer. 
 		g_signal_connect_swapped (highlighter->priv->buffer, "highlight_updated", 
 					  G_CALLBACK (update_highlight_cb),
 					  highlighter);
