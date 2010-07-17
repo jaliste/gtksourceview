@@ -24,12 +24,6 @@
 
 #define SEGMENT_IS_INVALID(s) ((s)->context == NULL)
 
-
-struct BufAndIters {
-	GtkTextBuffer *buffer;
-	const GtkTextIter *start, *end;
-};
-
 typedef enum {
 	SUB_PATTERN_WHERE_DEFAULT = 0,
 	SUB_PATTERN_WHERE_START,

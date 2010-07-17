@@ -864,6 +864,11 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 	}
 }
 
+struct BufAndIters {
+	GtkTextBuffer *buffer;
+	const GtkTextIter *start, *end;
+};
+
 static void
 remove_region_context_class_cb (G_GNUC_UNUSED gpointer class,
                                 GtkTextTag             *tag,
