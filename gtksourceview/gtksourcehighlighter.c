@@ -89,6 +89,11 @@ struct _GtkSourceHighlighterPrivate
 #endif
 };
 
+struct BufAndIters {
+	GtkTextBuffer *buffer;
+	const GtkTextIter *start, *end;
+};
+
 static void
 unhighlight_region_cb (G_GNUC_UNUSED gpointer style,
 		       GSList   *tags,
