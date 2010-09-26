@@ -389,12 +389,6 @@ struct _GtkSourceContextEnginePrivate
 
 	GtkTextBuffer		*buffer;
 
-	/* All tags indexed by style name: values are GSList's of tags, ref()'ed. */
-	GHashTable		*tags;
-	/* Number of all syntax tags created by the engine, needed to set correct
-	 * tag priorities */
-	guint			 n_tags;
-
 	GHashTable		*context_classes;
 
 	/* Whether or not to actually highlight the buffer. */
@@ -543,23 +537,6 @@ context_class_tag_free (ContextClassTag *attrtag)
 	g_slice_free (ContextClassTag, attrtag);
 }
 
-static GtkTextTag *
-create_tag (GtkSourceContextEngine *ce,
-	    const gchar            *style_id)
-{
-	GtkTextTag *new_tag;
-
-	g_assert (style_id != NULL);
-
-	new_tag = gtk_text_buffer_create_tag (ce->priv->buffer, NULL, NULL);
-	/* It must have priority lower than user tags but still
-	 * higher than highlighting tags created before */
-	gtk_text_tag_set_priority (new_tag, ce->priv->n_tags);
-	ce->priv->n_tags += 1;
-
-	return new_tag;
-}
-
 /* Find tag which has to be overridden. */
 static GtkTextTag *
 get_parent_tag (Context    *context,
@@ -587,65 +564,13 @@ get_tag_for_parent (GtkSourceContextEngine *ce,
 		    const char             *style,
 		    Context                *parent)
 {
-	GSList *tags;
 	GtkTextTag *parent_tag = NULL;
-	GtkTextTag *tag;
 
 	g_return_val_if_fail (style != NULL, NULL);
 
 	parent_tag = get_parent_tag (parent, style);
-	tags = g_hash_table_lookup (ce->priv->tags, style);
 
-	if (tags && (!parent_tag ||
-		gtk_text_tag_get_priority (tags->data) > gtk_text_tag_get_priority (parent_tag)))
-	{
-		GSList *link;
-
-		tag = tags->data;
-
-		/* Now get the tag with lowest priority, so that tag lists do not grow
-		 * indefinitely. */
-		for (link = tags->next; link != NULL; link = link->next)
-		{
-			if (parent_tag &&
-			    gtk_text_tag_get_priority (link->data) < gtk_text_tag_get_priority (parent_tag))
-				break;
-			tag = link->data;
-		}
-	}
-	else
-	{
-		tag = create_tag (ce, style);
-
-		tags = g_slist_prepend (tags, g_object_ref (tag));
-		g_hash_table_insert (ce->priv->tags, g_strdup (style), tags);
-
-#ifdef ENABLE_DEBUG
-		{
-			GString *style_path = g_string_new (style);
-			gint n;
-
-			while (parent != NULL)
-			{
-				if (parent->style != NULL)
-				{
-					g_string_prepend (style_path, "/");
-					g_string_prepend (style_path,
-							  parent->style);
-				}
-
-				parent = parent->parent;
-			}
-
-			tags = g_hash_table_lookup (ce->priv->tags, style);
-			n = g_slist_length (tags);
-			g_print ("created %d tag for style %s: %s\n", n, style, style_path->str);
-			g_string_free (style_path, TRUE);
-		}
-#endif
-	}
-
-	return tag;
+	return _gtk_source_highlighter_get_tag_for_style (ce->priv->highlighter, style, parent_tag);
 }
 
 GtkTextTag *
@@ -822,7 +747,7 @@ add_region_context_classes (GtkSourceContextEngine *ce,
 	start_offset = MAX (start_offset, segment->start_at);
 	end_offset = MIN (end_offset, segment->end_at);
 
-	context_classes = get_context_classes (ce,segment->context);
+	context_classes = get_context_classes (ce, segment->context);
 
 	if (context_classes != NULL)
 	{
@@ -974,10 +899,9 @@ refresh_range (GtkSourceContextEngine *ce,
 		gtk_text_iter_backward_cursor_position (&real_end);
 	}
 
-	g_signal_emit_by_name (ce->priv->buffer,
-			       "highlight_updated",
-			       start,
-			       &real_end);
+	_gtk_source_highlighter_invalidate_region (ce->priv->highlighter, 
+					 start, &real_end);
+
 }
 
 
@@ -2170,22 +2094,7 @@ gtk_source_context_engine_error_quark (void)
 	return err_q;
 }
 
-static void
-remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
-		     GSList          *tags,
-		     GtkTextTagTable *table)
-{
-	GSList *l = tags;
 
-	while (l != NULL)
-	{
-		gtk_text_tag_table_remove (table, l->data);
-		g_object_unref (l->data);
-		l = l->next;
-	}
-
-	g_slist_free (tags);
-}
 
 static void
 remove_context_classes_hash_cb (G_GNUC_UNUSED gpointer class,
@@ -2195,21 +2104,7 @@ remove_context_classes_hash_cb (G_GNUC_UNUSED gpointer class,
 	gtk_text_tag_table_remove (table, tag);
 }
 
-/**
- * destroy_tags_hash:
- *
- * @ce: #GtkSourceContextEngine.
- *
- * Destroys syntax tags cache.
- */
-static void
-destroy_tags_hash (GtkSourceContextEngine *ce)
-{
-	g_hash_table_foreach (ce->priv->tags, (GHFunc) remove_tags_hash_cb,
-                              gtk_text_buffer_get_tag_table (ce->priv->buffer));
-	g_hash_table_destroy (ce->priv->tags);
-	ce->priv->tags = NULL;
-}
+
 
 static void
 destroy_context_classes_hash (GtkSourceContextEngine *ce)
@@ -2272,17 +2167,11 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 		ce->priv->invalid_region.start = NULL;
 		ce->priv->invalid_region.end = NULL;
 
-		/* this deletes tags from the tag table, therefore there is no need
-		 * in removing tags from the text (it may be very slow).
-		 * FIXME: don't we want to just destroy and forget everything when
-		 * the buffer is destroyed? Removing tags is still slower than doing
-		 * nothing. Caveat: if tag table is shared with other buffer, we do
-		 * need to remove tags. */
-		destroy_tags_hash (ce);
-		ce->priv->n_tags = 0;
+		_gtk_source_highlighter_attach_buffer (ce->priv->highlighter,
+						       NULL, 
+						       NULL);
 
 		destroy_context_classes_hash (ce);
-
 	}
 
 	ce->priv->buffer = buffer;
@@ -2305,7 +2194,6 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 		ce->priv->root_context = context_new (NULL, main_definition, NULL, NULL, FALSE);
 		ce->priv->root_segment = create_segment (ce, NULL, ce->priv->root_context, 0, 0, TRUE, NULL);
 
-		ce->priv->tags = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 		ce->priv->context_classes = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 		gtk_text_buffer_get_bounds (buffer, &start, &end);
@@ -2333,8 +2221,7 @@ gtk_source_context_engine_attach_buffer (GtkSourceEngine *engine,
 					  ce);
 		_gtk_source_highlighter_attach_buffer (ce->priv->highlighter,
 						       ce->priv->buffer, 
-						       ce->priv->root_segment,
-						       ce->priv->tags);
+						       ce->priv->root_segment);
 		install_first_update (ce);
 	}
 }

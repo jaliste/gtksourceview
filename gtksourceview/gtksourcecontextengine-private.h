@@ -72,6 +72,7 @@ struct _SubPattern
 	gint			 end_at;
 	SubPattern		*next;
 };
+
 /* Context methods */
 gboolean        _gtk_source_context_get_style_inside          (Context *context);
 

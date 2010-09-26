@@ -60,11 +60,16 @@ void 			_gtk_source_highlighter_set_styles_map	 (GtkSourceHighlighter   *highlig
 				       				  GHashTable 	         *styles);
 void			_gtk_source_highlighter_attach_buffer 	 (GtkSourceHighlighter   *highlighter,
 								  GtkTextBuffer          *buffer,
-								  Segment	         *root_segment, 
-								  GHashTable	         *tags);
+								  Segment	         *root_segment);
 void			_gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter   *highlighter,
 								  const GtkTextIter      *start,
 								  const GtkTextIter      *end);
+void			_gtk_source_highlighter_invalidate_region (GtkSourceHighlighter *highlighter,
+			                                          const GtkTextIter *start,
+			                                          const GtkTextIter *end);
+GtkTextTag *		_gtk_source_highlighter_get_tag_for_style (GtkSourceHighlighter *highlighter,
+								   const gchar          *style,
+								   GtkTextTag 	        *parent_tag);
 
 G_END_DECLS
 
