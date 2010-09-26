@@ -304,7 +304,11 @@ highlight_region (GtkSourceHighlighter *highlighter,
 	apply_tags (highlighter, highlighter->priv->segment_tree,
 		    gtk_text_iter_get_offset (start),
 		    gtk_text_iter_get_offset (&real_end));
-
+	
+	g_signal_emit_by_name (highlighter->priv->buffer,
+			       "highlight_updated",
+			       start,
+			       &real_end);
 
 #ifdef ENABLE_PROFILE
 	g_print ("highlight (from %d to %d), %g ms elapsed\n",
@@ -500,9 +504,6 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 	}
 	else
 	{
-//		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
-	//					      (gpointer) update_highlight_cb,
-	//					      highlighter);
 		unhighlight_region (highlighter, &start, &end);	
 	}
 }
