@@ -41,7 +41,71 @@ typedef struct _GtkSourceContextClass         GtkSourceContextClass;
 typedef struct _GtkSourceContextEngine        GtkSourceContextEngine;
 typedef struct _GtkSourceContextEngineClass   GtkSourceContextEngineClass;
 typedef struct _GtkSourceContextEnginePrivate GtkSourceContextEnginePrivate;
+#define SEGMENT_IS_INVALID(s) ((s)->context == NULL)
 
+typedef enum {
+	SUB_PATTERN_WHERE_DEFAULT = 0,
+	SUB_PATTERN_WHERE_START,
+	SUB_PATTERN_WHERE_END
+} SubPatternWhere;
+
+typedef struct _SubPatternDefinition SubPatternDefinition;
+typedef struct _SubPattern SubPattern;
+
+typedef struct _Segment Segment;
+typedef struct _Context Context;
+
+struct _Segment
+{
+	Segment			*parent;
+	Segment			*next;
+	Segment			*prev;
+	Segment			*children;
+	Segment			*last_child;
+
+	/* This is NULL if and only if it's a dummy segment which denotes
+	 * inserted or deleted text. */
+	Context			*context;
+
+	/* Subpatterns found in this segment. */
+	SubPattern		*sub_patterns;
+
+	/* The context is used in the interval [start_at; end_at). */
+	gint			 start_at;
+	gint			 end_at;
+
+	/* In case of container contexts, start_len/end_len is length in chars
+	 * of start/end match. */
+	gint			 start_len;
+	gint			 end_len;
+
+	/* Whether this segment is a whole good segment, or it's an
+	 * an end of bigger one left after erase_segments() call. */
+	guint			 is_start : 1;
+};
+
+struct _SubPattern
+{
+	SubPatternDefinition	*definition;
+	gint			 start_at;
+	gint			 end_at;
+	SubPattern		*next;
+};
+
+/* Context methods */
+gboolean        _gtk_source_context_get_style_inside          (Context *context);
+
+/* ContextEngine methods */
+GtkTextTag *    _gtk_source_context_engine_get_context_tag    (GtkSourceContextEngine *ce,
+							       Context                *context);
+Segment *       _gtk_source_context_engine_get_tree           (GtkSourceContextEngine *ce);
+
+GHashTable *    _gtk_source_context_engine_get_style_tags     (GtkSourceContextEngine *ce);
+GtkTextBuffer * _gtk_source_context_engine_get_buffer         (GtkSourceContextEngine *ce);
+
+GtkTextTag *    _gtk_source_context_engine_get_subpattern_tag (GtkSourceContextEngine *ce,
+							       Context                *context,
+							       SubPatternDefinition   *sp_def);
 struct _GtkSourceContextEngine
 {
 	GtkSourceEngine parent_instance;
@@ -82,7 +146,8 @@ GtkSourceContextClass *
 
 void		gtk_source_context_class_free		(GtkSourceContextClass *cclass);
 
-GtkSourceContextEngine *_gtk_source_context_engine_new  (GtkSourceContextData	*data);
+GtkSourceContextEngine *
+		_gtk_source_context_engine_new  (GtkSourceContextData	*data);
 
 gboolean	 _gtk_source_context_data_define_context
 							(GtkSourceContextData	 *data,
