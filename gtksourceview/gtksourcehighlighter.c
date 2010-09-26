@@ -72,6 +72,10 @@ struct _GtkSourceHighlighterPrivate
 	/* All tags indexed by style name: values are GSList's of tags, ref()'ed. */
 	GHashTable		*tags;
 
+	/* Number of all syntax tags created by the engine, needed to set correct
+	 * tag priorities */
+	guint			 n_tags;
+
 	/* pointer to the styles_map of Language. */ 
 	GHashTable		*styles_map;
 
@@ -300,7 +304,7 @@ highlight_region (GtkSourceHighlighter *highlighter,
 	apply_tags (highlighter, highlighter->priv->segment_tree,
 		    gtk_text_iter_get_offset (start),
 		    gtk_text_iter_get_offset (&real_end));
-	g_hash_table_foreach (highlighter->priv->tags, (GHFunc) set_tag_style_hash_cb, highlighter);
+
 
 #ifdef ENABLE_PROFILE
 	g_print ("highlight (from %d to %d), %g ms elapsed\n",
@@ -309,6 +313,111 @@ highlight_region (GtkSourceHighlighter *highlighter,
 		 g_timer_elapsed (timer, NULL) * 1000);
 	g_timer_destroy (timer);
 #endif
+}
+
+static GtkTextTag *
+create_tag (GtkSourceHighlighter *highlighter,
+		   const gchar          *style_id)
+{
+	GtkTextTag *new_tag;
+
+	g_assert (style_id != NULL);
+
+	new_tag = gtk_text_buffer_create_tag (highlighter->priv->buffer, NULL, NULL);
+	/* It must have priority lower than user tags but still
+	 * higher than highlighting tags created before */
+	gtk_text_tag_set_priority (new_tag, highlighter->priv->n_tags);
+	highlighter->priv->n_tags += 1;
+	set_tag_style (highlighter, new_tag, style_id);
+
+	return new_tag;
+}
+
+GtkTextTag *
+_gtk_source_highlighter_get_tag_for_style (GtkSourceHighlighter *highlighter,
+				    	   const gchar          *style,
+					   GtkTextTag	   	*parent_tag)
+{
+	GSList *tags;
+	GtkTextTag *tag;
+
+	tags = g_hash_table_lookup (highlighter->priv->tags, style);
+
+	if (tags && (!parent_tag ||
+		gtk_text_tag_get_priority (tags->data) > gtk_text_tag_get_priority (parent_tag)))
+	{
+		GSList *link;
+
+		tag = tags->data;
+
+		/* Now get the tag with lowest priority, so that tag lists do not grow
+		 * indefinitely. */
+		for (link = tags->next; link != NULL; link = link->next)
+		{
+			if (parent_tag &&
+			    gtk_text_tag_get_priority (link->data) < gtk_text_tag_get_priority (parent_tag))
+				break;
+			tag = link->data;
+		}
+	}
+	else
+	{
+		tag = create_tag (highlighter, style);
+
+		tags = g_slist_prepend (tags, g_object_ref (tag));
+		g_hash_table_insert (highlighter->priv->tags, g_strdup (style), tags);
+
+#ifdef ENABLE_DEBUG
+		{
+			GString *style_path = g_string_new (style);
+			gint n;
+
+			while (parent != NULL)
+			{
+				if (parent->style != NULL)
+				{
+					g_string_prepend (style_path, "/");
+					g_string_prepend (style_path,
+							  parent->style);
+				}
+
+				parent = parent->parent;
+			}
+
+			tags = g_hash_table_lookup (highlighter->priv->tags, style);
+			n = g_slist_length (tags);
+			g_print ("created %d tag for style %s: %s\n", n, style, style_path->str);
+			g_string_free (style_path, TRUE);
+		}
+#endif
+	}
+
+	return tag;
+}
+
+
+/**
+ * _gtk_source_highlighter_invalidate_region
+ * 
+ * @highlighter: 
+ * @start: the start of the invalidated_region
+ * @end: the end of the invalidated_region
+ *
+ * This method is called by the context_engine to let the highlighter know that the syntax tree 
+ * has been updated between @start and @end, and hence, the highlighting of the region
+ * is invalid.
+ */ 
+void
+_gtk_source_highlighter_invalidate_region (GtkSourceHighlighter *highlighter, 
+					  const GtkTextIter *start,
+					  const GtkTextIter *end)
+{
+	if (!highlighter->priv->highlight)
+		return;
+
+	gtk_text_region_add (highlighter->priv->refresh_region, start, end);
+	highlight_region (highlighter, start, end);
+
 }
 
 /**
@@ -358,30 +467,6 @@ _gtk_source_highlighter_ensure_highlight (GtkSourceHighlighter *highlighter,
 	gtk_text_region_subtract (highlighter->priv->refresh_region, start, end);
 }
 
-/**
- * update_highlight_cb:
- *
- * @highlighter: a #GtkSourceHighlighter.
- * @start: start of area to update.
- * @end: start of area to update.
- * @synchronous: whether it should block until everything
- * is analyzed/highlighted.
- *
- * GtkSourceEngine::update_highlight method.
- *
- * Makes sure the area is analyzed and highlighted. If @synchronous
- * is %FALSE, then it queues idle worker.
- */
-static void
-update_highlight_cb (GtkSourceHighlighter *highlight_handler,
-		     const GtkTextIter  *start,
-		     const GtkTextIter  *end,
-		     GtkSourceBuffer    *buffer)
-{
-	if (!highlight_handler->priv->highlight)
-		return;
-	highlight_region (highlight_handler, start, end);	
-}
 
 /**
  * enable_highlight:
@@ -409,16 +494,15 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 	if (enable) 
 	{
 		gtk_text_region_add (highlighter->priv->refresh_region, &start, &end);
+		g_hash_table_foreach (highlighter->priv->tags, (GHFunc) set_tag_style_hash_cb, highlighter);
+	
 		// before I called refresh_range, which emits highlight_updated for the whole buffer. 
-		g_signal_connect_swapped (highlighter->priv->buffer, "highlight_updated", 
-					  G_CALLBACK (update_highlight_cb),
-					  highlighter);
 	}
 	else
 	{
-		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
-						      (gpointer) update_highlight_cb,
-						      highlighter);
+//		g_signal_handlers_disconnect_by_func (highlighter->priv->buffer,
+	//					      (gpointer) update_highlight_cb,
+	//					      highlighter);
 		unhighlight_region (highlighter, &start, &end);	
 	}
 }
@@ -430,6 +514,41 @@ buffer_notify_highlight_syntax_cb (GtkSourceHighlighter *highlighter)
 	g_object_get (highlighter->priv->buffer, "highlight-syntax", &highlight, NULL);
 	enable_highlight (highlighter, highlight);
 }
+
+static void
+remove_tags_hash_cb (G_GNUC_UNUSED gpointer style,
+		     GSList          *tags,
+		     GtkTextTagTable *table)
+{
+	GSList *l = tags;
+
+	while (l != NULL)
+	{
+		gtk_text_tag_table_remove (table, l->data);
+		g_object_unref (l->data);
+		l = l->next;
+	}
+
+	g_slist_free (tags);
+}
+
+/**
+ * destroy_tags_hash:
+ *
+ * @ce: #GtkSourceContextEngine.
+ *
+ * Destroys syntax tags cache.
+ */
+static void
+destroy_tags_hash (GtkSourceHighlighter *highlighter)
+{
+	g_hash_table_foreach (highlighter->priv->tags, (GHFunc) remove_tags_hash_cb,
+                              gtk_text_buffer_get_tag_table (highlighter->priv->buffer));
+	g_hash_table_destroy (highlighter->priv->tags);
+	highlighter->priv->tags = NULL;
+}
+
+
 
 /*
  * gtk_source_highlighter_attach_buffer:
@@ -443,8 +562,7 @@ buffer_notify_highlight_syntax_cb (GtkSourceHighlighter *highlighter)
 void
 _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 				       GtkTextBuffer        *buffer,
-				       Segment		    *root_segment, 
-				       GHashTable	    *tags)
+				       Segment		    *root_segment)
 {
 	g_return_if_fail (GTK_IS_SOURCE_HIGHLIGHTER (highlighter));
 
@@ -463,6 +581,15 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 		if (highlighter->priv->refresh_region != NULL)
 			gtk_text_region_destroy (highlighter->priv->refresh_region, FALSE);
 		highlighter->priv->refresh_region = NULL;
+
+		/* this deletes tags from the tag table, therefore there is no need
+		 * in removing tags from the text (it may be very slow).
+		 * FIXME: don't we want to just destroy and forget everything when
+		 * the buffer is destroyed? Removing tags is still slower than doing
+		 * nothing. Caveat: if tag table is shared with other buffer, we do
+		 * need to remove tags. */
+		destroy_tags_hash (highlighter);
+		highlighter->priv->n_tags = 0;
 	}
 
 	highlighter->priv->buffer = buffer;
@@ -470,7 +597,9 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 	if (buffer != NULL)
 	{
 		highlighter->priv->segment_tree = root_segment;
-		highlighter->priv->tags = tags;
+		highlighter->priv->tags = g_hash_table_new_full (g_str_hash,
+								 g_str_equal,
+								 g_free, NULL);	
 	
 		g_object_get (highlighter->priv->buffer, "highlight-syntax", 
 							&highlighter->priv->highlight, NULL);
@@ -482,7 +611,6 @@ _gtk_source_highlighter_attach_buffer (GtkSourceHighlighter *highlighter,
 		highlighter->priv->refresh_region = gtk_text_region_new (buffer);
 	}
 }
-
 
 static void
 set_tag_style_hash_cb (const char         *style,
