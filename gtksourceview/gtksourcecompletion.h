@@ -57,14 +57,14 @@ struct _GtkSourceView;
 
 struct _GtkSourceCompletion
 {
-	GtkObject parent;
+	GInitiallyUnowned parent_instance;
 
 	GtkSourceCompletionPrivate *priv;
 };
 
 struct _GtkSourceCompletionClass
 {
-	GObjectClass parent_class;
+	GInitiallyUnownedClass parent_class;
 
 	gboolean 	(* proposal_activated)		(GtkSourceCompletion         *completion,
 	                                                 GtkSourceCompletionProvider *provider,

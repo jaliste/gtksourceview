@@ -268,7 +268,7 @@ static void	gtk_source_view_get_property		(GObject           *object,
 static void     gtk_source_view_style_set               (GtkWidget         *widget,
 							 GtkStyle          *previous_style);
 static void	gtk_source_view_realize			(GtkWidget         *widget);
-static void	gtk_source_view_destroy			(GtkObject         *object);
+static void	gtk_source_view_destroy			(GtkWidget         *widget);
 static void	gtk_source_view_update_style_scheme	(GtkSourceView     *view);
 
 static MarkCategory *
@@ -290,12 +290,10 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 	GtkTextViewClass *textview_class;
 	GtkBindingSet    *binding_set;
 	GtkWidgetClass   *widget_class;
-	GtkObjectClass   *gtk_object_class;
 
 	object_class 	 = G_OBJECT_CLASS (klass);
 	textview_class 	 = GTK_TEXT_VIEW_CLASS (klass);
 	widget_class 	 = GTK_WIDGET_CLASS (klass);
-	gtk_object_class = GTK_OBJECT_CLASS (klass);
 
 	object_class->constructor = gtk_source_view_constructor;
 	object_class->finalize = gtk_source_view_finalize;
@@ -306,7 +304,7 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 	widget_class->draw = gtk_source_view_draw;
 	widget_class->style_set = gtk_source_view_style_set;
 	widget_class->realize = gtk_source_view_realize;
-	gtk_object_class->destroy = gtk_source_view_destroy;
+	widget_class->destroy = gtk_source_view_destroy;
 
 	textview_class->populate_popup = gtk_source_view_populate_popup;
 	textview_class->move_cursor = gtk_source_view_move_cursor;
@@ -5179,9 +5177,9 @@ gtk_source_view_realize (GtkWidget *widget)
 }
 
 static void
-gtk_source_view_destroy (GtkObject *object)
+gtk_source_view_destroy (GtkWidget *widget)
 {
-	GtkSourceView *view = GTK_SOURCE_VIEW (object);
+	GtkSourceView *view = GTK_SOURCE_VIEW (widget);
 
 	if (!view->priv->destroy_has_run)
 	{
@@ -5194,7 +5192,7 @@ gtk_source_view_destroy (GtkObject *object)
 		}
 	}
 
-	GTK_OBJECT_CLASS (gtk_source_view_parent_class)->destroy (object);
+	GTK_WIDGET_CLASS (gtk_source_view_parent_class)->destroy (widget);
 }
 
 static void
