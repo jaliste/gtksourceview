@@ -899,9 +899,10 @@ refresh_range (GtkSourceContextEngine *ce,
 		gtk_text_iter_backward_cursor_position (&real_end);
 	}
 
-	_gtk_source_highlighter_invalidate_region (ce->priv->highlighter, 
-					 start, &real_end);
-
+	g_signal_emit_by_name (ce->priv->buffer,
+			       "highlight_updated",
+			       start,
+			       &real_end);
 }
 
 
@@ -5418,7 +5419,7 @@ update_syntax (GtkSourceContextEngine *ce,
 	analyzed_end = line_end_offset;
 
 	timer = g_timer_new ();
-
+	printf ("Start analyzing\n");
 	while (TRUE)
 	{
 		LineInfo line;
@@ -5484,6 +5485,8 @@ update_syntax (GtkSourceContextEngine *ce,
 
 		line_info_destroy (&line);
 
+		_gtk_source_highlighter_invalidate_region (ce->priv->highlighter, 
+							   &line_start, &line_end);
 		analyzed_end = line_end_offset;
 		invalid = get_invalid_segment (ce);
 
@@ -5568,6 +5571,8 @@ update_syntax (GtkSourceContextEngine *ce,
 	gtk_text_iter_set_offset (&end_iter, analyzed_end);
 
 	refresh_range (ce, &start_iter, &end_iter);
+
+ 	printf ("refresh range %d to %d\n", gtk_text_iter_get_offset (&start_iter), gtk_text_iter_get_offset (&end_iter));
 
 	PROFILE (g_print ("analyzed %d chars from %d to %d in %fms\n",
 			  analyzed_end - start_offset, start_offset, analyzed_end,

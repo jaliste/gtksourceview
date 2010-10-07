@@ -420,7 +420,6 @@ _gtk_source_highlighter_invalidate_region (GtkSourceHighlighter *highlighter,
 		return;
 
 	gtk_text_region_add (highlighter->priv->refresh_region, start, end);
-	highlight_region (highlighter, start, end);
 
 }
 
@@ -498,9 +497,25 @@ enable_highlight (GtkSourceHighlighter *highlighter,
 	if (enable) 
 	{
 		gtk_text_region_add (highlighter->priv->refresh_region, &start, &end);
-		g_hash_table_foreach (highlighter->priv->tags, (GHFunc) set_tag_style_hash_cb, highlighter);
-	
-		// before I called refresh_range, which emits highlight_updated for the whole buffer. 
+		//g_hash_table_foreach (highlighter->priv->tags, (GHFunc) set_tag_style_hash_cb, highlighter);
+		//GtkTextIter real_end;
+
+        	//if (gtk_text_iter_equal (start, end))
+                //return;
+
+        /* Here we need to make sure we do not make it redraw next line */
+       // real_end = *end;
+       // if (gtk_text_iter_starts_line (&real_end))
+       // {
+                /* I don't quite like this here, but at least it won't jump into
+ *                  * the middle of \r\n  */
+       //         gtk_text_iter_backward_cursor_position (&real_end);
+       // }
+
+        	g_signal_emit_by_name (highlighter->priv->buffer,
+                               "highlight_updated",
+                               start,
+                               end);	
 	}
 	else
 	{
