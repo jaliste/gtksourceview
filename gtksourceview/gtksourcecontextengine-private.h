@@ -79,11 +79,6 @@ gboolean        _gtk_source_context_get_style_inside          (Context *context)
 /* ContextEngine methods */
 GtkTextTag *    _gtk_source_context_engine_get_context_tag    (GtkSourceContextEngine *ce,
 							       Context                *context);
-Segment *       _gtk_source_context_engine_get_tree           (GtkSourceContextEngine *ce);
-
-GHashTable *    _gtk_source_context_engine_get_style_tags     (GtkSourceContextEngine *ce);
-GtkTextBuffer * _gtk_source_context_engine_get_buffer         (GtkSourceContextEngine *ce);
-
 GtkTextTag *    _gtk_source_context_engine_get_subpattern_tag (GtkSourceContextEngine *ce,
 							       Context                *context,
 							       SubPatternDefinition   *sp_def);
