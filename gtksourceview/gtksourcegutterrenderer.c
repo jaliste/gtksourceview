@@ -145,6 +145,19 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 			              G_TYPE_NONE,
 			              0);
 
+		/**
+		 * GtkSourceGutterRenderer::query-tooltip:
+		 * @renderer: the #GtkSourceGutterRenderer who emits the signal
+		 * @iter: a #GtkTextIter
+		 * @area: a #GdkRectangle
+		 * @x: the x position (in window coordinates)
+		 * @y: the y position (in window coordinates)
+		 * @tooltip: a #GtkTooltip
+		 *
+		 * The ::query-tooltip signal is emitted when the renderer can
+		 * show a tooltip.
+		 *
+		 */
 		signals[QUERY_TOOLTIP] =
 			g_signal_new ("query-tooltip",
 			              G_TYPE_FROM_INTERFACE (iface),
