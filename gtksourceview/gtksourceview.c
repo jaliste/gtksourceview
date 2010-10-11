@@ -1806,11 +1806,13 @@ buffer_changed_cb (GtkSourceBuffer *buffer,
 	gint num_lines;
 
 	num_lines = gtk_text_buffer_get_line_count (GTK_TEXT_BUFFER (buffer));
-	gint num_digits = 0;
 
-	while (num_lines > 0)
+	gint num_digits = 0;
+	gint num = num_lines;
+
+	while (num > 0)
 	{
-		num_lines /= 10;
+		num /= 10;
 		++num_digits;
 	}
 
