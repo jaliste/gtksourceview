@@ -41,6 +41,7 @@
 #include "gtksourcecompletion-private.h"
 #include "gtksourcecompletionutils.h"
 #include "gtksourcegutter-private.h"
+#include "gtksourcegutterrenderertext.h"
 
 /**
  * SECTION:view
@@ -149,12 +150,14 @@ struct _GtkSourceViewPrivate
 	GtkSourceGutter *left_gutter;
 	GtkSourceGutter *right_gutter;
 
-	GtkCellRenderer *line_renderer;
-	GtkCellRenderer *marks_renderer;
+	GtkSourceGutterRenderer *line_renderer;
+	GtkSourceGutterRenderer *marks_renderer;
 
 	GdkColor         current_line_color;
 
 	GtkSourceCompletion	*completion;
+
+	gint             num_line_digits;
 
 	guint            current_line_color_set : 1;
 };
@@ -1182,7 +1185,7 @@ measure_line_height (GtkSourceView *view)
 	return height - 2;
 }
 
-static void
+/*static void
 marks_renderer_data_func (GtkSourceGutter *gutter,
                           GtkCellRenderer *renderer,
                           gint             line_number,
@@ -1212,7 +1215,6 @@ marks_renderer_data_func (GtkSourceGutter *gutter,
 				size = measure_line_height (view);
 			}
 
-			/* draw marks for the line */
 			pixbuf = composite_marks (view, marks, size);
 			g_slist_free (marks);
 		}
@@ -1226,72 +1228,44 @@ marks_renderer_data_func (GtkSourceGutter *gutter,
 	              "xalign", 0.5,
 	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
-}
+}*/
 
 static void
-line_renderer_data_func (GtkSourceGutter *gutter,
-                         GtkCellRenderer *renderer,
-                         gint             line_number,
-                         gboolean         current_line,
-                         GtkSourceView   *view)
+line_renderer_query_data (GtkSourceGutterRenderer      *renderer,
+                          GtkTextIter                  *start,
+                          GtkTextIter                  *end,
+                          GtkSourceGutterRendererState  state,
+                          GtkSourceView                *view)
 {
-	int weight;
 	gchar *text;
-	GtkStyle *style;
+	gint line;
 
-	if (current_line && gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
+	line = gtk_text_iter_get_line (start) + 1;
+
+	if ((state & (GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR |
+	              GTK_SOURCE_GUTTER_RENDERER_STATE_SELECTED)) &&
+	    gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
 	{
-		weight = PANGO_WEIGHT_BOLD;
+		text = g_strdup_printf ("<b>%d</b>", line);
 	}
 	else
 	{
-		weight = PANGO_WEIGHT_NORMAL;
+		text = g_strdup_printf ("%d", line);
 	}
 
-	text = g_strdup_printf ("%d", line_number + 1);
 	g_object_set (G_OBJECT (renderer),
-	              "text", text,
+	              "markup", text,
 	              "xalign", 1.0,
 	              "yalign", 0.0,
-	              "xpad", 2,
-	              "ypad", 0,
-	              "weight", weight,
-	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
 	              NULL);
 
-	style = gtk_widget_get_style (GTK_WIDGET (view));
+	/*style = gtk_widget_get_style (GTK_WIDGET (view));
 	if (style != NULL)
 	{
 		g_object_set (G_OBJECT (renderer),
 			      "foreground-gdk", &style->fg[GTK_STATE_NORMAL],
 			      NULL);
-	}
-
-	g_object_set (G_OBJECT (renderer),
-	              "background-set", FALSE,
-	              NULL);
-
-	g_free (text);
-}
-
-static void
-line_renderer_size_func (GtkSourceGutter *gutter,
-                         GtkCellRenderer *renderer,
-                         GtkSourceView   *view)
-{
-	gchar *text;
-	gint count;
-
-	count = gtk_text_buffer_get_line_count (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
-	text = g_strdup_printf ("%d", MAX(99, count));
-
-	/* measure with bold, just in case font is rendered larger */
-	g_object_set (G_OBJECT (renderer),
-	              "text", text,
-	              "xpad", 2,
-	              "ypad", 0,
-	              "weight", PANGO_WEIGHT_BOLD,
-	               NULL);
+	}*/
 
 	g_free (text);
 }
@@ -1340,7 +1314,7 @@ select_line (GtkTextBuffer *buf, GtkTextIter *line_start)
 	gtk_text_buffer_select_range (buf, &iter, line_start);
 }
 
-static void
+/*static void
 marks_renderer_size_func (GtkSourceGutter *gutter,
                           GtkCellRenderer *renderer,
                           GtkSourceView   *view)
@@ -1363,14 +1337,57 @@ marks_renderer_size_func (GtkSourceGutter *gutter,
 	              NULL);
 
 	g_object_unref (pixbuf);
-}
+}*/
 
 static void
-renderer_activated (GtkSourceGutter *gutter,
-                    GtkCellRenderer *renderer,
-                    GtkTextIter     *iter,
-                    GdkEvent        *event,
-                    GtkSourceView   *view)
+line_renderer_activate (GtkSourceGutterRenderer *renderer,
+                        GtkTextIter             *iter,
+                        const GdkRectangle      *rect,
+                        GdkEvent                *event,
+                        GtkSourceView           *view)
+{
+	GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+
+	if (event->type == GDK_BUTTON_PRESS && (event->button.button == 1))
+	{
+		if ((event->button.state & GDK_CONTROL_MASK) != 0)
+		{
+			/* Single click + Ctrl -> select the line */
+			select_line (buf, iter);
+		}
+		else if ((event->button.state & GDK_SHIFT_MASK) != 0)
+		{
+			/* Single click + Shift -> extended current
+			   selection to include the clicked line */
+			extend_selection_to_line (buf, iter);
+		}
+		else
+		{
+			gtk_text_buffer_place_cursor (buf, iter);
+		}
+	}
+	else if (event->type == GDK_2BUTTON_PRESS && (event->button.button == 1))
+	{
+		select_line (buf, iter);
+	}
+}
+
+static gboolean
+line_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
+                                 GtkTextIter             *iter,
+                                 const GdkRectangle      *area,
+                                 GdkEvent                *event,
+                                 GtkSourceView           *view)
+{
+	return TRUE;
+}
+
+/*static void
+marks_renderer_activated (GtkSourceGutter *gutter,
+                          GtkCellRenderer *renderer,
+                          GtkTextIter     *iter,
+                          GdkEvent        *event,
+                          GtkSourceView   *view)
 {
 	if (renderer == view->priv->marks_renderer)
 	{
@@ -1380,34 +1397,7 @@ renderer_activated (GtkSourceGutter *gutter,
 		               iter,
 		               event);
 	}
-	else if (renderer == view->priv->line_renderer)
-	{
-		GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-
-		if (event->type == GDK_BUTTON_PRESS && (event->button.button == 1))
-		{
-			if ((event->button.state & GDK_CONTROL_MASK) != 0)
-			{
-				/* Single click + Ctrl -> select the line */
-				select_line (buf, iter);
-			}
-			else if ((event->button.state & GDK_SHIFT_MASK) != 0)
-			{
-				/* Single click + Shift -> extended current
-				   selection to include the clicked line */
-				extend_selection_to_line (buf, iter);
-			}
-			else
-			{
-				gtk_text_buffer_place_cursor (buf, iter);
-			}
-		}
-		else if (event->type == GDK_2BUTTON_PRESS && (event->button.button == 1))
-		{
-			select_line (buf, iter);
-		}
-	}
-}
+}*/
 
 static gboolean
 set_tooltip_widget_from_marks (GtkSourceView *view,
@@ -1541,7 +1531,7 @@ set_tooltip_widget_from_marks (GtkSourceView *view,
 	return TRUE;
 }
 
-static gboolean
+/*static gboolean
 renderer_query_tooltip (GtkSourceGutter *gutter,
                         GtkCellRenderer *renderer,
                         GtkTextIter     *iter,
@@ -1573,15 +1563,15 @@ renderer_query_tooltip (GtkSourceGutter *gutter,
 	}
 
 	return FALSE;
-}
+}*/
 
 static void
 init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
 
-	view->priv->line_renderer = gtk_cell_renderer_text_new ();
-	view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
+	view->priv->line_renderer = gtk_source_gutter_renderer_text_new ();
+	//view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
@@ -1589,45 +1579,23 @@ init_left_gutter (GtkSourceView *view)
 	                          view->priv->line_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_LINES);
 
-	gtk_source_gutter_insert (gutter,
+	/*gtk_source_gutter_insert (gutter,
 	                          view->priv->marks_renderer,
-	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);
+	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);*/
 
-	gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
-	gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
-
-	gtk_source_gutter_set_cell_data_func (gutter,
-	                                      view->priv->line_renderer,
-	                                      (GtkSourceGutterDataFunc)line_renderer_data_func,
-	                                      view,
-	                                      NULL);
-
-	gtk_source_gutter_set_cell_size_func (gutter,
-	                                      view->priv->line_renderer,
-	                                      (GtkSourceGutterSizeFunc)line_renderer_size_func,
-	                                      view,
-	                                      NULL);
-
-	gtk_source_gutter_set_cell_data_func (gutter,
-	                                      view->priv->marks_renderer,
-	                                      (GtkSourceGutterDataFunc)marks_renderer_data_func,
-	                                      view,
-	                                      NULL);
-
-	gtk_source_gutter_set_cell_size_func (gutter,
-	                                      view->priv->marks_renderer,
-	                                      (GtkSourceGutterSizeFunc)marks_renderer_size_func,
-	                                      view,
-	                                      NULL);
-
-	g_signal_connect (gutter,
-	                  "cell-activated",
-	                  G_CALLBACK (renderer_activated),
+	g_signal_connect (view->priv->line_renderer,
+	                  "query-data",
+	                  G_CALLBACK (line_renderer_query_data),
 	                  view);
 
-	g_signal_connect (gutter,
-	                  "query-tooltip",
-	                  G_CALLBACK (renderer_query_tooltip),
+	g_signal_connect (view->priv->line_renderer,
+	                  "query-activatable",
+	                  G_CALLBACK (line_renderer_query_activatable),
+	                  view);
+
+	g_signal_connect (view->priv->line_renderer,
+	                  "activate",
+	                  G_CALLBACK (line_renderer_activate),
 	                  view);
 }
 
@@ -1832,6 +1800,40 @@ buffer_style_scheme_changed_cb (GtkSourceBuffer *buffer,
 }
 
 static void
+buffer_changed_cb (GtkSourceBuffer *buffer,
+                   GtkSourceView   *view)
+{
+	gint num_lines;
+
+	num_lines = gtk_text_buffer_get_line_count (GTK_TEXT_BUFFER (buffer));
+	gint num_digits = 0;
+
+	while (num_lines > 0)
+	{
+		num_lines /= 10;
+		++num_digits;
+	}
+
+	num_digits = MAX(num_digits, 2);
+
+	if (num_digits != view->priv->num_line_digits)
+	{
+		gchar *markup;
+
+		view->priv->num_line_digits = num_digits;
+
+		num_lines = MAX(num_lines, 99);
+
+		markup = g_strdup_printf ("<b>%d</b>", num_lines);
+
+		g_object_set (view->priv->line_renderer, "markup", markup, NULL);
+		gtk_source_gutter_renderer_size_changed (view->priv->line_renderer);
+
+		g_free (markup);
+	}
+}
+
+static void
 set_source_buffer (GtkSourceView *view,
 		   GtkTextBuffer *buffer)
 {
@@ -1849,6 +1851,11 @@ set_source_buffer (GtkSourceView *view,
 		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
 						      buffer_style_scheme_changed_cb,
 						      view);
+
+		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
+		                                      buffer_changed_cb,
+		                                      view);
+
 		g_object_unref (view->priv->source_buffer);
 	}
 
@@ -1868,6 +1875,10 @@ set_source_buffer (GtkSourceView *view,
 				  "notify::style-scheme",
 				  G_CALLBACK (buffer_style_scheme_changed_cb),
 				  view);
+		g_signal_connect (buffer,
+		                  "changed",
+		                  G_CALLBACK (buffer_changed_cb),
+		                  view);
 	}
 	else
 	{
@@ -1878,7 +1889,14 @@ set_source_buffer (GtkSourceView *view,
 	 * gtk_source_view_update_style_scheme(), that will check whether it's
 	 * a GtkSourceBuffer or not */
 	if (buffer)
+	{
 		gtk_source_view_update_style_scheme (view);
+	}
+
+	if (view->priv->source_buffer)
+	{
+		buffer_changed_cb (view->priv->source_buffer, view);
+	}
 }
 
 static void
@@ -3218,10 +3236,8 @@ gtk_source_view_get_show_line_numbers (GtkSourceView *view)
  **/
 void
 gtk_source_view_set_show_line_numbers (GtkSourceView *view,
-				       gboolean       show)
+                                       gboolean       show)
 {
-	GtkSourceGutter *gutter;
-
 	g_return_if_fail (view != NULL);
 	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
 
@@ -3232,19 +3248,9 @@ gtk_source_view_set_show_line_numbers (GtkSourceView *view,
 		return;
 	}
 
-	if (show)
-	{
-		gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, -1, -1);
-	}
-	else
-	{
-		gtk_cell_renderer_set_fixed_size (view->priv->line_renderer, 0, 0);
-	}
+	g_object_set (view->priv->line_renderer, "visible", show, NULL);
 
 	view->priv->show_line_numbers = show;
-
-	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
-	gtk_source_gutter_queue_draw (gutter);
 
 	g_object_notify (G_OBJECT (view), "show_line_numbers");
 }
@@ -3280,8 +3286,6 @@ void
 gtk_source_view_set_show_line_marks (GtkSourceView *view,
 				     gboolean       show)
 {
-	GtkSourceGutter *gutter;
-
 	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
 
 	show = (show != FALSE);
@@ -3292,19 +3296,16 @@ gtk_source_view_set_show_line_marks (GtkSourceView *view,
 	}
 
 
-	if (show)
+	/*if (show)
 	{
 		gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, -1, -1);
 	}
 	else
 	{
 		gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
-	}
+	}*/
 
 	view->priv->show_line_marks = show;
-
-	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
-	gtk_source_gutter_queue_draw (gutter);
 
 	g_object_notify (G_OBJECT (view), "show_line_marks");
 }
