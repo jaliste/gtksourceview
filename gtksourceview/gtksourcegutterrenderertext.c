@@ -249,31 +249,31 @@ gtk_source_gutter_renderer_text_set_property (GObject      *object,
 	{
 		case PROP_MARKUP:
 			set_text (renderer, g_value_get_string (value), TRUE);
-		break;
+			break;
 		case PROP_TEXT:
 			set_text (renderer, g_value_get_string (value), FALSE);
-		break;
+			break;
 		case PROP_XALIGN:
 			renderer->priv->xalign = g_value_get_double (value);
-		break;
+			break;
 		case PROP_YALIGN:
 			renderer->priv->yalign = g_value_get_double (value);
-		break;
+			break;
 		case PROP_VISIBLE:
 			renderer->priv->visible = g_value_get_boolean (value);
 			gtk_source_gutter_renderer_queue_draw (GTK_SOURCE_GUTTER_RENDERER (renderer));
-		break;
+			break;
 		case PROP_XPAD:
 			renderer->priv->xpad = g_value_get_int (value);
 			gtk_source_gutter_renderer_size_changed (GTK_SOURCE_GUTTER_RENDERER (renderer));
-		break;
+			break;
 		case PROP_YPAD:
 			renderer->priv->xpad = g_value_get_int (value);
 			gtk_source_gutter_renderer_size_changed (GTK_SOURCE_GUTTER_RENDERER (renderer));
-		break;
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-		break;
+			break;
 	}
 }
 
@@ -291,28 +291,28 @@ gtk_source_gutter_renderer_text_get_property (GObject    *object,
 	{
 		case PROP_MARKUP:
 			g_value_set_string (value, renderer->priv->is_markup ? renderer->priv->text : NULL);
-		break;
+			break;
 		case PROP_TEXT:
 			g_value_set_string (value, !renderer->priv->is_markup ? renderer->priv->text : NULL);
-		break;
+			break;
 		case PROP_XALIGN:
 			g_value_set_double (value, renderer->priv->xalign);
-		break;
+			break;
 		case PROP_YALIGN:
 			g_value_set_double (value, renderer->priv->yalign);
-		break;
+			break;
 		case PROP_VISIBLE:
 			g_value_set_boolean (value, renderer->priv->visible);
-		break;
+			break;
 		case PROP_XPAD:
 			g_value_set_int (value, renderer->priv->xpad);
-		break;
+			break;
 		case PROP_YPAD:
 			g_value_set_int (value, renderer->priv->ypad);
-		break;
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-		break;
+			break;
 	}
 }
 
