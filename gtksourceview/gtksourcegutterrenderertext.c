@@ -14,6 +14,9 @@ struct _GtkSourceGutterRendererTextPrivate
 	gdouble xalign;
 	gdouble yalign;
 
+	gint xpad;
+	gint ypad;
+
 	guint visible : 1;
 	guint measure_is_markup : 1;
 	guint is_markup : 1;
@@ -34,7 +37,9 @@ enum
 	PROP_TEXT,
 	PROP_XALIGN,
 	PROP_YALIGN,
-	PROP_VISIBLE
+	PROP_VISIBLE,
+	PROP_XPAD,
+	PROP_YPAD
 };
 
 static PangoLayout *
@@ -115,8 +120,12 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	                  TRUE,
 	                  widget,
 	                  "gtksourcegutterrenderertext",
-	                  cell_area->x + (cell_area->width - width) * text->priv->xalign,
-	                  cell_area->y + (cell_area->height - height) * text->priv->yalign,
+	                  cell_area->x + text->priv->xpad +
+	                  (cell_area->width - width - 2 * text->priv->xpad) *
+	                  text->priv->xalign,
+	                  cell_area->y + text->priv->ypad +
+	                  (cell_area->height - height - 2 * text->priv->ypad) *
+	                  text->priv->yalign,
 	                  layout);
 
 	g_object_unref (layout);
@@ -169,12 +178,12 @@ gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
 
 	if (width)
 	{
-		*width = text->priv->width;
+		*width = text->priv->width + 2 * text->priv->xpad;
 	}
 
 	if (height)
 	{
-		*height = text->priv->height;
+		*height = text->priv->height + 2 * text->priv->ypad;
 	}
 }
 
@@ -254,6 +263,14 @@ gtk_source_gutter_renderer_text_set_property (GObject      *object,
 			renderer->priv->visible = g_value_get_boolean (value);
 			gtk_source_gutter_renderer_queue_draw (GTK_SOURCE_GUTTER_RENDERER (renderer));
 		break;
+		case PROP_XPAD:
+			renderer->priv->xpad = g_value_get_int (value);
+			gtk_source_gutter_renderer_size_changed (GTK_SOURCE_GUTTER_RENDERER (renderer));
+		break;
+		case PROP_YPAD:
+			renderer->priv->xpad = g_value_get_int (value);
+			gtk_source_gutter_renderer_size_changed (GTK_SOURCE_GUTTER_RENDERER (renderer));
+		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -286,6 +303,12 @@ gtk_source_gutter_renderer_text_get_property (GObject    *object,
 		break;
 		case PROP_VISIBLE:
 			g_value_set_boolean (value, renderer->priv->visible);
+		break;
+		case PROP_XPAD:
+			g_value_set_int (value, renderer->priv->xpad);
+		break;
+		case PROP_YPAD:
+			g_value_set_int (value, renderer->priv->ypad);
 		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -347,6 +370,28 @@ gtk_source_gutter_renderer_text_class_init (GtkSourceGutterRendererTextClass *kl
 	g_object_class_override_property (object_class,
 	                                  PROP_VISIBLE,
 	                                  "visible");
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_XPAD,
+	                                 g_param_spec_int ("xpad",
+	                                                   "Xpad",
+	                                                   "Xpad",
+	                                                   G_MININT,
+	                                                   G_MAXINT,
+	                                                   0,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_YPAD,
+	                                 g_param_spec_int ("ypad",
+	                                                   "Ypad",
+	                                                   "Ypad",
+	                                                   G_MININT,
+	                                                   G_MAXINT,
+	                                                   0,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 }
 
 static void

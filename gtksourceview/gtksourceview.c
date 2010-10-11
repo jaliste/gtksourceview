@@ -1583,6 +1583,8 @@ init_left_gutter (GtkSourceView *view)
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);*/
 
+	g_object_set (view->priv->line_renderer, "xpad", 3, NULL);
+
 	g_signal_connect (view->priv->line_renderer,
 	                  "query-data",
 	                  G_CALLBACK (line_renderer_query_data),
