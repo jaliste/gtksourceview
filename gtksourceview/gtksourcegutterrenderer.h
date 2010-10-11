@@ -107,6 +107,11 @@ struct _GtkSourceGutterRendererIface
 	                             gint                          x,
 	                             gint                          y,
 	                             GtkTooltip                   *tooltip);
+
+	void (*query_data)          (GtkSourceGutterRenderer      *renderer,
+	                             GtkTextIter                  *start,
+	                             GtkTextIter                  *end,
+	                             GtkSourceGutterRendererState  state);
 };
 
 GType gtk_source_gutter_renderer_get_type (void) G_GNUC_CONST;
@@ -162,6 +167,12 @@ gboolean gtk_source_gutter_renderer_query_tooltip   (GtkSourceGutterRenderer    
                                                      gint                          x,
                                                      gint                          y,
                                                      GtkTooltip                   *tooltip);
+
+/* Emits the 'query-data' signal */
+void     gtk_source_gutter_renderer_query_data      (GtkSourceGutterRenderer      *renderer,
+                                                     GtkTextIter                  *start,
+                                                     GtkTextIter                  *end,
+                                                     GtkSourceGutterRendererState  state);
 
 G_END_DECLS
 
