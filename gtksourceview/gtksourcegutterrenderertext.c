@@ -5,10 +5,8 @@
 struct _GtkSourceGutterRendererTextPrivate
 {
 	gchar *text;
-	gboolean is_markup;
 
 	gchar *measure_text;
-	gboolean measure_is_markup;
 
 	gint width;
 	gint height;
@@ -16,7 +14,9 @@ struct _GtkSourceGutterRendererTextPrivate
 	gdouble xalign;
 	gdouble yalign;
 
-	gboolean visible;
+	guint visible : 1;
+	guint measure_is_markup : 1;
+	guint is_markup : 1;
 };
 
 static void gtk_source_gutter_renderer_iface_init (gpointer g_iface, gpointer iface_data);
