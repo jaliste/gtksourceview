@@ -467,7 +467,7 @@ gtk_source_gutter_renderer_query_tooltip (GtkSourceGutterRenderer *renderer,
 	ret = FALSE;
 
 	g_signal_emit (renderer,
-	               signals[ACTIVATE],
+	               signals[QUERY_TOOLTIP],
 	               0,
 	               iter,
 	               area,
