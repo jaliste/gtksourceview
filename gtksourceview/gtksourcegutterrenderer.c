@@ -1,5 +1,6 @@
 #include "gtksourcegutterrenderer.h"
 #include "gtksourceview-marshal.h"
+#include "gtksourceview-typebuiltins.h"
 
 G_DEFINE_INTERFACE (GtkSourceGutterRenderer, gtk_source_gutter_renderer, G_TYPE_INVALID)
 
@@ -82,8 +83,7 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 		 * @renderer: the #GtkSourceGutterRenderer who emits the signal
 		 * @iter: a #GtkTextIter
 		 * @area: a #GdkRectangle
-		 * @x: the x location (in window coordinates)
-		 * @y: the y location (in window coordinates)
+		 * @event: the event that caused the activation
 		 *
 		 * The ::activate signal is emitted when the renderer is
 		 * activated.
@@ -96,13 +96,12 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 			              G_STRUCT_OFFSET (GtkSourceGutterRendererIface, activate),
 			              NULL,
 			              NULL,
-			              _gtksourceview_marshal_VOID__BOXED_BOXED_INT_INT,
+			              _gtksourceview_marshal_VOID__BOXED_BOXED_BOXED,
 			              G_TYPE_NONE,
-			              4,
+			              3,
 			              GTK_TYPE_TEXT_ITER,
 			              GDK_TYPE_RECTANGLE,
-			              G_TYPE_INT,
-			              G_TYPE_INT);
+			              GDK_TYPE_EVENT);
 
 		/**
 		 * GtkSourceGutterRenderer::size-changed:
@@ -117,7 +116,7 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 		signals[SIZE_CHANGED] =
 			g_signal_new ("size-changed",
 			              G_TYPE_FROM_INTERFACE (iface),
-			              G_SIGNAL_RUN_LAST,
+			              G_SIGNAL_RUN_FIRST,
 			              G_STRUCT_OFFSET (GtkSourceGutterRendererIface, size_changed),
 			              NULL,
 			              NULL,
@@ -393,8 +392,7 @@ gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer,
  * @renderer: a #GtkSourceGutterRenderer
  * @iter: a #GtkTextIter at the start of the line where the renderer is activated
  * @area: a #GdkRectangle of the cell area where the renderer is activated
- * @x: the x position (in window coordinates) where the renderer is activated
- * @y: the y position (in window coordinates) where the renderer is activated
+ * @event: the event that triggered the activation
  *
  * Emits the ::activate signal of the renderer. This is called from
  * #GtkSourceGutter and should never have to be called manually.
@@ -404,14 +402,14 @@ void
 gtk_source_gutter_renderer_activate (GtkSourceGutterRenderer *renderer,
                                      GtkTextIter             *iter,
                                      const GdkRectangle      *area,
-                                     gint                     x,
-                                     gint                     y)
+                                     GdkEvent                *event)
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 	g_return_if_fail (iter != NULL);
 	g_return_if_fail (area != NULL);
+	g_return_if_fail (event != NULL);
 
-	g_signal_emit (renderer, signals[ACTIVATE], 0, iter, area, x, y);
+	g_signal_emit (renderer, signals[ACTIVATE], 0, iter, area, event);
 }
 
 /**

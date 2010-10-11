@@ -94,8 +94,7 @@ struct _GtkSourceGutterRendererIface
 	void (*activate)            (GtkSourceGutterRenderer      *renderer,
 	                             GtkTextIter                  *iter,
 	                             const GdkRectangle           *area,
-	                             gint                          x,
-	                             gint                          y);
+	                             GdkEvent                     *event);
 
 	void (*size_changed)        (GtkSourceGutterRenderer      *renderer);
 
@@ -145,8 +144,7 @@ void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer    
 void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer      *renderer,
                                                      GtkTextIter                  *iter,
                                                      const GdkRectangle           *area,
-                                                     gint                          x,
-                                                     gint                          y);
+                                                     GdkEvent                     *event);
 
 /* Emits the 'query-activatable' signal */
 gboolean gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer      *renderer,
