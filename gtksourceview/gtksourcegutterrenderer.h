@@ -62,6 +62,7 @@ struct _GtkSourceGutterRendererIface
 
 	void (*begin)               (GtkSourceGutterRenderer     *renderer,
 	                             cairo_t                     *cr,
+	                             GtkWidget                   *widget,
 	                             const GdkRectangle          *background_area,
 	                             const GdkRectangle          *cell_area,
 	                             GtkTextIter                 *start,
@@ -69,6 +70,7 @@ struct _GtkSourceGutterRendererIface
 
 	void (*draw)                (GtkSourceGutterRenderer      *renderer,
 	                             cairo_t                      *cr,
+	                             GtkWidget                    *widget,
 	                             const GdkRectangle           *background_area,
 	                             const GdkRectangle           *cell_area,
 	                             GtkTextIter                  *start,
@@ -84,6 +86,8 @@ struct _GtkSourceGutterRendererIface
 	                             gint                          y);
 
 	void (*get_size)            (GtkSourceGutterRenderer      *renderer,
+	                             cairo_t                      *cr,
+	                             GtkWidget                    *widget,
 	                             gint                         *width,
 	                             gint                         *height);
 
@@ -110,6 +114,7 @@ GType gtk_source_gutter_renderer_get_type (void) G_GNUC_CONST;
 
 void     gtk_source_gutter_renderer_begin           (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
+                                                     GtkWidget                    *widget,
                                                      const GdkRectangle           *background_area,
                                                      const GdkRectangle           *cell_area,
                                                      GtkTextIter                  *start,
@@ -117,6 +122,7 @@ void     gtk_source_gutter_renderer_begin           (GtkSourceGutterRenderer    
 
 void     gtk_source_gutter_renderer_draw            (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
+                                                     GtkWidget                    *widget,
                                                      const GdkRectangle           *background_area,
                                                      const GdkRectangle           *cell_area,
                                                      GtkTextIter                  *start,
@@ -132,6 +138,8 @@ gboolean gtk_source_gutter_renderer_get_activatable (GtkSourceGutterRenderer    
                                                      gint                          y);
 
 void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer      *renderer,
+                                                     cairo_t                      *cr,
+                                                     GtkWidget                    *widget,
                                                      gint                         *width,
                                                      gint                         *height);
 
