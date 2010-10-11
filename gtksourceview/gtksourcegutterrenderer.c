@@ -9,6 +9,7 @@ enum
 	SIZE_CHANGED,
 	QUEUE_DRAW,
 	QUERY_TOOLTIP,
+	QUERY_ACTIVATABLE,
 	NUM_SIGNALS
 };
 
@@ -46,16 +47,6 @@ gtk_source_gutter_renderer_end_default (GtkSourceGutterRenderer *renderer)
 	// NOOP
 }
 
-static gboolean
-gtk_source_gutter_renderer_get_activatable_default (GtkSourceGutterRenderer *renderer,
-                                                    GtkTextIter             *iter,
-                                                    const GdkRectangle      *area,
-                                                    gint                     x,
-                                                    gint                     y)
-{
-	return FALSE;
-}
-
 static void
 gtk_source_gutter_renderer_get_size_default (GtkSourceGutterRenderer *renderer,
                                              cairo_t                 *cr,
@@ -75,7 +66,6 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 	iface->begin = gtk_source_gutter_renderer_begin_default;
 	iface->end = gtk_source_gutter_renderer_end_default;
 	iface->draw = gtk_source_gutter_renderer_draw_default;
-	iface->get_activatable = gtk_source_gutter_renderer_get_activatable_default;
 	iface->get_size = gtk_source_gutter_renderer_get_size_default;
 
 	if (!initialized)
@@ -164,6 +154,58 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 			              G_TYPE_INT,
 			              G_TYPE_INT,
 			              GTK_TYPE_TOOLTIP);
+
+		/**
+		 * GtkSourceGutterRenderer::query-data:
+		 * @renderer: the #GtkSourceGutterRenderer who emits the signal
+		 * @start: a #GtkTextIter
+		 * @end: a #GtkTextIter
+		 * @state: the renderer state
+		 *
+		 * The ::query-data signal is emitted when the renderer needs
+		 * to be filled with data just before a cell is drawn. This can
+		 * be used by general renderer implementations to allow render
+		 * data to be filled in externally.
+		 *
+		 */
+		signals[QUERY_DATA] =
+			g_signal_new ("query-data",
+			              G_TYPE_FROM_INTERFACE (iface),
+			              G_SIGNAL_RUN_LAST,
+			              G_STRUCT_OFFSET (GtkSourceGutterRendererIface, query_data),
+			              NULL,
+			              NULL,
+			              _gtksourceview_marshal_VOID__BOXED_BOXED_FLAGS,
+			              G_TYPE_NONE,
+			              3,
+			              GTK_TYPE_TEXT_ITER,
+			              GTK_TYPE_TEXT_ITER,
+			              GTK_TYPE_SOURCE_GUTTER_RENDERER_STATE);
+
+		/**
+		 * GtkSourceGutterRenderer::query-activatable:
+		 * @renderer: the #GtkSourceGutterRenderer who emits the signal
+		 * @iter: a #GtkTextIter
+		 * @area: a #GdkRectangle
+		 * @event: the #GdkEvent that is causing the activatable query
+		 *
+		 * The ::query-activatable signal is emitted when the renderer
+		 * can possibly be activated.
+		 *
+		 */
+		signals[QUERY_ACTIVATABLE] =
+			g_signal_new ("query-activatable",
+			              G_TYPE_FROM_INTERFACE (iface),
+			              G_SIGNAL_RUN_LAST,
+			              G_STRUCT_OFFSET (GtkSourceGutterRendererIface, query_activatable),
+			              g_signal_accumulator_true_handled,
+			              NULL,
+			              _gtksourceview_marshal_BOOLEAN__BOXED_BOXED_BOXED,
+			              G_TYPE_BOOLEAN,
+			              3,
+			              GTK_TYPE_TEXT_ITER,
+			              GDK_TYPE_RECTANGLE,
+			              GDK_TYPE_EVENT);
 
 		initialized = TRUE;
 	}
@@ -275,14 +317,13 @@ gtk_source_gutter_renderer_end (GtkSourceGutterRenderer *renderer)
 }
 
 /**
- * gtk_source_gutter_renderer_get_activatable:
+ * gtk_source_gutter_renderer_query_activatable:
  * @renderer: a #GtkSourceGutterRenderer
  * @iter: a #GtkTextIter at the start of the line to be activated
  * @area: a #GdkRectangle of the cell area to be activated
- * @x: the x position in window coordinates
- * @y: the y position in window coordinates
+ * @event: the event that triggered the query
  *
- * Get whether the renderer is activatable at the location @x, @y. This is
+ * Get whether the renderer is activatable at the location in @event. This is
  * called from #GtkSourceGutter to determine whether a renderer is activatable
  * using the mouse pointer.
  *
@@ -290,21 +331,23 @@ gtk_source_gutter_renderer_end (GtkSourceGutterRenderer *renderer)
  *
  **/
 gboolean
-gtk_source_gutter_renderer_get_activatable (GtkSourceGutterRenderer *renderer,
-                                            GtkTextIter             *iter,
-                                            const GdkRectangle      *area,
-                                            gint                     x,
-                                            gint                     y)
+gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
+                                              GtkTextIter             *iter,
+                                              const GdkRectangle      *area,
+                                              GdkEvent                *event)
 {
+	gboolean ret;
+
 	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), FALSE);
 	g_return_val_if_fail (iter != NULL, FALSE);
 	g_return_val_if_fail (area != NULL, FALSE);
+	g_return_val_if_fail (event != NULL, FALSE);
 
-	return GTK_SOURCE_GUTTER_RENDERER_GET_INTERFACE (renderer)->get_activatable (renderer,
-	                                                                             iter,
-	                                                                             area,
-	                                                                             x,
-	                                                                             y);
+	ret = FALSE;
+
+	g_signal_emit (renderer, signals[QUERY_ACTIVATABLE], 0, iter, area, event, &ret);
+
+	return ret;
 }
 
 /**

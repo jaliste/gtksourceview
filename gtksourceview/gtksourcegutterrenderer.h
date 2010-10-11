@@ -79,12 +79,6 @@ struct _GtkSourceGutterRendererIface
 
 	void (*end)                 (GtkSourceGutterRenderer      *renderer);
 
-	gboolean (*get_activatable) (GtkSourceGutterRenderer      *renderer,
-	                             GtkTextIter                  *iter,
-	                             const GdkRectangle           *area,
-	                             gint                          x,
-	                             gint                          y);
-
 	void (*get_size)            (GtkSourceGutterRenderer      *renderer,
 	                             cairo_t                      *cr,
 	                             GtkWidget                    *widget,
@@ -92,6 +86,11 @@ struct _GtkSourceGutterRendererIface
 	                             gint                         *height);
 
 	/* Signal handler */
+	gboolean (*query_activatable) (GtkSourceGutterRenderer      *renderer,
+	                               GtkTextIter                  *iter,
+	                               const GdkRectangle           *area,
+	                               GdkEvent                     *event);
+
 	void (*activate)            (GtkSourceGutterRenderer      *renderer,
 	                             GtkTextIter                  *iter,
 	                             const GdkRectangle           *area,
@@ -131,12 +130,6 @@ void     gtk_source_gutter_renderer_draw            (GtkSourceGutterRenderer    
 
 void     gtk_source_gutter_renderer_end             (GtkSourceGutterRenderer      *renderer);
 
-gboolean gtk_source_gutter_renderer_get_activatable (GtkSourceGutterRenderer      *renderer,
-                                                     GtkTextIter                  *iter,
-                                                     const GdkRectangle           *area,
-                                                     gint                          x,
-                                                     gint                          y);
-
 void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
                                                      GtkWidget                    *widget,
@@ -149,6 +142,12 @@ void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer    
                                                      const GdkRectangle           *area,
                                                      gint                          x,
                                                      gint                          y);
+
+/* Emits the 'query-activatable' signal */
+gboolean gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer      *renderer,
+                                                       GtkTextIter                  *iter,
+                                                       const GdkRectangle           *area,
+                                                       GdkEvent                     *event);
 
 /* Emits the 'size-changed' signal */
 void     gtk_source_gutter_renderer_size_changed    (GtkSourceGutterRenderer      *renderer);
