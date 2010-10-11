@@ -71,6 +71,12 @@ gtk_source_gutter_renderer_default_init (GtkSourceGutterRendererInterface *iface
 
 	if (!initialized)
 	{
+		g_object_interface_install_property (iface,
+		                                     g_param_spec_boolean ("visible",
+		                                                           "Visible",
+		                                                           "Visible",
+		                                                           TRUE,
+		                                                           G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 		/**
 		 * GtkSourceGutterRenderer::activate:
 		 * @renderer: the #GtkSourceGutterRenderer who emits the signal
