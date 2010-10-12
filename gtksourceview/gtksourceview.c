@@ -1242,8 +1242,7 @@ line_renderer_query_data (GtkSourceGutterRenderer      *renderer,
 
 	line = gtk_text_iter_get_line (start) + 1;
 
-	if ((state & (GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR |
-	              GTK_SOURCE_GUTTER_RENDERER_STATE_SELECTED)) &&
+	if ((state & GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR) &&
 	    gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
 	{
 		text = g_strdup_printf ("<b>%d</b>", line);
