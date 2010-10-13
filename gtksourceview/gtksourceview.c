@@ -1537,6 +1537,18 @@ gtk_source_view_dispose (GObject *object)
 		view->priv->completion = NULL;
 	}
 
+	if (view->priv->left_gutter)
+	{
+		g_object_unref (view->priv->left_gutter);
+		view->priv->left_gutter = NULL;
+	}
+
+	if (view->priv->right_gutter)
+	{
+		g_object_unref (view->priv->right_gutter);
+		view->priv->right_gutter = NULL;
+	}
+
 	G_OBJECT_CLASS (gtk_source_view_parent_class)->dispose (object);
 }
 
@@ -1551,25 +1563,29 @@ gtk_source_view_finalize (GObject *object)
 	view = GTK_SOURCE_VIEW (object);
 
 	if (view->priv->style_scheme)
+	{
 		g_object_unref (view->priv->style_scheme);
+	}
 
 	if (view->priv->right_margin_line_color != NULL)
+	{
 		gdk_color_free (view->priv->right_margin_line_color);
+	}
 
 	if (view->priv->right_margin_overlay_color != NULL)
+	{
 		gdk_color_free (view->priv->right_margin_overlay_color);
+	}
 
 	if (view->priv->spaces_color != NULL)
+	{
 		gdk_color_free (view->priv->spaces_color);
+	}
 
 	if (view->priv->mark_categories)
+	{
 		g_hash_table_destroy (view->priv->mark_categories);
-
-	if (view->priv->left_gutter)
-		g_object_unref (view->priv->left_gutter);
-
-	if (view->priv->right_gutter)
-		g_object_unref (view->priv->right_gutter);
+	}
 
 	/* notify_buffer() would recreate the buffer if it is set to null,
 	 * and we don't want that to happen when finalizing */

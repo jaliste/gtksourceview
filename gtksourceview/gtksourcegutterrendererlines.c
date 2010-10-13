@@ -178,11 +178,15 @@ gtk_source_gutter_renderer_lines_dispose (GObject *object)
 
 	view = gtk_source_gutter_renderer_get_view (renderer);
 
-	if (view != NULL)
+	if (view != NULL && lines->priv->buffer_notify_handler_id != 0)
 	{
 		g_signal_handler_disconnect (view,
 		                             lines->priv->buffer_notify_handler_id);
+
+		lines->priv->buffer_notify_handler_id = 0;
 	}
+
+	set_buffer (lines, NULL);
 
 	G_OBJECT_CLASS (gtk_source_gutter_renderer_lines_parent_class)->dispose (object);
 }
@@ -291,15 +295,20 @@ gtk_source_gutter_renderer_lines_constructed (GObject *gobject)
 {
 	GtkSourceGutterRendererLines *lines;
 	GtkSourceGutterRenderer *renderer;
+	GtkTextView *view;
 
 	renderer = GTK_SOURCE_GUTTER_RENDERER (gobject);
 	lines = GTK_SOURCE_GUTTER_RENDERER_LINES (gobject);
 
+	view = gtk_source_gutter_renderer_get_view (renderer);
+
 	lines->priv->buffer_notify_handler_id =
-		g_signal_connect (gtk_source_gutter_renderer_get_view (renderer),
+		g_signal_connect (view,
 		                  "notify::buffer",
 		                  G_CALLBACK (on_buffer_notify),
 		                  lines);
+
+	set_buffer (lines, gtk_text_view_get_buffer (view));
 }
 
 static void
