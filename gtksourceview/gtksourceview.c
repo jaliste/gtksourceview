@@ -1444,21 +1444,23 @@ init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
 
-	view->priv->line_renderer = gtk_source_gutter_renderer_lines_new ();
 	//view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
-	gtk_source_gutter_insert (gutter,
-	                          view->priv->line_renderer,
-	                          GTK_SOURCE_VIEW_GUTTER_POSITION_LINES);
+	view->priv->line_renderer =
+		gtk_source_gutter_insert (gutter,
+		                          GTK_TYPE_SOURCE_GUTTER_RENDERER_LINES,
+		                          GTK_SOURCE_VIEW_GUTTER_POSITION_LINES,
+		                          "alignment-mode", GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST,
+		                          "yalign", 0.5,
+		                          "xalign", 1.0,
+		                          "xpad", 3,
+		                          NULL);
 
 	/*gtk_source_gutter_insert (gutter,
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);*/
-
-	gtk_source_gutter_renderer_set_padding (view->priv->line_renderer, 3, -1);
-	gtk_source_gutter_renderer_set_alignment (view->priv->line_renderer, 1, 0);
 }
 
 static void
