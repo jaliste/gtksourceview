@@ -207,6 +207,7 @@
                     </include>
                 </context>
 
+
                 <context id="verbatim-comment" style-ref="comment" class="no-spell-check">
                     <start>\\begin\{comment\}</start>
                     <end>\\end\{comment\}</end>
