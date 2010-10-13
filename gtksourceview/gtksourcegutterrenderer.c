@@ -802,6 +802,14 @@ gtk_source_gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
 	g_signal_emit (renderer, signals[QUERY_DATA], 0, start, end, state);
 }
 
+/**
+ * gtk_source_gutter_renderer_set_visible:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @visible: the visibility
+ *
+ * Set whether the gutter renderer is visible.
+ *
+ **/
 void
 gtk_source_gutter_renderer_set_visible (GtkSourceGutterRenderer *renderer,
                                         gboolean                 visible)
@@ -818,6 +826,15 @@ gtk_source_gutter_renderer_set_visible (GtkSourceGutterRenderer *renderer,
 	}
 }
 
+/**
+ * gtk_source_gutter_renderer_get_visible:
+ * @renderer: a #GtkSourceGutterRenderer
+ *
+ * Get whether the gutter renderer is visible.
+ *
+ * Returns: %TRUE if the renderer is visible, %FALSE otherwise
+ *
+ **/
 gboolean
 gtk_source_gutter_renderer_get_visible (GtkSourceGutterRenderer *renderer)
 {
@@ -826,6 +843,17 @@ gtk_source_gutter_renderer_get_visible (GtkSourceGutterRenderer *renderer)
 	return renderer->priv->visible;
 }
 
+/**
+ * gtk_source_gutter_renderer_set_padding:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @xpad: the x-padding
+ * @ypad: the y-padding
+ *
+ * Set the padding of the gutter renderer. Both @xpad and @ypad can be
+ * -1, which means the values will not be changed (this allows changing only
+ * one of the values).
+ *
+ **/
 void
 gtk_source_gutter_renderer_set_padding (GtkSourceGutterRenderer *renderer,
                                         gint                     xpad,
@@ -837,6 +865,15 @@ gtk_source_gutter_renderer_set_padding (GtkSourceGutterRenderer *renderer,
 	set_ypad (renderer, ypad);
 }
 
+/**
+ * gtk_source_gutter_renderer_get_padding:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @xpad: (out caller-allocates) (allow-none): return location for the x-padding (can be NULL)
+ * @ypad: (out caller-allocates) (allow-none): return location for the y-padding (can be NULL)
+ *
+ * Get the x-padding and y-padding of the gutter renderer.
+ *
+ **/
 void
 gtk_source_gutter_renderer_get_padding (GtkSourceGutterRenderer *renderer,
                                         gint                    *xpad,
@@ -855,6 +892,17 @@ gtk_source_gutter_renderer_get_padding (GtkSourceGutterRenderer *renderer,
 	}
 }
 
+/**
+ * gtk_source_gutter_renderer_set_alignment:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @xalign: the x-alignment
+ * @yalign: the y-alignment
+ *
+ * Set the alignment of the gutter renderer. Both @xalign and @yalign can be
+ * -1, which means the values will not be changed (this allows changing only
+ * one of the values).
+ *
+ **/
 void
 gtk_source_gutter_renderer_set_alignment (GtkSourceGutterRenderer *renderer,
                                           gfloat                   xalign,
@@ -870,6 +918,15 @@ gtk_source_gutter_renderer_set_alignment (GtkSourceGutterRenderer *renderer,
 	}
 }
 
+/**
+ * gtk_source_gutter_renderer_get_alignment:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @xalign: (out caller-allocates) (allow-none): return location for the x-alignment (can be NULL)
+ * @yalign: (out caller-allocates) (allow-none): return location for the y-alignment (can be NULL)
+ *
+ * Get the x-alignment and y-alignment of the gutter renderer.
+ *
+ **/
 void
 gtk_source_gutter_renderer_get_alignment (GtkSourceGutterRenderer *renderer,
                                           gfloat                  *xalign,
