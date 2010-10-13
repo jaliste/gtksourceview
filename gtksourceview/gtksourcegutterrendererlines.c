@@ -129,7 +129,6 @@ set_buffer (GtkSourceGutterRendererLines *renderer,
 
 static void
 gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
-                            GtkWidget                    *widget,
                             GtkTextIter                  *start,
                             GtkTextIter                  *end,
                             GtkSourceGutterRendererState  state)

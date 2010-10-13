@@ -426,10 +426,9 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 		              G_STRUCT_OFFSET (GtkSourceGutterRendererClass, query_data),
 		              NULL,
 		              NULL,
-		              _gtksourceview_marshal_VOID__OBJECT_BOXED_BOXED_FLAGS,
+		              _gtksourceview_marshal_VOID__BOXED_BOXED_FLAGS,
 		              G_TYPE_NONE,
-		              4,
-		              GTK_TYPE_WIDGET,
+		              3,
 		              GTK_TYPE_TEXT_ITER,
 		              GTK_TYPE_TEXT_ITER,
 		              GTK_TYPE_SOURCE_GUTTER_RENDERER_STATE);
@@ -486,7 +485,6 @@ gtk_source_gutter_renderer_init (GtkSourceGutterRenderer *self)
  * gtk_source_gutter_renderer_begin:
  * @renderer: a #GtkSourceGutterRenderer
  * @cr: a #cairo_t
- * @widget: a #GtkWidget
  * @background_area: a #GdkRectangle
  * @cell_area: a #GdkRectangle
  * @start: a #GtkTextIter
@@ -500,7 +498,6 @@ gtk_source_gutter_renderer_init (GtkSourceGutterRenderer *self)
 void
 gtk_source_gutter_renderer_begin (GtkSourceGutterRenderer *renderer,
                                   cairo_t                 *cr,
-                                  GtkWidget               *widget,
                                   const GdkRectangle      *background_area,
                                   const GdkRectangle      *cell_area,
                                   GtkTextIter             *start,
@@ -508,7 +505,6 @@ gtk_source_gutter_renderer_begin (GtkSourceGutterRenderer *renderer,
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 	g_return_if_fail (cr != NULL);
-	g_return_if_fail (GTK_IS_WIDGET (widget));
 	g_return_if_fail (background_area != NULL);
 	g_return_if_fail (cell_area != NULL);
 	g_return_if_fail (start != NULL);
@@ -519,7 +515,6 @@ gtk_source_gutter_renderer_begin (GtkSourceGutterRenderer *renderer,
 		GTK_SOURCE_GUTTER_RENDERER_CLASS (
 			G_OBJECT_GET_CLASS (renderer))->begin (renderer,
 			                                       cr,
-			                                       widget,
 			                                       background_area,
 			                                       cell_area,
 			                                       start,
@@ -531,7 +526,6 @@ gtk_source_gutter_renderer_begin (GtkSourceGutterRenderer *renderer,
  * gtk_source_gutter_renderer_draw:
  * @renderer: a #GtkSourceGutterRenderer
  * @cr: the cairo render context
- * @widget: the #GtkWidget
  * @background_area: a #GdkRectangle indicating the total area to be drawn
  * @cell_area: a #GdkRectangle indicating the area to draw content
  * @start: a #GtkTextIter
@@ -551,7 +545,6 @@ gtk_source_gutter_renderer_begin (GtkSourceGutterRenderer *renderer,
 void
 gtk_source_gutter_renderer_draw (GtkSourceGutterRenderer      *renderer,
                                  cairo_t                      *cr,
-                                 GtkWidget                    *widget,
                                  const GdkRectangle           *background_area,
                                  const GdkRectangle           *cell_area,
                                  GtkTextIter                  *start,
@@ -560,7 +553,6 @@ gtk_source_gutter_renderer_draw (GtkSourceGutterRenderer      *renderer,
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 	g_return_if_fail (cr != NULL);
-	g_return_if_fail (GTK_IS_WIDGET (widget));
 	g_return_if_fail (background_area != NULL);
 	g_return_if_fail (cell_area != NULL);
 	g_return_if_fail (start != NULL);
@@ -571,7 +563,6 @@ gtk_source_gutter_renderer_draw (GtkSourceGutterRenderer      *renderer,
 		GTK_SOURCE_GUTTER_RENDERER_CLASS (
 			G_OBJECT_GET_CLASS (renderer))->draw (renderer,
 			                                      cr,
-			                                      widget,
 			                                      background_area,
 			                                      cell_area,
 			                                      start,
@@ -653,13 +644,11 @@ gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
 void
 gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer,
                                      cairo_t                 *cr,
-                                     GtkWidget               *widget,
                                      gint                    *width,
                                      gint                    *height)
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 	g_return_if_fail (cr != NULL);
-	g_return_if_fail (GTK_IS_WIDGET (widget));
 	g_return_if_fail (width != NULL || height != NULL);
 
 	if (GTK_SOURCE_GUTTER_RENDERER_CLASS (G_OBJECT_GET_CLASS (renderer))->get_size)
@@ -667,7 +656,6 @@ gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer,
 		GTK_SOURCE_GUTTER_RENDERER_CLASS (
 			G_OBJECT_GET_CLASS (renderer))->get_size (renderer,
 			                                          cr,
-			                                          widget,
 			                                          width,
 			                                          height);
 	}
@@ -766,17 +754,15 @@ gtk_source_gutter_renderer_query_tooltip (GtkSourceGutterRenderer *renderer,
 
 void
 gtk_source_gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
-                                       GtkWidget                    *widget,
                                        GtkTextIter                  *start,
                                        GtkTextIter                  *end,
                                        GtkSourceGutterRendererState  state)
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
-	g_return_if_fail (GTK_IS_WIDGET (widget));
 	g_return_if_fail (start != NULL);
 	g_return_if_fail (end != NULL);
 
-	g_signal_emit (renderer, signals[QUERY_DATA], 0, widget, start, end, state);
+	g_signal_emit (renderer, signals[QUERY_DATA], 0, start, end, state);
 }
 
 void

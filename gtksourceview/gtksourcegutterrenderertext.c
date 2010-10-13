@@ -59,7 +59,6 @@ create_layout (GtkSourceGutterRendererText *renderer,
 static void
 gutter_renderer_text_begin (GtkSourceGutterRenderer      *renderer,
                             cairo_t                      *cr,
-                            GtkWidget                    *widget,
                             const GdkRectangle           *background_area,
                             const GdkRectangle           *cell_area,
                             GtkTextIter                  *start,
@@ -69,13 +68,13 @@ gutter_renderer_text_begin (GtkSourceGutterRenderer      *renderer,
 
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 
-	create_layout (text, widget);
+	create_layout (text, GTK_WIDGET (gtk_source_gutter_renderer_get_view (renderer)));
+}
 }
 
 static void
 gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
                            cairo_t                      *cr,
-                           GtkWidget                    *widget,
                            const GdkRectangle           *background_area,
                            const GdkRectangle           *cell_area,
                            GtkTextIter                  *start,
@@ -90,6 +89,7 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	gfloat yalign;
 
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
+	view = gtk_source_gutter_renderer_get_view (renderer);
 
 	if (text->priv->is_markup)
 	{
@@ -126,11 +126,11 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	                                          &xalign,
 	                                          &yalign);
 
-	gtk_paint_layout (gtk_widget_get_style (widget),
+	gtk_paint_layout (gtk_widget_get_style (GTK_WIDGET (view)),
 	                  cr,
-	                  gtk_widget_get_state (widget),
+	                  gtk_widget_get_state (GTK_WIDGET (view)),
 	                  TRUE,
-	                  widget,
+	                  GTK_WIDGET (view),
 	                  "gtksourcegutterrenderertext",
 	                  cell_area->x + (cell_area->width - width) * xalign,
 	                  cell_area->y + (cell_area->height - height) * yalign,
@@ -156,7 +156,6 @@ gutter_renderer_text_end (GtkSourceGutterRenderer *renderer)
 static void
 gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
                                cairo_t                 *cr,
-                               GtkWidget               *widget,
                                gint                    *width,
                                gint                    *height)
 {
@@ -173,7 +172,8 @@ gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
 	{
 		PangoLayout *layout;
 
-		layout = gtk_widget_create_pango_layout (widget, NULL);
+		layout = gtk_widget_create_pango_layout (GTK_WIDGET (gtk_source_gutter_renderer_get_view (renderer)),
+		                                         NULL);
 
 		if (text->priv->measure_is_markup)
 		{

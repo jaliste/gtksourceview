@@ -385,7 +385,6 @@ calculate_size (GtkSourceGutter  *gutter,
 
 		gtk_source_gutter_renderer_get_size (renderer->renderer,
 		                                     cr,
-		                                     GTK_WIDGET (gutter->priv->view),
 		                                     &renderer->width,
 		                                     &renderer->height);
 	}
@@ -1218,7 +1217,6 @@ on_view_draw (GtkSourceView   *view,
 
 			gtk_source_gutter_renderer_begin (renderer->renderer,
 			                                  cr,
-			                                  GTK_WIDGET (gutter->priv->view),
 			                                  &background_area,
 			                                  &cell_area,
 			                                  &start,
@@ -1328,7 +1326,6 @@ on_view_draw (GtkSourceView   *view,
 			}
 
 			gtk_source_gutter_renderer_query_data (renderer->renderer,
-			                                       GTK_WIDGET (gutter->priv->view),
 			                                       &start,
 			                                       &end,
 			                                       state);
@@ -1341,7 +1338,6 @@ on_view_draw (GtkSourceView   *view,
 			/* Call render with correct area */
 			gtk_source_gutter_renderer_draw (renderer->renderer,
 			                                 cr,
-			                                 GTK_WIDGET (gutter->priv->view),
 			                                 &background_area,
 			                                 &cell_area,
 			                                 &start,

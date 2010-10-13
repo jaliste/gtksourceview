@@ -75,7 +75,6 @@ struct _GtkSourceGutterRendererClass
 	/*< public >*/
 	void (*begin)               (GtkSourceGutterRenderer     *renderer,
 	                             cairo_t                     *cr,
-	                             GtkWidget                   *widget,
 	                             const GdkRectangle          *background_area,
 	                             const GdkRectangle          *cell_area,
 	                             GtkTextIter                 *start,
@@ -83,7 +82,6 @@ struct _GtkSourceGutterRendererClass
 
 	void (*draw)                (GtkSourceGutterRenderer      *renderer,
 	                             cairo_t                      *cr,
-	                             GtkWidget                    *widget,
 	                             const GdkRectangle           *background_area,
 	                             const GdkRectangle           *cell_area,
 	                             GtkTextIter                  *start,
@@ -94,7 +92,6 @@ struct _GtkSourceGutterRendererClass
 
 	void (*get_size)            (GtkSourceGutterRenderer      *renderer,
 	                             cairo_t                      *cr,
-	                             GtkWidget                    *widget,
 	                             gint                         *width,
 	                             gint                         *height);
 
@@ -121,7 +118,6 @@ struct _GtkSourceGutterRendererClass
 	                             GtkTooltip                   *tooltip);
 
 	void (*query_data)          (GtkSourceGutterRenderer      *renderer,
-	                             GtkWidget                    *widget,
 	                             GtkTextIter                  *start,
 	                             GtkTextIter                  *end,
 	                             GtkSourceGutterRendererState  state);
@@ -131,7 +127,6 @@ GType gtk_source_gutter_renderer_get_type (void) G_GNUC_CONST;
 
 void     gtk_source_gutter_renderer_begin           (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
-                                                     GtkWidget                    *widget,
                                                      const GdkRectangle           *background_area,
                                                      const GdkRectangle           *cell_area,
                                                      GtkTextIter                  *start,
@@ -139,7 +134,6 @@ void     gtk_source_gutter_renderer_begin           (GtkSourceGutterRenderer    
 
 void     gtk_source_gutter_renderer_draw            (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
-                                                     GtkWidget                    *widget,
                                                      const GdkRectangle           *background_area,
                                                      const GdkRectangle           *cell_area,
                                                      GtkTextIter                  *start,
@@ -150,7 +144,6 @@ void     gtk_source_gutter_renderer_end             (GtkSourceGutterRenderer    
 
 void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer      *renderer,
                                                      cairo_t                      *cr,
-                                                     GtkWidget                    *widget,
                                                      gint                         *width,
                                                      gint                         *height);
 
@@ -209,7 +202,6 @@ gboolean gtk_source_gutter_renderer_query_tooltip   (GtkSourceGutterRenderer    
 
 /* Emits the 'query-data' signal */
 void     gtk_source_gutter_renderer_query_data      (GtkSourceGutterRenderer      *renderer,
-                                                     GtkWidget                    *widget,
                                                      GtkTextIter                  *start,
                                                      GtkTextIter                  *end,
                                                      GtkSourceGutterRendererState  state);
