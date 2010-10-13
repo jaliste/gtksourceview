@@ -53,7 +53,9 @@ enum
 {
 	PROP_0,
 	PROP_VIEW,
-	PROP_WINDOW_TYPE
+	PROP_WINDOW_TYPE,
+	PROP_XPAD,
+	PROP_YPAD
 };
 
 typedef struct
@@ -68,6 +70,8 @@ typedef struct
 
 	guint queue_draw_handler;
 	guint size_changed_handler;
+	guint notify_xpad_handler;
+	guint notify_ypad_handler;
 } Renderer;
 
 enum
@@ -86,8 +90,13 @@ struct _GtkSourceGutterPrivate
 {
 	GtkSourceView *view;
 	GtkTextWindowType window_type;
+
 	gint size;
 	GList *renderers;
+
+	gint xpad;
+	gint ypad;
+
 	guint signals[LAST_EXTERNAL_SIGNAL];
 };
 
@@ -158,6 +167,14 @@ on_renderer_queue_draw (GtkSourceGutterRenderer *renderer,
 	do_redraw (gutter);
 }
 
+static void
+on_renderer_notify_padding (GtkSourceGutterRenderer *renderer,
+                            GParamSpec              *spec,
+                            GtkSourceGutter         *gutter)
+{
+	ensure_renderer_sizes (gutter);
+}
+
 static Renderer *
 renderer_new (GtkSourceGutter         *gutter,
               GtkSourceGutterRenderer *renderer,
@@ -173,6 +190,8 @@ renderer_new (GtkSourceGutter         *gutter,
 	{
 		ret->renderer = g_object_ref (renderer);
 	}
+
+	g_object_set (renderer, "view", gutter->priv->view, NULL);
 
 	ret->state = GTK_SOURCE_GUTTER_RENDERER_STATE_NORMAL;
 	ret->position = position;
@@ -192,6 +211,18 @@ renderer_new (GtkSourceGutter         *gutter,
 		                  G_CALLBACK (on_renderer_queue_draw),
 		                  gutter);
 
+	ret->notify_xpad_handler =
+		g_signal_connect (renderer,
+		                  "notify::xpad",
+		                  G_CALLBACK (on_renderer_notify_padding),
+		                  gutter);
+
+	ret->notify_ypad_handler =
+		g_signal_connect (renderer,
+		                  "notify::ypad",
+		                  G_CALLBACK (on_renderer_notify_padding),
+		                  gutter);
+
 	return ret;
 }
 
@@ -203,6 +234,12 @@ renderer_free (Renderer *renderer)
 
 	g_signal_handler_disconnect (renderer->renderer,
 	                             renderer->size_changed_handler);
+
+	g_signal_handler_disconnect (renderer->renderer,
+	                             renderer->notify_xpad_handler);
+
+	g_signal_handler_disconnect (renderer->renderer,
+	                             renderer->notify_ypad_handler);
 
 	g_object_unref (renderer->renderer);
 	g_slice_free (Renderer, renderer);
@@ -253,13 +290,19 @@ gtk_source_gutter_get_property (GObject    *object,
 	{
 		case PROP_VIEW:
 			g_value_set_object (value, self->priv->view);
-		break;
+			break;
 		case PROP_WINDOW_TYPE:
 			g_value_set_enum (value, self->priv->window_type);
-		break;
+			break;
+		case PROP_XPAD:
+			g_value_set_int (value, self->priv->xpad);
+			break;
+		case PROP_YPAD:
+			g_value_set_int (value, self->priv->ypad);
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-		break;
+			break;
 	}
 }
 
@@ -342,11 +385,7 @@ calculate_size (GtkSourceGutter  *gutter,
                 cairo_t          *cr,
                 Renderer         *renderer)
 {
-	gboolean visible = TRUE;
-
-	g_object_get (renderer->renderer, "visible", &visible, NULL);
-
-	if (!visible)
+	if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
 	{
 		renderer->width = -1;
 		renderer->height = -1;
@@ -381,16 +420,34 @@ calculate_sizes (GtkSourceGutter  *gutter,
 		Renderer *renderer = item->data;
 		gint width;
 
-		calculate_size (gutter, cr, renderer);
+		if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
+		{
+			width = 0;
+		}
+		else
+		{
+			gint xpad;
 
-		width = MAX(0, renderer->width);
+			calculate_size (gutter, cr, renderer);
+
+			gtk_source_gutter_renderer_get_padding (renderer->renderer,
+			                                        &xpad,
+			                                        NULL);
+
+			width = renderer->width + 2 * xpad;
+		}
 
 		if (sizes)
 		{
 			g_array_append_val (sizes, width);
 		}
 
-		total_width += width;
+		total_width += width + gutter->priv->xpad;
+	}
+
+	if (gutter->priv->renderers)
+	{
+		total_width += gutter->priv->xpad;
 	}
 
 	return total_width;
@@ -426,6 +483,46 @@ ensure_renderer_sizes (GtkSourceGutter *gutter)
 	}
 }
 
+static gboolean
+set_padding (GtkSourceGutter *gutter,
+             gint            *field,
+             gint             padding,
+             const gchar     *name,
+             gboolean         resize)
+{
+	if (*field == padding || padding < 0)
+	{
+		return FALSE;
+	}
+
+	*field = padding;
+
+	g_object_notify (G_OBJECT (gutter), name);
+
+	if (resize)
+	{
+		ensure_renderer_sizes (gutter);
+	}
+
+	return TRUE;
+}
+
+static gboolean
+set_xpad (GtkSourceGutter *gutter,
+          gint             xpad,
+          gboolean         resize)
+{
+	return set_padding (gutter, &gutter->priv->xpad, xpad, "xpad", resize);
+}
+
+static gboolean
+set_ypad (GtkSourceGutter *gutter,
+          gint             ypad,
+          gboolean         resize)
+{
+	return set_padding (gutter, &gutter->priv->ypad, ypad, "ypad", resize);
+}
+
 static void
 gtk_source_gutter_set_property (GObject       *object,
                                 guint          prop_id,
@@ -438,14 +535,19 @@ gtk_source_gutter_set_property (GObject       *object,
 	{
 		case PROP_VIEW:
 			set_view (self, GTK_SOURCE_VIEW (g_value_get_object (value)));
-
-		break;
+			break;
 		case PROP_WINDOW_TYPE:
 			self->priv->window_type = g_value_get_enum (value);
-		break;
+			break;
+		case PROP_XPAD:
+			set_xpad (self, g_value_get_int (value), TRUE);
+			break;
+		case PROP_YPAD:
+			set_ypad (self, g_value_get_int (value), TRUE);
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-		break;
+			break;
 	}
 }
 
@@ -488,6 +590,28 @@ gtk_source_gutter_class_init (GtkSourceGutterClass *klass)
 	                                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
 	g_type_class_add_private (object_class, sizeof(GtkSourceGutterPrivate));
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_XPAD,
+	                                 g_param_spec_int ("xpad",
+	                                                   "X Padding",
+	                                                   "The x-padding",
+	                                                   -1,
+	                                                   G_MAXINT,
+	                                                   0,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_YPAD,
+	                                 g_param_spec_int ("ypad",
+	                                                   "Y Padding",
+	                                                   "The y-padding",
+	                                                   -1,
+	                                                   G_MAXINT,
+	                                                   0,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 }
 
 static void
@@ -609,7 +733,6 @@ renderer_find (GtkSourceGutter          *gutter,
 	return FALSE;
 }
 
-
 /**
  * gtk_source_gutter_reorder:
  * @gutter: a #GtkSourceGutterRenderer.
@@ -666,6 +789,8 @@ gtk_source_gutter_remove (GtkSourceGutter         *gutter,
 		gutter->priv->renderers =
 			g_list_remove_link (gutter->priv->renderers,
 			                    retlist);
+
+		g_object_set (ret->renderer, "view", NULL, NULL);
 
 		ensure_renderer_sizes (gutter);
 		renderer_free (ret);
@@ -828,10 +953,12 @@ on_view_draw (GtkSourceView   *view,
 	GtkTextIter start;
 	GtkTextIter end;
 	GtkTextBuffer *buffer;
-	GdkRectangle rect;
+	GdkRectangle background_area;
+	GdkRectangle cell_area;
 	GtkTextIter selection_start;
 	GtkTextIter selection_end;
 	gboolean has_selection;
+	gint idx;
 
 	window = gtk_source_gutter_get_window (gutter);
 
@@ -881,40 +1008,68 @@ on_view_draw (GtkSourceView   *view,
 	i = 0;
 	x = 0;
 
-	rect.x = 0;
-	rect.height = get_lines (text_view, y1, y2, pixels, heights, numbers, &count, &start, &end);
+	background_area.x = 0;
+	background_area.height = get_lines (text_view,
+	                                    y1,
+	                                    y2,
+	                                    pixels,
+	                                    heights,
+	                                    numbers,
+	                                    &count,
+	                                    &start,
+	                                    &end);
+
+	cell_area.x = gutter->priv->xpad;
+	cell_area.height = background_area.height;
 
 	gtk_text_view_buffer_to_window_coords (text_view,
 	                                       gutter->priv->window_type,
 	                                       0,
 	                                       g_array_index (pixels, gint, 0),
 	                                       NULL,
-	                                       &rect.y);
+	                                       &background_area.y);
+
+	cell_area.y = background_area.y;
 
 	item = gutter->priv->renderers;
+	idx = 0;
 
 	while (item)
 	{
 		Renderer *renderer = item->data;
+		gint xpad;
+		gint width;
 
-		rect.width = g_array_index (sizes, gint, i);
+		width = g_array_index (sizes, gint, idx++);
 
-		cairo_save (cr);
+		if (gtk_source_gutter_renderer_get_visible (renderer->renderer))
+		{
+			gtk_source_gutter_renderer_get_padding (renderer->renderer,
+			                                        &xpad,
+			                                        NULL);
 
-		gdk_cairo_rectangle (cr, &rect);
-		cairo_clip (cr);
+			background_area.width = width;
 
-		gtk_source_gutter_renderer_begin (renderer->renderer,
-		                                  cr,
-		                                  GTK_WIDGET (gutter->priv->view),
-		                                  &rect,
-		                                  &rect,
-		                                  &start,
-		                                  &end);
+			cell_area.width = width - 2 * xpad;
+			cell_area.x = background_area.x + xpad;
 
-		cairo_restore (cr);
+			cairo_save (cr);
 
-		rect.x += rect.width;
+			gdk_cairo_rectangle (cr, &background_area);
+			cairo_clip (cr);
+
+			gtk_source_gutter_renderer_begin (renderer->renderer,
+			                                  cr,
+			                                  GTK_WIDGET (gutter->priv->view),
+			                                  &background_area,
+			                                  &cell_area,
+			                                  &start,
+			                                  &end);
+
+			cairo_restore (cr);
+
+			background_area.x += background_area.width;
+		}
 
 		item = g_list_next (item);
 	}
@@ -948,8 +1103,6 @@ on_view_draw (GtkSourceView   *view,
 	{
 		gint pos;
 		gint line_to_paint;
-		GdkRectangle cell_area;
-		gint idx = 0;
 
 		end = start;
 
@@ -967,21 +1120,41 @@ on_view_draw (GtkSourceView   *view,
 
 		line_to_paint = g_array_index (numbers, gint, i);
 
-		cell_area.x = 0;
-		cell_area.y = pos;
-		cell_area.height = g_array_index (heights, gint, i);
+		background_area.y = pos;
+		background_area.height = g_array_index (heights, gint, i);
+		background_area.x = 0;
+
+		idx = 0;
 
 		for (item = gutter->priv->renderers; item; item = g_list_next (item))
 		{
 			Renderer *renderer;
 			gint width;
 			GtkSourceGutterRendererState state;
+			gint xpad;
+			gint ypad;
 
 			renderer = item->data;
 			width = g_array_index (sizes, gint, idx++);
-			state = renderer->state;
 
-			cell_area.width = width;
+			if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
+			{
+				continue;
+			}
+
+			gtk_source_gutter_renderer_get_padding (renderer->renderer,
+			                                        &xpad,
+			                                        &ypad);
+
+			background_area.width = width;
+
+			cell_area.y = background_area.y + ypad;
+			cell_area.height = background_area.height - 2 * ypad;
+
+			cell_area.x = background_area.x + xpad;
+			cell_area.width = background_area.width - 2 * xpad;
+
+			state = renderer->state;
 
 			if (line_to_paint == cur_line)
 			{
@@ -997,20 +1170,21 @@ on_view_draw (GtkSourceView   *view,
 			}
 
 			gtk_source_gutter_renderer_query_data (renderer->renderer,
+			                                       GTK_WIDGET (gutter->priv->view),
 			                                       &start,
 			                                       &end,
 			                                       state);
 
 			cairo_save (cr);
 
-			gdk_cairo_rectangle (cr, &cell_area);
+			gdk_cairo_rectangle (cr, &background_area);
 			cairo_clip (cr);
 
 			/* Call render with correct area */
 			gtk_source_gutter_renderer_draw (renderer->renderer,
 			                                 cr,
 			                                 GTK_WIDGET (gutter->priv->view),
-			                                 &cell_area,
+			                                 &background_area,
 			                                 &cell_area,
 			                                 &start,
 			                                 &end,
@@ -1018,7 +1192,7 @@ on_view_draw (GtkSourceView   *view,
 
 			cairo_restore (cr);
 
-			cell_area.x += cell_area.width;
+			background_area.x += background_area.width;
 		}
 
 		gtk_text_iter_forward_line (&start);
@@ -1028,7 +1202,10 @@ on_view_draw (GtkSourceView   *view,
 	{
 		Renderer *renderer = item->data;
 
-		gtk_source_gutter_renderer_end (renderer->renderer);
+		if (gtk_source_gutter_renderer_get_visible (renderer->renderer))
+		{
+			gtk_source_gutter_renderer_end (renderer->renderer);
+		}
 	}
 
 	g_array_free (numbers, TRUE);
@@ -1060,7 +1237,7 @@ renderer_at_x (GtkSourceGutter *gutter,
 
 		w = renderer->width;
 
-		if (x >= s && x < s + w)
+		if (w > 0 && x >= s && x < s + w)
 		{
 			if (width)
 			{
@@ -1105,16 +1282,23 @@ redraw_for_window (GtkSourceGutter *gutter,
 		Renderer *renderer = item->data;
 		GtkSourceGutterRendererState old_state = renderer->state;
 
-		if (renderer != at_x)
+		if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
 		{
-			renderer->state &= ~GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT;
+			renderer->state = GTK_SOURCE_GUTTER_RENDERER_STATE_NORMAL;
 		}
 		else
 		{
-			renderer->state |= GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT;
-		}
+			if (renderer != at_x)
+			{
+				renderer->state &= ~GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT;
+			}
+			else
+			{
+				renderer->state |= GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT;
+			}
 
-		redraw |= (renderer->state != old_state);
+			redraw |= (renderer->state != old_state);
+		}
 	}
 
 	if (redraw)
@@ -1180,7 +1364,11 @@ get_renderer_rect (GtkSourceGutter *gutter,
 	{
 		Renderer *r = item->data;
 
-		rectangle->x += r->width;
+		if (gtk_source_gutter_renderer_get_visible (r->renderer))
+		{
+			rectangle->x += r->width;
+		}
+
 		item = g_list_next (item);
 	}
 
@@ -1313,4 +1501,33 @@ on_view_query_tooltip (GtkSourceView   *view,
 	                                                 tooltip);
 }
 
-/* vi:ts=8 */
+void
+gtk_source_gutter_set_padding (GtkSourceGutter *gutter,
+                               gint             xpad,
+                               gint             ypad)
+{
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER (gutter));
+
+	if (set_xpad (gutter, xpad, FALSE) || set_ypad (gutter, ypad, FALSE))
+	{
+		ensure_renderer_sizes (gutter);
+	}
+}
+
+void
+gtk_source_gutter_get_padding (GtkSourceGutter *gutter,
+                               gint            *xpad,
+                               gint            *ypad)
+{
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER (gutter));
+
+	if (xpad)
+	{
+		*xpad = gutter->priv->xpad;
+	}
+
+	if (ypad)
+	{
+		*ypad = gutter->priv->ypad;
+	}
+}

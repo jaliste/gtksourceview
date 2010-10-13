@@ -41,7 +41,7 @@
 #include "gtksourcecompletion-private.h"
 #include "gtksourcecompletionutils.h"
 #include "gtksourcegutter-private.h"
-#include "gtksourcegutterrenderertext.h"
+#include "gtksourcegutterrendererlines.h"
 
 /**
  * SECTION:view
@@ -1230,89 +1230,6 @@ marks_renderer_data_func (GtkSourceGutter *gutter,
 	              NULL);
 }*/
 
-static void
-line_renderer_query_data (GtkSourceGutterRenderer      *renderer,
-                          GtkTextIter                  *start,
-                          GtkTextIter                  *end,
-                          GtkSourceGutterRendererState  state,
-                          GtkSourceView                *view)
-{
-	gchar *text;
-	gint line;
-
-	line = gtk_text_iter_get_line (start) + 1;
-
-	if ((state & GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR) &&
-	    gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (view)))
-	{
-		text = g_strdup_printf ("<b>%d</b>", line);
-	}
-	else
-	{
-		text = g_strdup_printf ("%d", line);
-	}
-
-	g_object_set (G_OBJECT (renderer),
-	              "markup", text,
-	              "xalign", 1.0,
-	              "yalign", 0.0,
-	              NULL);
-
-	/*style = gtk_widget_get_style (GTK_WIDGET (view));
-	if (style != NULL)
-	{
-		g_object_set (G_OBJECT (renderer),
-			      "foreground-gdk", &style->fg[GTK_STATE_NORMAL],
-			      NULL);
-	}*/
-
-	g_free (text);
-}
-
-static void
-extend_selection_to_line (GtkTextBuffer *buf, GtkTextIter *line_start)
-{
-	GtkTextIter start;
-	GtkTextIter end;
-	GtkTextIter line_end;
-
-	gtk_text_buffer_get_selection_bounds (buf, &start, &end);
-
-	line_end = *line_start;
-
-	if (!gtk_text_iter_ends_line (&line_end))
-		gtk_text_iter_forward_to_line_end (&line_end);
-
-	if (gtk_text_iter_compare (&start, line_start) < 0)
-	{
-		gtk_text_buffer_select_range (buf, &start, &line_end);
-	}
-	else if (gtk_text_iter_compare (&end, &line_end) < 0)
-	{
-		/* if the selection is in this line, extend
-		 * the selection to the whole line */
-		gtk_text_buffer_select_range (buf, &line_end, line_start);
-	}
-	else
-	{
-		gtk_text_buffer_select_range (buf, &end, line_start);
-	}
-}
-
-static void
-select_line (GtkTextBuffer *buf, GtkTextIter *line_start)
-{
-	GtkTextIter iter;
-
-	iter = *line_start;
-
-	if (!gtk_text_iter_ends_line (&iter))
-		gtk_text_iter_forward_to_line_end (&iter);
-
-	/* Select the line, put the cursor at the end of the line */
-	gtk_text_buffer_select_range (buf, &iter, line_start);
-}
-
 /*static void
 marks_renderer_size_func (GtkSourceGutter *gutter,
                           GtkCellRenderer *renderer,
@@ -1338,48 +1255,6 @@ marks_renderer_size_func (GtkSourceGutter *gutter,
 	g_object_unref (pixbuf);
 }*/
 
-static void
-line_renderer_activate (GtkSourceGutterRenderer *renderer,
-                        GtkTextIter             *iter,
-                        const GdkRectangle      *rect,
-                        GdkEvent                *event,
-                        GtkSourceView           *view)
-{
-	GtkTextBuffer *buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-
-	if (event->type == GDK_BUTTON_PRESS && (event->button.button == 1))
-	{
-		if ((event->button.state & GDK_CONTROL_MASK) != 0)
-		{
-			/* Single click + Ctrl -> select the line */
-			select_line (buf, iter);
-		}
-		else if ((event->button.state & GDK_SHIFT_MASK) != 0)
-		{
-			/* Single click + Shift -> extended current
-			   selection to include the clicked line */
-			extend_selection_to_line (buf, iter);
-		}
-		else
-		{
-			gtk_text_buffer_place_cursor (buf, iter);
-		}
-	}
-	else if (event->type == GDK_2BUTTON_PRESS && (event->button.button == 1))
-	{
-		select_line (buf, iter);
-	}
-}
-
-static gboolean
-line_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
-                                 GtkTextIter             *iter,
-                                 const GdkRectangle      *area,
-                                 GdkEvent                *event,
-                                 GtkSourceView           *view)
-{
-	return TRUE;
-}
 
 /*static void
 marks_renderer_activated (GtkSourceGutter *gutter,
@@ -1569,7 +1444,7 @@ init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
 
-	view->priv->line_renderer = gtk_source_gutter_renderer_text_new ();
+	view->priv->line_renderer = gtk_source_gutter_renderer_lines_new ();
 	//view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
@@ -1582,22 +1457,8 @@ init_left_gutter (GtkSourceView *view)
 	                          view->priv->marks_renderer,
 	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);*/
 
-	g_object_set (view->priv->line_renderer, "xpad", 3, NULL);
-
-	g_signal_connect (view->priv->line_renderer,
-	                  "query-data",
-	                  G_CALLBACK (line_renderer_query_data),
-	                  view);
-
-	g_signal_connect (view->priv->line_renderer,
-	                  "query-activatable",
-	                  G_CALLBACK (line_renderer_query_activatable),
-	                  view);
-
-	g_signal_connect (view->priv->line_renderer,
-	                  "activate",
-	                  G_CALLBACK (line_renderer_activate),
-	                  view);
+	gtk_source_gutter_renderer_set_padding (view->priv->line_renderer, 3, -1);
+	gtk_source_gutter_renderer_set_alignment (view->priv->line_renderer, 1, 0);
 }
 
 static void
@@ -1801,42 +1662,6 @@ buffer_style_scheme_changed_cb (GtkSourceBuffer *buffer,
 }
 
 static void
-buffer_changed_cb (GtkSourceBuffer *buffer,
-                   GtkSourceView   *view)
-{
-	gint num_lines;
-
-	num_lines = gtk_text_buffer_get_line_count (GTK_TEXT_BUFFER (buffer));
-
-	gint num_digits = 0;
-	gint num = num_lines;
-
-	while (num > 0)
-	{
-		num /= 10;
-		++num_digits;
-	}
-
-	num_digits = MAX(num_digits, 2);
-
-	if (num_digits != view->priv->num_line_digits)
-	{
-		gchar *markup;
-
-		view->priv->num_line_digits = num_digits;
-
-		num_lines = MAX(num_lines, 99);
-
-		markup = g_strdup_printf ("<b>%d</b>", num_lines);
-
-		g_object_set (view->priv->line_renderer, "markup", markup, NULL);
-		gtk_source_gutter_renderer_size_changed (view->priv->line_renderer);
-
-		g_free (markup);
-	}
-}
-
-static void
 set_source_buffer (GtkSourceView *view,
 		   GtkTextBuffer *buffer)
 {
@@ -1854,10 +1679,6 @@ set_source_buffer (GtkSourceView *view,
 		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
 						      buffer_style_scheme_changed_cb,
 						      view);
-
-		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
-		                                      buffer_changed_cb,
-		                                      view);
 
 		g_object_unref (view->priv->source_buffer);
 	}
@@ -1878,10 +1699,6 @@ set_source_buffer (GtkSourceView *view,
 				  "notify::style-scheme",
 				  G_CALLBACK (buffer_style_scheme_changed_cb),
 				  view);
-		g_signal_connect (buffer,
-		                  "changed",
-		                  G_CALLBACK (buffer_changed_cb),
-		                  view);
 	}
 	else
 	{
@@ -1894,11 +1711,6 @@ set_source_buffer (GtkSourceView *view,
 	if (buffer)
 	{
 		gtk_source_view_update_style_scheme (view);
-	}
-
-	if (view->priv->source_buffer)
-	{
-		buffer_changed_cb (view->priv->source_buffer, view);
 	}
 }
 
@@ -3251,7 +3063,8 @@ gtk_source_view_set_show_line_numbers (GtkSourceView *view,
 		return;
 	}
 
-	g_object_set (view->priv->line_renderer, "visible", show, NULL);
+	gtk_source_gutter_renderer_set_visible (view->priv->line_renderer,
+	                                        show);
 
 	view->priv->show_line_numbers = show;
 

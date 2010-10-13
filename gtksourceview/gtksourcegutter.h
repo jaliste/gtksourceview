@@ -70,6 +70,14 @@ void gtk_source_gutter_remove			(GtkSourceGutter         *gutter,
 
 void gtk_source_gutter_queue_draw		(GtkSourceGutter         *gutter);
 
+void gtk_source_gutter_set_padding              (GtkSourceGutter         *gutter,
+                                                 gint                     xpad,
+                                                 gint                     ypad);
+
+void gtk_source_gutter_get_padding              (GtkSourceGutter         *gutter,
+                                                 gint                    *xpad,
+                                                 gint                    *ypad);
+
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_GUTTER_H__ */

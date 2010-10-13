@@ -41,7 +41,7 @@ typedef struct _GtkSourceGutterRendererTextPrivate	GtkSourceGutterRendererTextPr
 struct _GtkSourceGutterRendererText
 {
 	/*< private >*/
-	GInitiallyUnowned parent;
+	GtkSourceGutterRenderer parent;
 
 	GtkSourceGutterRendererTextPrivate *priv;
 
@@ -51,7 +51,7 @@ struct _GtkSourceGutterRendererText
 struct _GtkSourceGutterRendererTextClass
 {
 	/*< private >*/
-	GInitiallyUnownedClass parent_class;
+	GtkSourceGutterRendererClass parent_class;
 
 	/*< public >*/
 };
@@ -59,6 +59,14 @@ struct _GtkSourceGutterRendererTextClass
 GType gtk_source_gutter_renderer_text_get_type (void) G_GNUC_CONST;
 
 GtkSourceGutterRenderer *gtk_source_gutter_renderer_text_new (void);
+
+void gtk_source_gutter_renderer_text_set_markup (GtkSourceGutterRendererText *renderer,
+                                                 const gchar                 *markup,
+                                                 gint                         length);
+
+void gtk_source_gutter_renderer_text_set_text (GtkSourceGutterRendererText *renderer,
+                                               const gchar                 *text,
+                                               gint                         length);
 
 G_END_DECLS
 

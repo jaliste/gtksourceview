@@ -28,14 +28,17 @@
 
 G_BEGIN_DECLS
 
-#define GTK_TYPE_SOURCE_GUTTER_RENDERER               (gtk_source_gutter_renderer_get_type ())
-#define GTK_SOURCE_GUTTER_RENDERER(obj)               (G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRenderer))
-#define GTK_IS_SOURCE_GUTTER_RENDERER(obj)            (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER))
-#define GTK_SOURCE_GUTTER_RENDERER_GET_INTERFACE(obj) (G_TYPE_INSTANCE_GET_INTERFACE ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRendererIface))
+#define GTK_TYPE_SOURCE_GUTTER_RENDERER			(gtk_source_gutter_renderer_get_type ())
+#define GTK_SOURCE_GUTTER_RENDERER(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRenderer))
+#define GTK_SOURCE_GUTTER_RENDERER_CONST(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRenderer const))
+#define GTK_SOURCE_GUTTER_RENDERER_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRendererClass))
+#define GTK_IS_SOURCE_GUTTER_RENDERER(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER))
+#define GTK_IS_SOURCE_GUTTER_RENDERER_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_SOURCE_GUTTER_RENDERER))
+#define GTK_SOURCE_GUTTER_RENDERER_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRendererClass))
 
-typedef struct _GtkSourceGutterRenderer                GtkSourceGutterRenderer;
-typedef struct _GtkSourceGutterRendererIface           GtkSourceGutterRendererIface;
-typedef struct _GtkSourceGutterRendererIface           GtkSourceGutterRendererInterface;
+typedef struct _GtkSourceGutterRenderer		GtkSourceGutterRenderer;
+typedef struct _GtkSourceGutterRendererClass	GtkSourceGutterRendererClass;
+typedef struct _GtkSourceGutterRendererPrivate	GtkSourceGutterRendererPrivate;
 
 /**
  * GtkSourceGutterRendererState:
@@ -56,10 +59,20 @@ typedef enum
 	GTK_SOURCE_GUTTER_RENDERER_STATE_SELECTED = 1 << 2
 } GtkSourceGutterRendererState;
 
-struct _GtkSourceGutterRendererIface
+struct _GtkSourceGutterRenderer
 {
-	GTypeInterface parent;
+	/*< private >*/
+	GInitiallyUnowned parent;
 
+	GtkSourceGutterRendererPrivate *priv;
+};
+
+struct _GtkSourceGutterRendererClass
+{
+	/*< private >*/
+	GInitiallyUnownedClass parent_class;
+
+	/*< public >*/
 	void (*begin)               (GtkSourceGutterRenderer     *renderer,
 	                             cairo_t                     *cr,
 	                             GtkWidget                   *widget,
@@ -85,7 +98,7 @@ struct _GtkSourceGutterRendererIface
 	                             gint                         *width,
 	                             gint                         *height);
 
-	/* Signal handler */
+	/* Signal handlers */
 	gboolean (*query_activatable) (GtkSourceGutterRenderer      *renderer,
 	                               GtkTextIter                  *iter,
 	                               const GdkRectangle           *area,
@@ -108,6 +121,7 @@ struct _GtkSourceGutterRendererIface
 	                             GtkTooltip                   *tooltip);
 
 	void (*query_data)          (GtkSourceGutterRenderer      *renderer,
+	                             GtkWidget                    *widget,
 	                             GtkTextIter                  *start,
 	                             GtkTextIter                  *end,
 	                             GtkSourceGutterRendererState  state);
@@ -140,6 +154,27 @@ void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer    
                                                      gint                         *width,
                                                      gint                         *height);
 
+void     gtk_source_gutter_renderer_set_visible     (GtkSourceGutterRenderer      *renderer,
+                                                     gboolean                      visible);
+
+gboolean gtk_source_gutter_renderer_get_visible     (GtkSourceGutterRenderer      *renderer);
+
+void     gtk_source_gutter_renderer_get_padding     (GtkSourceGutterRenderer      *renderer,
+                                                     gint                         *xpad,
+                                                     gint                         *ypad);
+
+void     gtk_source_gutter_renderer_set_padding     (GtkSourceGutterRenderer      *renderer,
+                                                     gint                          xpad,
+                                                     gint                          ypad);
+
+void     gtk_source_gutter_renderer_get_alignment   (GtkSourceGutterRenderer      *renderer,
+                                                     gfloat                       *xalign,
+                                                     gfloat                       *yalign);
+
+void     gtk_source_gutter_renderer_set_alignment   (GtkSourceGutterRenderer      *renderer,
+                                                     gfloat                        xalign,
+                                                     gfloat                        yalign);
+
 /* Emits the 'activate' signal */
 void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer      *renderer,
                                                      GtkTextIter                  *iter,
@@ -168,6 +203,7 @@ gboolean gtk_source_gutter_renderer_query_tooltip   (GtkSourceGutterRenderer    
 
 /* Emits the 'query-data' signal */
 void     gtk_source_gutter_renderer_query_data      (GtkSourceGutterRenderer      *renderer,
+                                                     GtkWidget                    *widget,
                                                      GtkTextIter                  *start,
                                                      GtkTextIter                  *end,
                                                      GtkSourceGutterRendererState  state);
