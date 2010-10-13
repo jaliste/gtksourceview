@@ -70,6 +70,27 @@ gutter_renderer_text_begin (GtkSourceGutterRenderer      *renderer,
 
 	create_layout (text, GTK_WIDGET (gtk_source_gutter_renderer_get_view (renderer)));
 }
+
+static void
+center_on (GtkSourceGutterRenderer *renderer,
+           const GdkRectangle      *cell_area,
+           GtkTextIter             *iter,
+           gint                     width,
+           gint                     height,
+           gfloat                   xalign,
+           gfloat                   yalign,
+           gint                    *x,
+           gint                    *y)
+{
+	GdkRectangle location;
+	GtkTextView *view;
+
+	view = gtk_source_gutter_renderer_get_view (renderer);
+
+	gtk_text_view_get_iter_location (view, iter, &location);
+
+	*x = cell_area->x + (cell_area->width - width) * xalign;
+	*y = cell_area->y + (location.height - height) * yalign;
 }
 
 static void
@@ -87,6 +108,10 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	PangoAttrList *attr_list;
 	gfloat xalign;
 	gfloat yalign;
+	GtkSourceGutterRendererAlignmentMode mode;
+	gint x;
+	gint y;
+	GtkTextView *view;
 
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 	view = gtk_source_gutter_renderer_get_view (renderer);
@@ -126,14 +151,46 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	                                          &xalign,
 	                                          &yalign);
 
+	mode = gtk_source_gutter_renderer_get_alignment_mode (renderer);
+
+	switch (mode)
+	{
+		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_CELL:
+			x = cell_area->x + (cell_area->width - width) * xalign;
+			y = cell_area->y + (cell_area->height - height) * yalign;
+		break;
+		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST:
+			center_on (renderer,
+			           cell_area,
+			           start,
+			           width,
+			           height,
+			           xalign,
+			           yalign,
+			           &x,
+			           &y);
+		break;
+		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_LAST:
+			center_on (renderer,
+			           cell_area,
+			           end,
+			           width,
+			           height,
+			           xalign,
+			           yalign,
+			           &x,
+			           &y);
+		break;
+	}
+
 	gtk_paint_layout (gtk_widget_get_style (GTK_WIDGET (view)),
 	                  cr,
 	                  gtk_widget_get_state (GTK_WIDGET (view)),
 	                  TRUE,
 	                  GTK_WIDGET (view),
 	                  "gtksourcegutterrenderertext",
-	                  cell_area->x + (cell_area->width - width) * xalign,
-	                  cell_area->y + (cell_area->height - height) * yalign,
+	                  x,
+	                  y,
 	                  text->priv->cached_layout);
 }
 

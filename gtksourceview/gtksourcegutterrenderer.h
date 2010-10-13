@@ -59,6 +59,13 @@ typedef enum
 	GTK_SOURCE_GUTTER_RENDERER_STATE_SELECTED = 1 << 2
 } GtkSourceGutterRendererState;
 
+typedef enum
+{
+	GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_CELL,
+	GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST,
+	GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_LAST,
+} GtkSourceGutterRendererAlignmentMode;
+
 struct _GtkSourceGutterRenderer
 {
 	/*< private >*/
@@ -168,11 +175,16 @@ void     gtk_source_gutter_renderer_set_alignment   (GtkSourceGutterRenderer    
                                                      gfloat                        xalign,
                                                      gfloat                        yalign);
 
+void     gtk_source_gutter_renderer_set_alignment_mode (GtkSourceGutterRenderer              *renderer,
+                                                        GtkSourceGutterRendererAlignmentMode  mode);
 
 GtkTextWindowType
 	gtk_source_gutter_renderer_get_window_type  (GtkSourceGutterRenderer      *renderer);
 
 GtkTextView *gtk_source_gutter_renderer_get_view    (GtkSourceGutterRenderer      *renderer);
+
+GtkSourceGutterRendererAlignmentMode
+	gtk_source_gutter_renderer_get_alignment_mode (GtkSourceGutterRenderer    *renderer);
 
 /* Emits the 'activate' signal */
 void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer      *renderer,

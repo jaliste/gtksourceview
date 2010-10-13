@@ -48,12 +48,16 @@ struct _GtkSourceGutterRendererPrivate
 	gfloat xalign;
 	gfloat yalign;
 
+	GtkSourceGutterRendererAlignmentMode alignment_mode;
+
 	guint visible : 1;
 };
 
 static guint signals[NUM_SIGNALS] = {0,};
 
-G_DEFINE_ABSTRACT_TYPE (GtkSourceGutterRenderer, gtk_source_gutter_renderer, G_TYPE_INITIALLY_UNOWNED)
+G_DEFINE_ABSTRACT_TYPE (GtkSourceGutterRenderer,
+                        gtk_source_gutter_renderer,
+                        G_TYPE_INITIALLY_UNOWNED)
 
 enum
 {
@@ -64,6 +68,7 @@ enum
 	PROP_XALIGN,
 	PROP_YALIGN,
 	PROP_VIEW,
+	PROP_ALIGNMENT_MODE,
 	PROP_WINDOW_TYPE
 };
 
@@ -175,6 +180,20 @@ set_yalign (GtkSourceGutterRenderer *renderer,
 	                      emit);
 }
 
+static void
+set_alignment_mode (GtkSourceGutterRenderer              *renderer,
+                    GtkSourceGutterRendererAlignmentMode  mode)
+{
+	if (renderer->priv->alignment_mode == mode)
+	{
+		return;
+	}
+
+	renderer->priv->alignment_mode = mode;
+	g_object_notify (G_OBJECT (renderer), "alignment-mode");
+
+	gtk_source_gutter_renderer_queue_draw (renderer);
+}
 
 static void
 gtk_source_gutter_renderer_set_property (GObject      *object,
@@ -200,6 +219,9 @@ gtk_source_gutter_renderer_set_property (GObject      *object,
 			break;
 		case PROP_YALIGN:
 			set_yalign (self, g_value_get_float (value), TRUE);
+			break;
+		case PROP_ALIGNMENT_MODE:
+			set_alignment_mode (self, g_value_get_enum (value));
 			break;
 		case PROP_VIEW:
 			self->priv->view = g_value_get_object (value);
@@ -240,6 +262,9 @@ gtk_source_gutter_renderer_get_property (GObject    *object,
 			break;
 		case PROP_VIEW:
 			g_value_set_object (value, self->priv->view);
+			break;
+		case PROP_ALIGNMENT_MODE:
+			g_value_set_enum (value, self->priv->alignment_mode);
 			break;
 		case PROP_WINDOW_TYPE:
 			g_value_set_enum (value, self->priv->window_type);
@@ -465,6 +490,18 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	                                                      _("The view"),
 	                                                      GTK_TYPE_TEXT_VIEW,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_ALIGNMENT_MODE,
+	                                 g_param_spec_enum ("alignment-mode",
+	                                                    _("Alignment Mode"),
+	                                                    _("The alignment mode"),
+	                                                    GTK_TYPE_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE,
+	                                                    GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_CELL,
+	                                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+
 	g_object_class_install_property (object_class,
 	                                 PROP_WINDOW_TYPE,
 	                                 g_param_spec_enum ("window-type",
@@ -852,6 +889,40 @@ gtk_source_gutter_renderer_get_alignment (GtkSourceGutterRenderer *renderer,
 }
 
 /**
+ * gtk_source_gutter_renderer_set_alignment_mode:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @mode: a #GtkSourceGutterRendererAlignmentMode
+ *
+ * Set the alignment mode. The alignment mode describes the manner in which the
+ * renderer is aligned (see :xalign and :yalign).
+ *
+ **/
+void
+gtk_source_gutter_renderer_set_alignment_mode (GtkSourceGutterRenderer              *renderer,
+                                               GtkSourceGutterRendererAlignmentMode  mode)
+{
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
+
+	set_alignment_mode (renderer, mode);
+}
+
+/**
+ * gtk_source_gutter_renderer_get_alignment_mode:
+ * @renderer: a #GtkSourceGutterRenderer
+ *
+ * Get the alignment mode. The alignment mode describes the manner in which the
+ * renderer is aligned (see :xalign and :yalign).
+ *
+ * Returns: a #GtkSourceGutterRendererAlignmentMode
+ *
+ **/
+GtkSourceGutterRendererAlignmentMode
+gtk_source_gutter_renderer_get_alignment_mode (GtkSourceGutterRenderer *renderer)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), 0);
+
+	return renderer->priv->alignment_mode;
+}
 
 /**
  * gtk_source_gutter_renderer_get_window_type:
