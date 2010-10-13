@@ -141,8 +141,7 @@ gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
 	line = gtk_text_iter_get_line (start) + 1;
 
 	current_line = (state & GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR) &&
-	               GTK_IS_TEXT_VIEW (widget) &&
-	               gtk_text_view_get_cursor_visible (GTK_TEXT_VIEW (widget));
+	               gtk_text_view_get_cursor_visible (gtk_source_gutter_renderer_get_view (renderer));
 
 	if (current_line)
 	{
@@ -161,62 +160,30 @@ gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
 }
 
 static void
-on_buffer_notify (GtkSourceView                *view,
+on_buffer_notify (GtkTextView                  *view,
                   GParamSpec                   *spec,
                   GtkSourceGutterRendererLines *renderer)
 {
-	set_buffer (renderer, gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
-}
-
-static void
-view_notify (GtkSourceGutterRendererLines *renderer,
-             gpointer                      where_the_object_was)
-{
-	renderer->priv->view = NULL;
-}
-
-static void
-set_view (GtkSourceGutterRendererLines *renderer,
-          GtkSourceView                *view)
-{
-	set_buffer (renderer, NULL);
-
-	if (renderer->priv->view)
-	{
-		g_signal_handler_disconnect (renderer->priv->view,
-		                             renderer->priv->buffer_notify_handler_id);
-
-		g_object_weak_unref (G_OBJECT (renderer->priv->view),
-		                     (GWeakNotify)view_notify,
-		                     renderer);
-
-		renderer->priv->view = NULL;
-	}
-
-	if (view)
-	{
-		renderer->priv->view = view;
-
-		g_object_weak_ref (G_OBJECT (view),
-		                   (GWeakNotify)view_notify,
-		                   renderer);
-
-		renderer->priv->buffer_notify_handler_id =
-			g_signal_connect (renderer->priv->view,
-			                  "notify::buffer",
-			                  G_CALLBACK (on_buffer_notify),
-			                  renderer);
-	}
+	set_buffer (renderer, gtk_text_view_get_buffer (view));
 }
 
 static void
 gtk_source_gutter_renderer_lines_dispose (GObject *object)
 {
-	GtkSourceGutterRendererLines *renderer;
+	GtkSourceGutterRenderer *renderer;
+	GtkSourceGutterRendererLines *lines;
+	GtkTextView *view;
 
-	renderer = GTK_SOURCE_GUTTER_RENDERER_LINES (object);
+	renderer = GTK_SOURCE_GUTTER_RENDERER (object);
+	lines = GTK_SOURCE_GUTTER_RENDERER_LINES (object);
 
-	set_view (renderer, NULL);
+	view = gtk_source_gutter_renderer_get_view (renderer);
+
+	if (view != NULL)
+	{
+		g_signal_handler_disconnect (view,
+		                             lines->priv->buffer_notify_handler_id);
+	}
 
 	G_OBJECT_CLASS (gtk_source_gutter_renderer_lines_parent_class)->dispose (object);
 }
@@ -321,6 +288,22 @@ gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
 }
 
 static void
+gtk_source_gutter_renderer_lines_constructed (GObject *gobject)
+{
+	GtkSourceGutterRendererLines *lines;
+	GtkSourceGutterRenderer *renderer;
+
+	renderer = GTK_SOURCE_GUTTER_RENDERER (gobject);
+	lines = GTK_SOURCE_GUTTER_RENDERER_LINES (gobject);
+
+	lines->priv->buffer_notify_handler_id =
+		g_signal_connect (gtk_source_gutter_renderer_get_view (renderer),
+		                  "notify::buffer",
+		                  G_CALLBACK (on_buffer_notify),
+		                  lines);
+}
+
+static void
 gtk_source_gutter_renderer_lines_class_init (GtkSourceGutterRendererLinesClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -328,6 +311,7 @@ gtk_source_gutter_renderer_lines_class_init (GtkSourceGutterRendererLinesClass *
 
 	object_class->finalize = gtk_source_gutter_renderer_lines_finalize;
 	object_class->dispose = gtk_source_gutter_renderer_lines_dispose;
+	object_class->constructed = gtk_source_gutter_renderer_lines_constructed;
 
 	renderer_class->query_data = gutter_renderer_query_data;
 	renderer_class->query_activatable = gutter_renderer_query_activatable;
@@ -337,29 +321,9 @@ gtk_source_gutter_renderer_lines_class_init (GtkSourceGutterRendererLinesClass *
 }
 
 static void
-on_notify_view (GtkSourceGutterRendererLines *renderer)
-{
-	GtkSourceView *view = NULL;
-
-	g_object_get (renderer, "view", &view, NULL);
-
-	set_view (renderer, view);
-
-	if (view)
-	{
-		g_object_unref (view);
-	}
-}
-
-static void
 gtk_source_gutter_renderer_lines_init (GtkSourceGutterRendererLines *self)
 {
 	self->priv = GTK_SOURCE_GUTTER_RENDERER_LINES_GET_PRIVATE (self);
-
-	g_signal_connect (self,
-	                  "notify::view",
-	                  G_CALLBACK (on_notify_view),
-	                  NULL);
 }
 
 GtkSourceGutterRenderer *

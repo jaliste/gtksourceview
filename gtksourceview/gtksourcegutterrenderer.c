@@ -22,7 +22,6 @@
 #include "gtksourcegutterrenderer.h"
 #include "gtksourceview-marshal.h"
 #include "gtksourceview-typebuiltins.h"
-#include "gtksourceview.h"
 #include "gtksourceview-i18n.h"
 
 #define GTK_SOURCE_GUTTER_RENDERER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GTK_TYPE_SOURCE_GUTTER_RENDERER, GtkSourceGutterRendererPrivate))
@@ -40,7 +39,8 @@ enum
 
 struct _GtkSourceGutterRendererPrivate
 {
-	GtkSourceView *view;
+	GtkTextView *view;
+	GtkTextWindowType window_type;
 
 	gint xpad;
 	gint ypad;
@@ -63,7 +63,8 @@ enum
 	PROP_YPAD,
 	PROP_XALIGN,
 	PROP_YALIGN,
-	PROP_VIEW
+	PROP_VIEW,
+	PROP_WINDOW_TYPE
 };
 
 static void
@@ -174,35 +175,6 @@ set_yalign (GtkSourceGutterRenderer *renderer,
 	                      emit);
 }
 
-static void
-view_notify (GtkSourceGutterRenderer *renderer,
-             gpointer                 where_the_object_was)
-{
-	renderer->priv->view = NULL;
-}
-
-static void
-set_view (GtkSourceGutterRenderer *renderer,
-          GtkSourceView           *view)
-{
-	if (renderer->priv->view)
-	{
-		g_object_weak_unref (G_OBJECT (renderer->priv->view),
-		                     (GWeakNotify)view_notify,
-		                     renderer);
-
-		renderer->priv->view = NULL;
-	}
-
-	if (view)
-	{
-		renderer->priv->view = view;
-
-		g_object_weak_ref (G_OBJECT (view),
-		                   (GWeakNotify)view_notify,
-		                   renderer);
-	}
-}
 
 static void
 gtk_source_gutter_renderer_set_property (GObject      *object,
@@ -230,7 +202,10 @@ gtk_source_gutter_renderer_set_property (GObject      *object,
 			set_yalign (self, g_value_get_float (value), TRUE);
 			break;
 		case PROP_VIEW:
-			set_view (self, g_value_get_object (value));
+			self->priv->view = g_value_get_object (value);
+			break;
+		case PROP_WINDOW_TYPE:
+			self->priv->window_type = g_value_get_enum (value);
 			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -265,6 +240,9 @@ gtk_source_gutter_renderer_get_property (GObject    *object,
 			break;
 		case PROP_VIEW:
 			g_value_set_object (value, self->priv->view);
+			break;
+		case PROP_WINDOW_TYPE:
+			g_value_set_enum (value, self->priv->window_type);
 			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -486,8 +464,16 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	                                 g_param_spec_object ("view",
 	                                                      _("The View"),
 	                                                      _("The view"),
-	                                                      GTK_TYPE_SOURCE_VIEW,
-	                                                      G_PARAM_READWRITE));
+	                                                      GTK_TYPE_TEXT_VIEW,
+	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+	g_object_class_install_property (object_class,
+	                                 PROP_WINDOW_TYPE,
+	                                 g_param_spec_enum ("window-type",
+	                                                    _("Window Type"),
+	                                                    _("The window type"),
+	                                                    GTK_TYPE_TEXT_WINDOW_TYPE,
+	                                                    GTK_TEXT_WINDOW_PRIVATE,
+	                                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 static void
@@ -877,4 +863,40 @@ gtk_source_gutter_renderer_get_alignment (GtkSourceGutterRenderer *renderer,
 	{
 		*yalign = renderer->priv->yalign;
 	}
+}
+
+/**
+
+/**
+ * gtk_source_gutter_renderer_get_window_type:
+ * @renderer: a #GtkSourceGutterRenderer
+ *
+ * Get the #GtkTextWindowType associated with the gutter renderer.
+ *
+ * Returns: a #GtkTextWindowType
+ *
+ **/
+GtkTextWindowType
+gtk_source_gutter_renderer_get_window_type (GtkSourceGutterRenderer *renderer)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), GTK_TEXT_WINDOW_PRIVATE);
+
+	return renderer->priv->window_type;
+}
+
+/**
+ * gtk_source_gutter_renderer_get_view:
+ * @renderer: a #GtkSourceGutterRenderer
+ *
+ * Get the view associated to the gutter renderer
+ *
+ * Returns: (transfer none): a #GtkTextView
+ *
+ **/
+GtkTextView *
+gtk_source_gutter_renderer_get_view (GtkSourceGutterRenderer *renderer)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), NULL);
+
+	return renderer->priv->view;
 }

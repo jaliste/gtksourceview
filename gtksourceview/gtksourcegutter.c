@@ -25,6 +25,8 @@
 #include "gtksourceview-marshal.h"
 #include "gtksourcegutterrenderer.h"
 
+#include <gobject/gvaluecollector.h>
+
 /**
  * SECTION:gutter
  * @Short_description: Gutter object for #GtkSourceView
@@ -134,13 +136,6 @@ static void do_redraw (GtkSourceGutter *gutter);
 static void ensure_renderer_sizes (GtkSourceGutter *gutter);
 
 static void
-view_notify (GtkSourceGutter *gutter,
-             gpointer         where_the_object_was)
-{
-	gutter->priv->view = NULL;
-}
-
-static void
 on_renderer_size_changed (GtkSourceGutterRenderer *renderer,
                           GtkSourceGutter         *gutter)
 {
@@ -177,21 +172,19 @@ on_renderer_notify_padding (GtkSourceGutterRenderer *renderer,
 
 static Renderer *
 renderer_new (GtkSourceGutter         *gutter,
-              GtkSourceGutterRenderer *renderer,
-              gint                     position)
+              GType                    gtype,
+              gint                     position,
+              guint                    num_parameters,
+              GParameter              *parameters)
 {
 	Renderer *ret = g_slice_new0 (Renderer);
 
-	if (G_IS_INITIALLY_UNOWNED (renderer))
-	{
-		ret->renderer = g_object_ref_sink (renderer);
-	}
-	else
-	{
-		ret->renderer = g_object_ref (renderer);
-	}
+	ret->renderer = g_object_newv (gtype, num_parameters, parameters);
 
-	g_object_set (renderer, "view", gutter->priv->view, NULL);
+	if (G_IS_INITIALLY_UNOWNED (ret->renderer))
+	{
+		g_object_ref_sink (ret->renderer);
+	}
 
 	ret->state = GTK_SOURCE_GUTTER_RENDERER_STATE_NORMAL;
 	ret->position = position;
@@ -200,25 +193,25 @@ renderer_new (GtkSourceGutter         *gutter,
 	ret->height = -1;
 
 	ret->size_changed_handler =
-		g_signal_connect (renderer,
+		g_signal_connect (ret->renderer,
 		                  "size-changed",
 		                  G_CALLBACK (on_renderer_size_changed),
 		                  gutter);
 
 	ret->queue_draw_handler =
-		g_signal_connect (renderer,
+		g_signal_connect (ret->renderer,
 		                  "queue-draw",
 		                  G_CALLBACK (on_renderer_queue_draw),
 		                  gutter);
 
 	ret->notify_xpad_handler =
-		g_signal_connect (renderer,
+		g_signal_connect (ret->renderer,
 		                  "notify::xpad",
 		                  G_CALLBACK (on_renderer_notify_padding),
 		                  gutter);
 
 	ret->notify_ypad_handler =
-		g_signal_connect (renderer,
+		g_signal_connect (ret->renderer,
 		                  "notify::ypad",
 		                  G_CALLBACK (on_renderer_notify_padding),
 		                  gutter);
@@ -268,10 +261,6 @@ gtk_source_gutter_dispose (GObject *object)
 				                     gutter->priv->signals[i]);
 		}
 
-		g_object_weak_unref (G_OBJECT (gutter->priv->view),
-		                     (GWeakNotify)view_notify,
-		                     gutter);
-
 		gutter->priv->view = NULL;
 	}
 
@@ -318,10 +307,6 @@ set_view (GtkSourceGutter *gutter,
           GtkSourceView   *view)
 {
 	gutter->priv->view = view;
-
-	g_object_weak_ref (G_OBJECT (view),
-	                   (GWeakNotify)view_notify,
-	                   gutter);
 
 	gutter->priv->signals[DRAW] =
 		g_signal_connect (view,
@@ -689,22 +674,195 @@ gtk_source_gutter_get_window (GtkSourceGutter *gutter)
 /**
  * gtk_source_gutter_insert:
  * @gutter: a #GtkSourceGutter.
- * @renderer: a #GtkSourceGutterRenderer.
+ * @gtype: the type of the gutter renderer (must inherit from #GtkSourceGutterRenderer).
  * @position: the renderers position.
  *
  * Inserts @renderer into @gutter at @position.
  *
- * Since: 2.8
+ * Since: 3.0
+ *
+ * Returns: (transfer none): a #GtkSourceGutterRenderer
  */
-void
-gtk_source_gutter_insert (GtkSourceGutter         *gutter,
-                          GtkSourceGutterRenderer *renderer,
-                          gint                     position)
+GtkSourceGutterRenderer *
+gtk_source_gutter_insert (GtkSourceGutter *gutter,
+                          GType            gtype,
+                          gint             position,
+                          ...)
 {
-	g_return_if_fail (GTK_IS_SOURCE_GUTTER (gutter));
-	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
+	va_list ap;
+	GtkSourceGutterRenderer *ret;
 
-	append_renderer (gutter, renderer_new (gutter, renderer, position));
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER (gutter), NULL);
+	g_return_val_if_fail (g_type_is_a (gtype, GTK_TYPE_SOURCE_GUTTER_RENDERER), NULL);
+
+	va_start (ap, position);
+	ret = gtk_source_gutter_insert_valist (gutter, gtype, position, ap);
+	va_end (ap);
+
+	return ret;
+}
+
+/**
+ * gtk_source_gutter_insert_valist:
+ * @gutter: a #GtkSourceGutter.
+ * @gtype: the type of the gutter renderer (must inherit from #GtkSourceGutterRenderer).
+ * @position: the renderer position.
+ * @ap: the parameters.
+ *
+ * Create and insert a new gutter renderer in the gutter. This function is
+ * mostly useful for bindings. Applications should normally use
+ * #gtk_source_gutter_renderer_insert
+ *
+ * Since: 3.0
+ *
+ * Returns: (transfer none): a #GtkSourceGutterRenderer
+ *
+ **/
+GtkSourceGutterRenderer *
+gtk_source_gutter_insert_valist (GtkSourceGutter *gutter,
+                                 GType            gtype,
+                                 gint             position,
+                                 va_list          ap)
+{
+	const gchar *name;
+	GArray *parameters;
+	GObjectClass *klass;
+	GParameter *params;
+	guint num_parameters;
+	GtkSourceGutterRenderer *ret;
+	guint i;
+
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER (gutter), NULL);
+	g_return_val_if_fail (g_type_is_a (gtype, GTK_TYPE_SOURCE_GUTTER_RENDERER), NULL);
+
+	parameters = g_array_new (FALSE, TRUE, sizeof (GParameter));
+	klass = g_type_class_ref (gtype);
+
+	num_parameters = 0;
+
+	while ((name = va_arg (ap, const gchar *)) != NULL)
+	{
+		GParameter parameter;
+		GParamSpec *spec;
+		gchar *error = NULL;
+
+		spec = g_object_class_find_property (klass, name);
+
+		if (!spec)
+		{
+			g_warning ("%s: object class `%s' has no property named `%s'",
+			           G_STRFUNC,
+			           g_type_name (gtype),
+			           name);
+
+			break;
+		}
+
+		parameter.name = name;
+
+		G_VALUE_COLLECT_INIT (&parameter.value,
+		                      spec->value_type,
+		                      ap,
+		                      0,
+		                      &error);
+
+		if (error)
+		{
+			g_warning ("%s: %s", G_STRFUNC, error);
+			g_free (error);
+			g_value_unset (&parameter.value);
+
+			break;
+		}
+
+		g_array_append_val (parameters, parameter);
+		++num_parameters;
+	}
+
+	params = (GParameter *)g_array_free (parameters, FALSE);
+
+	ret = gtk_source_gutter_insertv (gutter,
+	                                 gtype,
+	                                 position,
+	                                 num_parameters,
+	                                 params);
+
+	for (i = 0; i < num_parameters; ++i)
+	{
+		g_value_unset (&params[i].value);
+	}
+
+	g_free (params);
+
+	return ret;
+}
+
+/**
+ * gtk_source_gutter_insertv:
+ * @gutter: a #GtkSourceGutter.
+ * @gtype: the type of the gutter renderer (must inherit from #GtkSourceGutterRenderer).
+ * @position: the renderer position.
+ * @num_parameters: the number of parameters.
+ * @parameters: the parameters.
+ *
+ * Create and insert a new gutter renderer in the gutter. This function is
+ * mostly useful for bindings. Applications should normally use
+ * #gtk_source_gutter_renderer_insert
+ *
+ * Since: 3.0
+ *
+ * Returns: (transfer none): a #GtkSourceGutterRenderer
+ *
+ **/
+GtkSourceGutterRenderer *
+gtk_source_gutter_insertv (GtkSourceGutter *gutter,
+                           GType            gtype,
+                           gint             position,
+                           guint            num_parameters,
+                           GParameter      *parameters)
+{
+	GParameter *extended;
+	guint i;
+	gint len;
+	GValue *view;
+	GValue *window_type;
+	Renderer *renderer;
+
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER (gutter), NULL);
+	g_return_val_if_fail (g_type_is_a (gtype, GTK_TYPE_SOURCE_GUTTER_RENDERER), NULL);
+
+	len = sizeof (GParameter) * (num_parameters + 2);
+	extended = g_slice_alloc0 (len);
+
+	for (i = 0; i < num_parameters; ++i)
+	{
+		extended[i] = parameters[i];
+	}
+
+	extended[num_parameters].name = "view";
+	view = &(extended[num_parameters].value);
+	g_value_init (view, GTK_TYPE_TEXT_VIEW);
+	g_value_set_object (view, gutter->priv->view);
+
+	extended[num_parameters + 1].name = "window-type";
+	window_type = &(extended[num_parameters + 1].value);
+	g_value_init (window_type, GTK_TYPE_TEXT_WINDOW_TYPE);
+	g_value_set_enum (window_type, gutter->priv->window_type);
+
+	renderer = renderer_new (gutter,
+	                         gtype,
+	                         position,
+	                         num_parameters + 2,
+	                         extended);
+
+	append_renderer (gutter, renderer);
+
+	g_value_unset (view);
+	g_value_unset (window_type);
+
+	g_slice_free1 (len, extended);
+
+	return renderer->renderer;
 }
 
 static gboolean

@@ -175,6 +175,12 @@ void     gtk_source_gutter_renderer_set_alignment   (GtkSourceGutterRenderer    
                                                      gfloat                        xalign,
                                                      gfloat                        yalign);
 
+
+GtkTextWindowType
+	gtk_source_gutter_renderer_get_window_type  (GtkSourceGutterRenderer      *renderer);
+
+GtkTextView *gtk_source_gutter_renderer_get_view    (GtkSourceGutterRenderer      *renderer);
+
 /* Emits the 'activate' signal */
 void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer      *renderer,
                                                      GtkTextIter                  *iter,
