@@ -1301,6 +1301,7 @@ on_view_draw (GtkSourceView   *view,
 			GtkSourceGutterRendererState state;
 			gint xpad;
 			gint ypad;
+			GdkColor color;
 
 			renderer = item->data;
 			width = g_array_index (sizes, gint, idx++);
@@ -1345,6 +1346,18 @@ on_view_draw (GtkSourceView   *view,
 			cairo_save (cr);
 
 			gdk_cairo_rectangle (cr, &background_area);
+
+			if (gtk_source_gutter_renderer_get_background (renderer->renderer,
+			                                               &color))
+			{
+				cairo_save (cr);
+
+				gdk_cairo_set_source_color (cr, &color);
+				cairo_fill_preserve (cr);
+
+				cairo_restore (cr);
+			}
+
 			cairo_clip (cr);
 
 			/* Call render with correct area */

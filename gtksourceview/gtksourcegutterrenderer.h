@@ -191,6 +191,13 @@ void    gtk_source_gutter_renderer_get_fixed_size   (GtkSourceGutterRenderer    
 void    gtk_source_gutter_renderer_set_fixed_size   (GtkSourceGutterRenderer      *renderer,
                                                      gint                          width,
                                                      gint                          height);
+
+gboolean gtk_source_gutter_renderer_get_background  (GtkSourceGutterRenderer      *renderer,
+                                                     GdkColor                     *color);
+
+void     gtk_source_gutter_renderer_set_background  (GtkSourceGutterRenderer      *renderer,
+                                                     const GdkColor               *color);
+
 /* Emits the 'activate' signal */
 void     gtk_source_gutter_renderer_activate        (GtkSourceGutterRenderer      *renderer,
                                                      GtkTextIter                  *iter,
