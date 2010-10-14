@@ -109,9 +109,9 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	gfloat xalign;
 	gfloat yalign;
 	GtkSourceGutterRendererAlignmentMode mode;
-	gint x;
-	gint y;
 	GtkTextView *view;
+	gint x = 0;
+	gint y = 0;
 
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 	view = gtk_source_gutter_renderer_get_view (renderer);

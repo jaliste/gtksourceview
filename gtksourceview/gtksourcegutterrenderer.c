@@ -837,7 +837,7 @@ gtk_source_gutter_renderer_queue_draw (GtkSourceGutterRenderer *renderer)
 gboolean
 gtk_source_gutter_renderer_query_tooltip (GtkSourceGutterRenderer *renderer,
                                           GtkTextIter             *iter,
-                                          GdkRectangle      *area,
+                                          const GdkRectangle      *area,
                                           gint                     x,
                                           gint                     y,
                                           GtkTooltip              *tooltip)
