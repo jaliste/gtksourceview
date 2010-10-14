@@ -101,6 +101,8 @@ struct _GtkSourceGutterPrivate
 	gint ypad;
 
 	guint signals[LAST_EXTERNAL_SIGNAL];
+
+	guint is_drawing : 1;
 };
 
 G_DEFINE_TYPE (GtkSourceGutter, gtk_source_gutter, G_TYPE_OBJECT)
@@ -360,7 +362,7 @@ do_redraw (GtkSourceGutter *gutter)
 	window = gtk_text_view_get_window (GTK_TEXT_VIEW (gutter->priv->view),
 	                                   gutter->priv->window_type);
 
-	if (window)
+	if (window && !gutter->priv->is_drawing)
 	{
 		gdk_window_invalidate_rect (window, NULL, FALSE);
 	}
@@ -1141,6 +1143,8 @@ on_view_draw (GtkSourceView   *view,
 		return FALSE;
 	}
 
+	gutter->priv->is_drawing = TRUE;
+
 	buffer = gtk_text_view_get_buffer (text_view);
 
 	gdk_window_get_pointer (window, &x, &y, NULL);
@@ -1375,6 +1379,8 @@ on_view_draw (GtkSourceView   *view,
 	g_array_free (heights, TRUE);
 
 	g_array_free (sizes, TRUE);
+
+	gutter->priv->is_drawing = FALSE;
 
 	return FALSE;
 }
