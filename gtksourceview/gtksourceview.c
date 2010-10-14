@@ -2854,8 +2854,8 @@ gtk_source_view_draw (GtkWidget *widget,
 
 	window = gtk_text_view_get_window (text_view, GTK_TEXT_WINDOW_TEXT);
 
-        cairo_save (cr);
-        gtk_cairo_transform_to_window (cr, widget, window);
+	cairo_save (cr);
+	gtk_cairo_transform_to_window (cr, widget, window);
 
 	event_handled = FALSE;
 
@@ -2917,19 +2917,21 @@ gtk_source_view_draw (GtkWidget *widget,
 	}
 
 	if (gtk_cairo_should_draw_window (cr, window))
+	{
 		gtk_source_view_paint_marks_background (view, cr);
+	}
 
 	/* Have GtkTextView draw the text first. */
 	if (GTK_WIDGET_CLASS (gtk_source_view_parent_class)->draw)
 	{
-            /* Need to restore to original state here so the parent draw func
-             * gets the correct context. */
+		/* Need to restore to original state here so the parent draw func
+		* gets the correct context. */
 		cairo_restore (cr);
 
 		cairo_save (cr);
 
 		event_handled =
-                    GTK_WIDGET_CLASS (gtk_source_view_parent_class)->draw (widget, cr);
+			GTK_WIDGET_CLASS (gtk_source_view_parent_class)->draw (widget, cr);
 
 		cairo_restore (cr);
 
@@ -2954,7 +2956,7 @@ gtk_source_view_draw (GtkWidget *widget,
 		g_print ("> gtk_source_view_draw end\n");
 	});
 
-        cairo_restore (cr);
+	cairo_restore (cr);
 
 	return event_handled;
 }
