@@ -18,6 +18,13 @@ test_widget_LDADD = 			\
 	$(DEP_LIBS)			\
 	$(TESTS_LIBS)
 
+TEST_PROGS += test-fold
+test_fold_SOURCES = test-fold.c
+test_fold_LDADD =			\
+	$(top_builddir)/gtksourceview/libgtksourceview-3.0.la \
+	$(DEP_LIBS)			\
+	$(TESTS_LIBS)
+
 TEST_PROGS += test-completion
 test_completion_SOURCES = test-completion.c
 test_completion_LDADD = 		\
