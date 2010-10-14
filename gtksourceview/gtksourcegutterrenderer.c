@@ -1146,13 +1146,17 @@ gtk_source_gutter_renderer_set_alignment (GtkSourceGutterRenderer *renderer,
                                           gfloat                   xalign,
                                           gfloat                   yalign)
 {
+	gboolean changed_x;
+	gboolean changed_y;
+
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 
-	if (set_xalign (renderer, xalign, FALSE) ||
-	    set_yalign (renderer, yalign, FALSE))
+	changed_x = set_xalign (renderer, xalign, FALSE);
+	changed_y = set_yalign (renderer, yalign, FALSE);
+
+	if (changed_x || changed_y)
 	{
 		gtk_source_gutter_renderer_queue_draw (renderer);
-		return;
 	}
 }
 
