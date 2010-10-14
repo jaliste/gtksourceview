@@ -92,6 +92,7 @@ struct _GtkSourceGutterPrivate
 {
 	GtkSourceView *view;
 	GtkTextWindowType window_type;
+	GtkOrientation orientation;
 
 	gint size;
 	GList *renderers;
@@ -367,7 +368,6 @@ do_redraw (GtkSourceGutter *gutter)
 
 static void
 calculate_size (GtkSourceGutter  *gutter,
-                cairo_t          *cr,
                 Renderer         *renderer)
 {
 	if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
@@ -383,16 +383,23 @@ calculate_size (GtkSourceGutter  *gutter,
 		renderer->width = 0;
 		renderer->height = 0;
 
-		gtk_source_gutter_renderer_get_size (renderer->renderer,
-		                                     cr,
-		                                     &renderer->width,
-		                                     &renderer->height);
+		if (gutter->priv->orientation == GTK_ORIENTATION_HORIZONTAL)
+		{
+			gtk_source_gutter_renderer_get_size (renderer->renderer,
+			                                     &renderer->width,
+			                                     NULL);
+		}
+		else
+		{
+			gtk_source_gutter_renderer_get_size (renderer->renderer,
+			                                     NULL,
+			                                     &renderer->height);
+		}
 	}
 }
 
 static gint
 calculate_sizes (GtkSourceGutter  *gutter,
-                 cairo_t          *cr,
                  GArray           *sizes)
 {
 	GList *item;
@@ -412,7 +419,7 @@ calculate_sizes (GtkSourceGutter  *gutter,
 		{
 			gint xpad;
 
-			calculate_size (gutter, cr, renderer);
+			calculate_size (gutter, renderer);
 
 			gtk_source_gutter_renderer_get_padding (renderer->renderer,
 			                                        &xpad,
@@ -440,31 +447,13 @@ calculate_sizes (GtkSourceGutter  *gutter,
 static void
 ensure_renderer_sizes (GtkSourceGutter *gutter)
 {
-	GdkWindow *window;
+	gint width;
 
-	window = gtk_source_gutter_get_window (gutter);
+	width = calculate_sizes (gutter, NULL);
 
-	if (window == NULL)
-	{
-		/* This happens when the border window is not yet visible, so
-		   we use the main window here, not sure if that's good */
-		window = gtk_text_view_get_window (GTK_TEXT_VIEW (gutter->priv->view),
-		                                   GTK_TEXT_WINDOW_TEXT);
-	}
-
-	if (window != NULL)
-	{
-		cairo_t *cr;
-		gint width;
-
-		cr = gdk_cairo_create (window);
-		width = calculate_sizes (gutter, cr, NULL);
-		cairo_destroy (cr);
-
-		gtk_text_view_set_border_window_size (GTK_TEXT_VIEW (gutter->priv->view),
-		                                      gutter->priv->window_type,
-		                                      width);
-	}
+	gtk_text_view_set_border_window_size (GTK_TEXT_VIEW (gutter->priv->view),
+	                                      gutter->priv->window_type,
+	                                      width);
 }
 
 static gboolean
@@ -536,6 +525,24 @@ gtk_source_gutter_set_property (GObject       *object,
 }
 
 static void
+gtk_source_gutter_constructed (GObject *object)
+{
+	GtkSourceGutter *gutter;
+
+	gutter = GTK_SOURCE_GUTTER (object);
+
+	if (gutter->priv->window_type == GTK_TEXT_WINDOW_LEFT ||
+	    gutter->priv->window_type == GTK_TEXT_WINDOW_RIGHT)
+	{
+		gutter->priv->orientation = GTK_ORIENTATION_HORIZONTAL;
+	}
+	else
+	{
+		gutter->priv->orientation = GTK_ORIENTATION_VERTICAL;
+	}
+}
+
+static void
 gtk_source_gutter_class_init (GtkSourceGutterClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -545,6 +552,7 @@ gtk_source_gutter_class_init (GtkSourceGutterClass *klass)
 
 	object_class->finalize = gtk_source_gutter_finalize;
 	object_class->dispose = gtk_source_gutter_dispose;
+	object_class->constructed = gtk_source_gutter_constructed;
 
 	/**
 	 * GtkSourceGutter:view:
@@ -1160,7 +1168,7 @@ on_view_draw (GtkSourceView   *view,
 	heights = g_array_new (FALSE, FALSE, sizeof (gint));
 	sizes = g_array_new (FALSE, FALSE, sizeof (gint));
 
-	size = calculate_sizes (gutter, cr, sizes);
+	size = calculate_sizes (gutter, sizes);
 
 	i = 0;
 	x = 0;

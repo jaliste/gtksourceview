@@ -48,6 +48,8 @@ struct _GtkSourceGutterRendererPrivate
 	gfloat xalign;
 	gfloat yalign;
 
+	gint fixed_width;
+	gint fixed_height;
 	GtkSourceGutterRendererAlignmentMode alignment_mode;
 
 	guint visible : 1;
@@ -69,7 +71,9 @@ enum
 	PROP_YALIGN,
 	PROP_VIEW,
 	PROP_ALIGNMENT_MODE,
-	PROP_WINDOW_TYPE
+	PROP_WINDOW_TYPE,
+	PROP_FIXED_WIDTH,
+	PROP_FIXED_HEIGHT,
 };
 
 static void
@@ -195,6 +199,29 @@ set_alignment_mode (GtkSourceGutterRenderer              *renderer,
 	gtk_source_gutter_renderer_queue_draw (renderer);
 }
 
+static gboolean
+set_fixed_size (GtkSourceGutterRenderer *renderer,
+                gint                    *field,
+                const gchar             *name,
+                gint                     value,
+                gboolean                 emit)
+{
+	if (*field == value)
+	{
+		return FALSE;
+	}
+
+	*field = value;
+	g_object_notify (G_OBJECT (renderer), name);
+
+	if (emit)
+	{
+		gtk_source_gutter_renderer_size_changed (renderer);
+	}
+
+	return TRUE;
+}
+
 static void
 gtk_source_gutter_renderer_set_property (GObject      *object,
                                          guint         prop_id,
@@ -228,6 +255,20 @@ gtk_source_gutter_renderer_set_property (GObject      *object,
 			break;
 		case PROP_WINDOW_TYPE:
 			self->priv->window_type = g_value_get_enum (value);
+			break;
+		case PROP_FIXED_WIDTH:
+			set_fixed_size (self,
+			                &self->priv->fixed_width,
+			                "fixed-width",
+			                g_value_get_int (value),
+			                TRUE);
+			break;
+		case PROP_FIXED_HEIGHT:
+			set_fixed_size (self,
+			                &self->priv->fixed_height,
+			                "fixed-height",
+			                g_value_get_int (value),
+			                TRUE);
 			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -269,9 +310,33 @@ gtk_source_gutter_renderer_get_property (GObject    *object,
 		case PROP_WINDOW_TYPE:
 			g_value_set_enum (value, self->priv->window_type);
 			break;
+		case PROP_FIXED_WIDTH:
+			g_value_set_int (value, self->priv->fixed_width);
+			break;
+			break;
+		case PROP_FIXED_HEIGHT:
+			g_value_set_int (value, self->priv->fixed_height);
+			break;
+			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 			break;
+	}
+}
+
+static void
+renderer_get_size_impl (GtkSourceGutterRenderer *renderer,
+                        gint                    *width,
+                        gint                    *height)
+{
+	if (width)
+	{
+		*width = renderer->priv->fixed_width;
+	}
+
+	if (height)
+	{
+		*height = renderer->priv->fixed_height;
 	}
 }
 
@@ -284,6 +349,8 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 
 	object_class->get_property = gtk_source_gutter_renderer_get_property;
 	object_class->set_property = gtk_source_gutter_renderer_set_property;
+
+	klass->get_size = renderer_get_size_impl;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceGutterRendererPrivate));
 
@@ -560,6 +627,27 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	                                                    GTK_TYPE_TEXT_WINDOW_TYPE,
 	                                                    GTK_TEXT_WINDOW_PRIVATE,
 	                                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+	g_object_class_install_property (object_class,
+	                                 PROP_FIXED_WIDTH,
+	                                 g_param_spec_int ("fixed-width",
+	                                                   _("Fixed Width"),
+	                                                   _("The fixed width"),
+	                                                   -1,
+	                                                   G_MAXINT,
+	                                                   -1,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
+	g_object_class_install_property (object_class,
+	                                 PROP_FIXED_HEIGHT,
+	                                 g_param_spec_int ("fixed-height",
+	                                                   _("Fixed Height"),
+	                                                   _("The fixed height"),
+	                                                   -1,
+	                                                   G_MAXINT,
+	                                                   -1,
+	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
+
 }
 
 static void
@@ -719,9 +807,8 @@ gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
 /**
  * gtk_source_gutter_renderer_get_size:
  * @renderer: a #GtkSourceGutterRenderer
- * @cr: a #cairo_t
- * @width: (out caller-allocates): return value for the requested width of the renderer
- * @height: (out caller-allocates): return value for the requested height of the renderer
+ * @width: (out caller-allocates) (allow-none): return value for the requested width of the renderer
+ * @height: (out caller-allocates) (allow-none): return value for the requested height of the renderer
  *
  * Get the required size of the renderer. The @width and @height parameters
  * can be %NULL depending on whether the renderer is packed in a top/bottom or
@@ -730,19 +817,15 @@ gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
  **/
 void
 gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer,
-                                     cairo_t                 *cr,
                                      gint                    *width,
                                      gint                    *height)
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
-	g_return_if_fail (cr != NULL);
-	g_return_if_fail (width != NULL || height != NULL);
 
 	if (GTK_SOURCE_GUTTER_RENDERER_CLASS (G_OBJECT_GET_CLASS (renderer))->get_size)
 	{
 		GTK_SOURCE_GUTTER_RENDERER_CLASS (
 			G_OBJECT_GET_CLASS (renderer))->get_size (renderer,
-			                                          cr,
 			                                          width,
 			                                          height);
 	}
@@ -1101,4 +1184,70 @@ gtk_source_gutter_renderer_get_view (GtkSourceGutterRenderer *renderer)
 	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), NULL);
 
 	return renderer->priv->view;
+}
+
+/**
+ * gtk_source_gutter_renderer_get_fixed_size:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @width: (out caller-allocates) (allow-none): return value for the fixed width
+ * @height: (out caller-allocates) (allow-none): return value for the fixed height
+ *
+ * Get the fixed size of the renderer. If @width or @height is smaller than
+ * 0, then the renderer does not have a fixed size.
+ *
+ **/
+void
+gtk_source_gutter_renderer_get_fixed_size (GtkSourceGutterRenderer *renderer,
+                                           gint                    *width,
+                                           gint                    *height)
+{
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
+
+	if (width)
+	{
+		*width = renderer->priv->fixed_width;
+	}
+
+	if (height)
+	{
+		*height = renderer->priv->fixed_height;
+	}
+}
+
+/**
+ * gtk_source_gutter_renderer_set_fixed_size:
+ * @renderer: a #GtkSourceGutterRenderer
+ * @width: the fixed width, or -1
+ * @height: the fixed height, or -1
+ *
+ * Sets the fixed size of the renderer. A value of -1 specifies that the size
+ * is to be determined dynamically.
+ *
+ **/
+void
+gtk_source_gutter_renderer_set_fixed_size (GtkSourceGutterRenderer *renderer,
+                                           gint                     width,
+                                           gint                     height)
+{
+	gboolean changed_width;
+	gboolean changed_height;
+
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
+
+	changed_width = set_fixed_size (renderer,
+	                                &renderer->priv->fixed_width,
+	                                "fixed-width",
+	                                width,
+	                                FALSE);
+
+	changed_height = set_fixed_size (renderer,
+	                                 &renderer->priv->fixed_height,
+	                                 "fixed-height",
+	                                 height,
+	                                 FALSE);
+
+	if (changed_width || changed_height)
+	{
+		gtk_source_gutter_renderer_size_changed (renderer);
+	}
 }

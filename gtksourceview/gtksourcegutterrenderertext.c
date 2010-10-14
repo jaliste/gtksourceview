@@ -8,9 +8,6 @@ struct _GtkSourceGutterRendererTextPrivate
 
 	gchar *measure_text;
 
-	gint width;
-	gint height;
-
 	PangoLayout *cached_layout;
 	PangoAttribute *fg_attr;
 	PangoAttrList *cached_attr_list;
@@ -212,7 +209,6 @@ gutter_renderer_text_end (GtkSourceGutterRenderer *renderer)
 
 static void
 gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
-                               cairo_t                 *cr,
                                gint                    *width,
                                gint                    *height)
 {
@@ -225,9 +221,15 @@ gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
 		return;
 	}
 
-	if (text->priv->width < 0 || text->priv->height < 0)
+	GTK_SOURCE_GUTTER_RENDERER_CLASS (gtk_source_gutter_renderer_text_parent_class)->get_size (renderer,
+	                                                                                           width,
+	                                                                                           height);
+
+	if ((width && *width == -1) || (height && *height == -1))
 	{
 		PangoLayout *layout;
+		gint w;
+		gint h;
 
 		layout = gtk_widget_create_pango_layout (GTK_WIDGET (gtk_source_gutter_renderer_get_view (renderer)),
 		                                         NULL);
@@ -245,24 +247,19 @@ gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
 			                       -1);
 		}
 
-		pango_layout_get_size (layout,
-		                       &text->priv->width,
-		                       &text->priv->height);
+		pango_layout_get_size (layout, &w, &h);
 
-		text->priv->width /= PANGO_SCALE;
-		text->priv->height /= PANGO_SCALE;
+		if (width && *width == -1)
+		{
+			*width = w / PANGO_SCALE;
+		}
+
+		if (height && *height == -1)
+		{
+			*height = h / PANGO_SCALE;
+		}
 
 		g_object_unref (layout);
-	}
-
-	if (width)
-	{
-		*width = text->priv->width;
-	}
-
-	if (height)
-	{
-		*height = text->priv->height;
 	}
 }
 
@@ -274,9 +271,6 @@ gutter_renderer_text_size_changed (GtkSourceGutterRenderer *renderer)
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 
 	g_free (text->priv->measure_text);
-
-	text->priv->width = -1;
-	text->priv->height = -1;
 
 	text->priv->measure_text = g_strdup (text->priv->text);
 	text->priv->measure_is_markup = text->priv->is_markup;
@@ -397,8 +391,6 @@ gtk_source_gutter_renderer_text_init (GtkSourceGutterRendererText *self)
 {
 	self->priv = GTK_SOURCE_GUTTER_RENDERER_TEXT_GET_PRIVATE (self);
 
-	self->priv->width = -1;
-	self->priv->height = -1;
 	self->priv->is_markup = TRUE;
 }
 
