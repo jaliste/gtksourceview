@@ -76,6 +76,8 @@ static void       hl_syntax_toggled_cb           (GtkAction       *action,
 						  gpointer         user_data);
 static void       hl_bracket_toggled_cb          (GtkAction       *action,
 						  gpointer         user_data);
+static void       folds_toggled_cb		 (GtkAction       *action,
+						  gpointer         user_data);
 static void       hl_line_toggled_cb             (GtkAction       *action,
 						  gpointer         user_data);
 static void       draw_spaces_toggled_cb	 (GtkAction       *action,
@@ -99,6 +101,7 @@ static void       forward_string_cb              (GtkAction       *action,
 static void       backward_string_cb             (GtkAction       *action,
 						  gpointer         user_data);
 
+static void	  add_folds			 (GtkSourceView *view);
 
 static GtkWidget *create_view_window             (GtkSourceBuffer *buffer,
 						  GtkSourceView   *from);
@@ -146,6 +149,9 @@ static GtkToggleActionEntry toggle_entries[] = {
 	{ "ShowMarks", NULL, "Show Line _Marks", NULL,
 	  "Toggle visibility of marks in the left margin",
 	  G_CALLBACK (marks_toggled_cb), FALSE },
+	{ "ShowFolds", NULL, "Show Folds", NULL,
+	  "Toggle visibility of folds in the left margin",
+	  G_CALLBACK (folds_toggled_cb), FALSE },
 	{ "ShowMargin", NULL, "Show Right M_argin", NULL,
 	  "Toggle visibility of right margin indicator",
 	  G_CALLBACK (margin_toggled_cb), FALSE },
@@ -209,6 +215,7 @@ static const gchar *view_ui_description =
 "      <menuitem action=\"HlBracket\"/>"
 "      <menuitem action=\"ShowNumbers\"/>"
 "      <menuitem action=\"ShowMarks\"/>"
+"      <menuitem action=\"ShowFolds\"/>"
 "      <menuitem action=\"ShowMargin\"/>"
 "      <menuitem action=\"HlLine\"/>"
 "      <menuitem action=\"DrawSpaces\"/>"
@@ -493,6 +500,35 @@ out:
 	return success;
 }
 
+static void
+add_folds (GtkSourceView *view)
+{
+	GtkTextBuffer *text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+	GtkSourceBuffer *buffer = GTK_SOURCE_BUFFER (text_buffer);
+	GtkTextIter start, end;
+
+	if (!gtk_source_view_get_show_folds (view))
+		return;
+	gtk_text_buffer_get_start_iter (text_buffer, &start);
+	end = start;
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 22);
+	gtk_source_buffer_add_fold (buffer, &start, &end);
+
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 3);
+ 	end = start;
+ 	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 10);
+ 	gtk_source_buffer_add_fold (buffer, &start, &end);
+
+	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 4);
+	end = start;
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 8);
+	gtk_source_buffer_add_fold (buffer, &start, &end);
+
+	gtk_text_buffer_get_iter_at_line (text_buffer, &start, 16);
+	end = start;
+	gtk_text_buffer_get_iter_at_line (text_buffer, &end, 20);
+	gtk_source_buffer_add_fold (buffer, &start, &end);
+}
 
 /* View action callbacks -------------------------------------------------------- */
 
@@ -543,6 +579,16 @@ hl_bracket_toggled_cb (GtkAction *action, gpointer user_data)
 	gtk_source_buffer_set_highlight_matching_brackets (
 		GTK_SOURCE_BUFFER (buffer),
 		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
+}
+
+static void
+folds_toggled_cb (GtkAction *action, gpointer user_data)
+{
+	g_return_if_fail (GTK_IS_TOGGLE_ACTION (action) && GTK_IS_SOURCE_VIEW (user_data));
+	gtk_source_view_set_show_folds (
+		GTK_SOURCE_VIEW (user_data),
+		gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action)));
+	add_folds (GTK_SOURCE_VIEW (user_data));
 }
 
 static void
@@ -1486,6 +1532,9 @@ create_main_window (GtkSourceBuffer *buffer)
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
 
 	action = gtk_action_group_get_action (action_group, "ShowMarks");
+	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
+
+	action = gtk_action_group_get_action (action_group, "ShowFolds");
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), TRUE);
 
 	action = gtk_action_group_get_action (action_group, "ShowMargin");
