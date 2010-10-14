@@ -46,11 +46,14 @@ G_BEGIN_DECLS
  * renderer
  * @GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS: the gutter position of the marks
  * renderer
+ * @GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS: the gutter position of the folds
+ * renderer
  **/
 typedef enum
 {
 	GTK_SOURCE_VIEW_GUTTER_POSITION_LINES = -30,
-	GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS = -20
+	GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS = -20,
+	GTK_SOURCE_VIEW_GUTTER_POSITION_FOLDS = -10
 } GtkSourceViewGutterPosition;
 
 typedef struct _GtkSourceView GtkSourceView;
@@ -196,6 +199,9 @@ gboolean	 gtk_source_view_get_show_line_marks    (GtkSourceView   *view);
 GtkSourceMarkCategory *
                  gtk_source_view_get_mark_category      (GtkSourceView   *view,
                                                          const gchar     *category);
+void 		 gtk_source_view_set_show_folds    (GtkSourceView   *view,
+							 gboolean         show);
+gboolean	 gtk_source_view_get_show_folds    (GtkSourceView   *view);
 
 void		 gtk_source_view_set_smart_home_end	(GtkSourceView             *view,
 							 GtkSourceSmartHomeEndType  smart_he);
@@ -213,6 +219,11 @@ GtkSourceCompletion *
 
 GtkSourceGutter *gtk_source_view_get_gutter		(GtkSourceView     *view,
                                                          GtkTextWindowType  window_type);
+
+/* private */
+void			_gtk_source_view_update_folds_for	(GtkSourceView        *view,
+								 const GtkTextIter      *begin,
+								 const GtkTextIter      *end);
 
 G_END_DECLS
 #endif				/* end of SOURCE_VIEW_H__ */

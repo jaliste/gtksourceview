@@ -28,10 +28,12 @@ libgtksourceview_headers =			\
 	gtksourcecompletionitem.h		\
 	gtksourcecompletionproposal.h		\
 	gtksourcecompletionprovider.h		\
+	gtksourcefold.h				\
 	gtksourcegutter.h			\
 	gtksourcegutterrenderer.h		\
 	gtksourcegutterrenderertext.h		\
 	gtksourcegutterrendererpixbuf.h		\
+	gtksourcegutterrendererfolds.h		\
 	gtksourceiter.h				\
 	gtksourcelanguage.h			\
 	gtksourcelanguagemanager.h		\
@@ -51,6 +53,7 @@ NOINST_H_FILES = \
 	gtksourcecompletionutils.h	\
 	gtksourcecontextengine.h	\
 	gtksourceengine.h		\
+	gtksourcefold-private.h		\
 	gtksourcegutter-private.h	\
 	gtksourcelanguage-private.h	\
 	gtksourcestyle-private.h	\
@@ -83,6 +86,10 @@ libgtksourceview_c_files = \
 	gtksourcegutterrenderermarks.c	\
 	gtksourcemarkcategory.c		\
 	gtksourcepixbufhelper.c		\
+	gtksourcebuffer-private.h 	\
+	gtksourcefold.c			\
+	gtksourcegutterrendererfolds.c	\
+	gtksourcefoldlabel.c		\
 	gtksourceiter.c			\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
