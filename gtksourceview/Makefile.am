@@ -31,7 +31,6 @@ libgtksourceview_headers =			\
 	gtksourcegutter.h			\
 	gtksourcegutterrenderer.h		\
 	gtksourcegutterrenderertext.h		\
-	gtksourcegutterrendererlines.h		\
 	gtksourcegutterrendererpixbuf.h		\
 	gtksourceiter.h				\
 	gtksourcelanguage.h			\
@@ -60,6 +59,7 @@ NOINST_H_FILES = \
 	gtksourceview-utils.h		\
 	gtktextregion.h			\
 	gtksourcepixbufhelper.h		\
+	gtksourcegutterrendererlines.h	\
 	gtksourcemarkcategory.h
 
 libgtksourceview_c_files = \
