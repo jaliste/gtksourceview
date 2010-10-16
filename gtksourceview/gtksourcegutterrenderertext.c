@@ -110,6 +110,16 @@ gutter_renderer_text_draw (GtkSourceGutterRenderer      *renderer,
 	gint x = 0;
 	gint y = 0;
 
+	/* Chain up to draw background */
+	GTK_SOURCE_GUTTER_RENDERER_CLASS (
+		gtk_source_gutter_renderer_text_parent_class)->draw (renderer,
+		                                                     cr,
+		                                                     background_area,
+		                                                     cell_area,
+		                                                     start,
+		                                                     end,
+		                                                     state);
+
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 	view = gtk_source_gutter_renderer_get_view (renderer);
 

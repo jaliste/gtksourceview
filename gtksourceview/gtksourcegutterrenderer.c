@@ -391,6 +391,29 @@ renderer_get_size_impl (GtkSourceGutterRenderer *renderer,
 }
 
 static void
+renderer_draw_impl (GtkSourceGutterRenderer      *renderer,
+                    cairo_t                      *cr,
+                    const GdkRectangle           *background_area,
+                    const GdkRectangle           *cell_area,
+                    GtkTextIter                  *start,
+                    GtkTextIter                  *end,
+                    GtkSourceGutterRendererState  state)
+{
+	if (!renderer->priv->background_set)
+	{
+		return;
+	}
+
+	cairo_save (cr);
+
+	gdk_cairo_rectangle (cr, background_area);
+	gdk_cairo_set_source_color (cr, &renderer->priv->background_gdk);
+
+	cairo_fill (cr);
+	cairo_restore (cr);
+}
+
+static void
 gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -401,6 +424,7 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	object_class->set_property = gtk_source_gutter_renderer_set_property;
 
 	klass->get_size = renderer_get_size_impl;
+	klass->draw = renderer_draw_impl;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceGutterRendererPrivate));
 
