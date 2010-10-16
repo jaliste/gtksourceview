@@ -1804,7 +1804,7 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 					cairo_t       *cr)
 {
 	GtkTextView *text_view;
-        GdkRectangle clip;
+	GdkRectangle clip;
 	GArray *numbers;
 	GArray *pixels;
 	GArray *heights;
@@ -1813,8 +1813,10 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 	gint i;
 
 	if (view->priv->source_buffer == NULL ||
-            !gdk_cairo_get_clip_rectangle (cr, &clip))
+	    !gdk_cairo_get_clip_rectangle (cr, &clip))
+	{
 		return;
+	}
 
 	text_view = GTK_TEXT_VIEW (view);
 
@@ -1823,18 +1825,18 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 
 	/* get the extents of the line printing */
 	gtk_text_view_window_to_buffer_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y1,
-					       NULL,
-					       &y1);
+	                                       GTK_TEXT_WINDOW_TEXT,
+	                                       0,
+	                                       y1,
+	                                       NULL,
+	                                       &y1);
 
 	gtk_text_view_window_to_buffer_coords (text_view,
-					       GTK_TEXT_WINDOW_TEXT,
-					       0,
-					       y2,
-					       NULL,
-					       &y2);
+	                                       GTK_TEXT_WINDOW_TEXT,
+	                                       0,
+	                                       y2,
+	                                       NULL,
+	                                       &y2);
 
 	numbers = g_array_new (FALSE, FALSE, sizeof (gint));
 	pixels = g_array_new (FALSE, FALSE, sizeof (gint));
@@ -1842,12 +1844,12 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 
 	/* get the line numbers and y coordinates. */
 	gtk_source_view_get_lines (text_view,
-				   y1,
-				   y2,
-				   pixels,
-				   heights,
-				   numbers,
-				   &count);
+	                           y1,
+	                           y2,
+	                           pixels,
+	                           heights,
+	                           numbers,
+	                           &count);
 
 	if (count == 0)
 	{
