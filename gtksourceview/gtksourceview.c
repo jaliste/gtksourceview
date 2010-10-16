@@ -42,6 +42,7 @@
 #include "gtksourcecompletionutils.h"
 #include "gtksourcegutter-private.h"
 #include "gtksourcegutterrendererlines.h"
+#include "gtksourcegutterrenderermarks.h"
 
 /**
  * SECTION:view
@@ -918,6 +919,20 @@ notify_buffer (GtkSourceView *view)
 }
 
 static void
+gutter_renderer_marks_activate (GtkSourceGutterRenderer *renderer,
+                                GtkTextIter             *iter,
+                                const GdkRectangle      *area,
+                                GdkEvent                *event,
+                                GtkSourceView           *view)
+{
+	g_signal_emit (view,
+	               signals[LINE_MARK_ACTIVATED],
+	               0,
+	               iter,
+	               event);
+}
+
+static void
 init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
@@ -934,9 +949,19 @@ init_left_gutter (GtkSourceView *view)
 		                          "xpad", 3,
 		                          NULL);
 
-	/*gtk_source_gutter_insert (gutter,
-	                          view->priv->marks_renderer,
-	                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS);*/
+	view->priv->marks_renderer =
+		gtk_source_gutter_insert (gutter,
+		                          GTK_TYPE_SOURCE_GUTTER_RENDERER_MARKS,
+		                          GTK_SOURCE_VIEW_GUTTER_POSITION_MARKS,
+		                          "alignment-mode", GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST,
+		                          "yalign", 0.5,
+		                          "xalign", 0.5,
+		                          NULL);
+
+	g_signal_connect (view->priv->marks_renderer,
+	                  "activate",
+	                  G_CALLBACK (gutter_renderer_marks_activate),
+	                  view);
 }
 
 static void
