@@ -1301,7 +1301,6 @@ on_view_draw (GtkSourceView   *view,
 			GtkSourceGutterRendererState state;
 			gint xpad;
 			gint ypad;
-			GdkColor color;
 
 			renderer = item->data;
 			width = g_array_index (sizes, gint, idx++);
