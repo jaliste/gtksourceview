@@ -999,6 +999,8 @@ gtk_source_view_init (GtkSourceView *view)
 
 	gtk_target_list_add_table (tl, drop_types, G_N_ELEMENTS (drop_types));
 
+	gtk_widget_set_has_tooltip (GTK_WIDGET (view), TRUE);
+
 	g_signal_connect (view,
 			  "drag_data_received",
 			  G_CALLBACK (view_dnd_drop),
