@@ -1562,8 +1562,16 @@ on_view_button_press_event (GtkSourceView    *view,
 		return FALSE;
 	}
 
+	if (event->type != GDK_BUTTON_PRESS)
+	{
+		return FALSE;
+	}
+
 	/* Check cell renderer */
-	renderer = renderer_at_x (gutter, event->x, &start, &width);
+	renderer = renderer_at_x (gutter,
+	                          event->x,
+	                          &start,
+	                          &width);
 
 	if (!renderer)
 	{
