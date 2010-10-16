@@ -67,8 +67,7 @@ typedef struct
 
 	gint position;
 
-	gint width;
-	gint height;
+	gint size;
 
 	guint queue_draw_handler;
 	guint size_changed_handler;
@@ -150,8 +149,7 @@ on_renderer_size_changed (GtkSourceGutterRenderer *renderer,
 
 		if (r->renderer == renderer)
 		{
-			r->width = -1;
-			r->height = -1;
+			r->size = -1;
 		}
 	}
 
@@ -192,8 +190,7 @@ renderer_new (GtkSourceGutter         *gutter,
 	ret->state = GTK_SOURCE_GUTTER_RENDERER_STATE_NORMAL;
 	ret->position = position;
 
-	ret->width = -1;
-	ret->height = -1;
+	ret->size = -1;
 
 	ret->size_changed_handler =
 		g_signal_connect (ret->renderer,
@@ -374,29 +371,13 @@ calculate_size (GtkSourceGutter  *gutter,
 {
 	if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
 	{
-		renderer->width = -1;
-		renderer->height = -1;
-
+		renderer->size = -1;
 		return;
 	}
 
-	if (renderer->width == -1 || renderer->height == -1)
+	if (renderer->size == -1)
 	{
-		renderer->width = 0;
-		renderer->height = 0;
-
-		if (gutter->priv->orientation == GTK_ORIENTATION_HORIZONTAL)
-		{
-			gtk_source_gutter_renderer_get_size (renderer->renderer,
-			                                     &renderer->width,
-			                                     NULL);
-		}
-		else
-		{
-			gtk_source_gutter_renderer_get_size (renderer->renderer,
-			                                     NULL,
-			                                     &renderer->height);
-		}
+		renderer->size = gtk_source_gutter_renderer_get_size (renderer->renderer);
 	}
 }
 
@@ -427,7 +408,7 @@ calculate_sizes (GtkSourceGutter  *gutter,
 			                                        &xpad,
 			                                        NULL);
 
-			width = renderer->width + 2 * xpad;
+			width = renderer->size + 2 * xpad;
 		}
 
 		if (sizes)
@@ -1403,8 +1384,8 @@ renderer_at_x (GtkSourceGutter *gutter,
 	for (item = gutter->priv->renderers; item; item = g_list_next (item))
 	{
 		Renderer *renderer = item->data;
+		w = renderer->size;
 
-		w = renderer->width;
 
 		if (w > 0 && x >= s && x < s + w)
 		{
@@ -1535,7 +1516,7 @@ get_renderer_rect (GtkSourceGutter *gutter,
 
 		if (gtk_source_gutter_renderer_get_visible (r->renderer))
 		{
-			rectangle->x += r->width;
+			rectangle->x += r->size;
 		}
 
 		item = g_list_next (item);
@@ -1546,7 +1527,7 @@ get_renderer_rect (GtkSourceGutter *gutter,
 	                               &y,
 	                               &rectangle->height);
 
-	rectangle->width = renderer->width;
+	rectangle->width = renderer->size;
 
 	gtk_text_view_buffer_to_window_coords (GTK_TEXT_VIEW (gutter->priv->view),
 	                                       gutter->priv->window_type,

@@ -97,9 +97,7 @@ struct _GtkSourceGutterRendererClass
 
 	void (*end)                 (GtkSourceGutterRenderer      *renderer);
 
-	void (*get_size)            (GtkSourceGutterRenderer      *renderer,
-	                             gint                         *width,
-	                             gint                         *height);
+	gint (*get_size)            (GtkSourceGutterRenderer      *renderer);
 
 	/* Signal handlers */
 	gboolean (*query_activatable) (GtkSourceGutterRenderer      *renderer,
@@ -148,9 +146,7 @@ void     gtk_source_gutter_renderer_draw            (GtkSourceGutterRenderer    
 
 void     gtk_source_gutter_renderer_end             (GtkSourceGutterRenderer      *renderer);
 
-void     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer      *renderer,
-                                                     gint                         *width,
-                                                     gint                         *height);
+gint     gtk_source_gutter_renderer_get_size        (GtkSourceGutterRenderer      *renderer);
 
 void     gtk_source_gutter_renderer_set_visible     (GtkSourceGutterRenderer      *renderer,
                                                      gboolean                      visible);
@@ -184,13 +180,10 @@ GtkTextView *gtk_source_gutter_renderer_get_view    (GtkSourceGutterRenderer    
 GtkSourceGutterRendererAlignmentMode
 	gtk_source_gutter_renderer_get_alignment_mode (GtkSourceGutterRenderer    *renderer);
 
-void    gtk_source_gutter_renderer_get_fixed_size   (GtkSourceGutterRenderer      *renderer,
-                                                     gint                         *width,
-                                                     gint                         *height);
+gint    gtk_source_gutter_renderer_get_fixed_size   (GtkSourceGutterRenderer      *renderer);
 
 void    gtk_source_gutter_renderer_set_fixed_size   (GtkSourceGutterRenderer      *renderer,
-                                                     gint                          width,
-                                                     gint                          height);
+                                                     gint                          size);
 
 gboolean gtk_source_gutter_renderer_get_background  (GtkSourceGutterRenderer      *renderer,
                                                      GdkColor                     *color);

@@ -217,25 +217,17 @@ gutter_renderer_text_end (GtkSourceGutterRenderer *renderer)
 	text->priv->fg_attr = NULL;
 }
 
-static void
-gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
-                               gint                    *width,
-                               gint                    *height)
+static gint
+gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer)
 {
 	GtkSourceGutterRendererText *text;
+	gint size;
 
 	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
 
-	if (!width && !height)
-	{
-		return;
-	}
+	size = GTK_SOURCE_GUTTER_RENDERER_CLASS (gtk_source_gutter_renderer_text_parent_class)->get_size (renderer);
 
-	GTK_SOURCE_GUTTER_RENDERER_CLASS (gtk_source_gutter_renderer_text_parent_class)->get_size (renderer,
-	                                                                                           width,
-	                                                                                           height);
-
-	if ((width && *width == -1) || (height && *height == -1))
+	if (size == -1)
 	{
 		PangoLayout *layout;
 		gint w;
@@ -259,18 +251,12 @@ gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer,
 
 		pango_layout_get_size (layout, &w, &h);
 
-		if (width && *width == -1)
-		{
-			*width = w / PANGO_SCALE;
-		}
-
-		if (height && *height == -1)
-		{
-			*height = h / PANGO_SCALE;
-		}
+		size = w / PANGO_SCALE;
 
 		g_object_unref (layout);
 	}
+
+	return size;
 }
 
 static void
