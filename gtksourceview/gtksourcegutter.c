@@ -1384,8 +1384,15 @@ renderer_at_x (GtkSourceGutter *gutter,
 	for (item = gutter->priv->renderers; item; item = g_list_next (item))
 	{
 		Renderer *renderer = item->data;
+		gint xpad;
+
 		w = renderer->size;
 
+		gtk_source_gutter_renderer_get_padding (renderer->renderer,
+		                                        &xpad,
+		                                        NULL);
+
+		s += xpad;
 
 		if (w > 0 && x >= s && x < s + w)
 		{
@@ -1402,7 +1409,7 @@ renderer_at_x (GtkSourceGutter *gutter,
 			return renderer;
 		}
 
-		s += w;
+		s += w + xpad;
 	}
 
 	return NULL;
