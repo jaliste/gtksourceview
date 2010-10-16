@@ -76,7 +76,6 @@
 #define PROFILE(x)
 #endif
 
-#define COMPOSITE_ALPHA                 225
 #define GUTTER_PIXMAP 			16
 #define DEFAULT_TAB_WIDTH 		8
 #define MAX_TAB_WIDTH			32
@@ -185,26 +184,6 @@ typedef enum
 	ICON_TYPE_NAME
 } IconType;
 
-typedef struct
-{
-	gint priority;
-
-	IconType icon_type;
-	GdkPixbuf *icon_pixbuf;
-	gchar *icon_stock;
-	gchar *icon_name;
-
-	GdkPixbuf *cached_icon;
-
-	GtkSourceViewMarkTooltipFunc tooltip_func;
-	gpointer tooltip_data;
-	GDestroyNotify tooltip_data_notify;
-
-	GdkColor background;
-	guint background_set : 1;
-	guint tooltip_markup : 1;
-} MarkCategory;
-
 /* Prototypes. */
 static GObject *gtk_source_view_constructor		(GType               type,
 							 guint               n_construct_properties,
@@ -272,17 +251,6 @@ static void     gtk_source_view_style_set               (GtkWidget         *widg
 							 GtkStyle          *previous_style);
 static void	gtk_source_view_realize			(GtkWidget         *widget);
 static void	gtk_source_view_update_style_scheme	(GtkSourceView     *view);
-
-static MarkCategory *
-		gtk_source_view_get_mark_category	(GtkSourceView     *view,
-							 GtkSourceMark     *mark);
-
-static MarkCategory *
-		gtk_source_view_ensure_category		(GtkSourceView     *view,
-							 const gchar       *name);
-static MarkCategory *
-		mark_category_new			(gint               priority);
-static void	mark_category_free			(MarkCategory      *cat);
 
 /* Private functions. */
 static void
@@ -949,502 +917,10 @@ notify_buffer (GtkSourceView *view)
 		gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
 }
 
-static gint
-sort_marks_by_priority (gconstpointer m1,
-			gconstpointer m2,
-			gpointer data)
-{
-	GtkSourceMark *mark1 = GTK_SOURCE_MARK (m1);
-	GtkSourceMark *mark2 = GTK_SOURCE_MARK (m2);
-	GtkSourceView *view = GTK_SOURCE_VIEW (data);
-	GtkTextIter iter1, iter2;
-	gint line1;
-	gint line2;
-
-	gtk_text_buffer_get_iter_at_mark (gtk_text_mark_get_buffer (GTK_TEXT_MARK (mark1)),
-					  &iter1,
-					  GTK_TEXT_MARK (mark1));
-	gtk_text_buffer_get_iter_at_mark (gtk_text_mark_get_buffer (GTK_TEXT_MARK (mark2)),
-					  &iter2,
-					  GTK_TEXT_MARK (mark2));
-
-	line1 = gtk_text_iter_get_line (&iter1);
-	line2 = gtk_text_iter_get_line (&iter2);
-
-	if (line1 == line2)
-	{
-		guint priority1 = gtk_source_view_get_mark_category_priority (view,
-						gtk_source_mark_get_category (mark1));
-		guint priority2 = gtk_source_view_get_mark_category_priority (view,
-						gtk_source_mark_get_category (mark2));
-
-		return priority1 - priority2;
-	}
-	else
-	{
-		return line2 - line1;
-	}
-}
-
-static GdkPixbuf *
-get_icon_from_stock (GtkSourceView *view,
-                     const gchar   *stock_id,
-                     gint           size)
-{
-	gchar *sizename;
-	GtkIconSize iconsize;
-
-	/* Check special icon size */
-	sizename = g_strdup_printf ("GtkSourceMarkCategoryIcon%d", size);
-	iconsize = gtk_icon_size_from_name (sizename);
-
-	if (iconsize == GTK_ICON_SIZE_INVALID)
-	{
-		iconsize = gtk_icon_size_register (sizename, size, size);
-	}
-
-	g_free (sizename);
-
-	if (iconsize == GTK_ICON_SIZE_INVALID)
-	{
-		return NULL;
-	}
-
-	return gtk_widget_render_icon (GTK_WIDGET (view),
-	                               stock_id,
-	                               iconsize,
-	                               NULL);
-}
-
-static GdkPixbuf *
-get_icon_from_name (GtkSourceView *view,
-                    const gchar   *name,
-                    gint           size)
-{
-	GtkIconTheme *theme;
-
-	theme = gtk_icon_theme_get_for_screen (gtk_widget_get_screen (GTK_WIDGET (view)));
-
-	return gtk_icon_theme_load_icon (theme,
-	                                 name,
-	                                 size,
-	                                 GTK_ICON_LOOKUP_USE_BUILTIN |
-	                                 GTK_ICON_LOOKUP_FORCE_SIZE,
-	                                 NULL);
-}
-
-static void
-remove_cached_category_icon (MarkCategory *category)
-{
-	if (category->cached_icon != NULL)
-	{
-		g_object_unref (category->cached_icon);
-		category->cached_icon = NULL;
-	}
-}
-
-static GdkPixbuf *
-get_mark_category_pixbuf (GtkSourceView *view,
-                          const gchar   *category,
-                          gint           size)
-{
-	MarkCategory *cat;
-
-	cat = g_hash_table_lookup (view->priv->mark_categories, category);
-
-	if (cat == NULL)
-	{
-		return NULL;
-	}
-
-	if (cat->cached_icon &&
-	    (gdk_pixbuf_get_height (cat->cached_icon) == size ||
-	     gdk_pixbuf_get_width (cat->cached_icon) == size))
-	{
-		return cat->cached_icon;
-	}
-
-	/* Regenerate icon */
-	remove_cached_category_icon (cat);
-
-	switch (cat->icon_type)
-	{
-		case ICON_TYPE_NONE:
-			break;
-		case ICON_TYPE_PIXBUF:
-			if (cat->icon_pixbuf == NULL)
-			{
-				return NULL;
-			}
-
-			if (gdk_pixbuf_get_width (cat->icon_pixbuf) <= size &&
-			    gdk_pixbuf_get_height (cat->icon_pixbuf) <= size)
-			{
-				cat->cached_icon = g_object_ref (cat->icon_pixbuf);
-			}
-			else
-			{
-				cat->cached_icon = gdk_pixbuf_scale_simple (cat->icon_pixbuf,
-					                                    size,
-					                                    size,
-					                                    GDK_INTERP_BILINEAR);
-			}
-			break;
-		case ICON_TYPE_STOCK:
-			cat->cached_icon = get_icon_from_stock (view,
-			                                        cat->icon_stock,
-			                                        size);
-			break;
-		case ICON_TYPE_NAME:
-			cat->cached_icon = get_icon_from_name (view,
-			                                       cat->icon_name,
-			                                       size);
-			break;
-		default:
-			g_return_val_if_reached (NULL);
-	}
-
-	return cat->cached_icon;
-}
-
-static GdkPixbuf *
-composite_marks (GtkSourceView *view,
-		 GSList        *marks,
-		 gint           size)
-{
-	GdkPixbuf *composite;
-	gint mark_width, mark_height;
-
-	/* Draw the mark with higher priority */
-	marks = g_slist_sort_with_data (marks, sort_marks_by_priority, view);
-
-	composite = NULL;
-	mark_width = mark_height = 0;
-
-	/* composite all the pixbufs for the marks present at the line */
-	do
-	{
-		GtkSourceMark *mark;
-		GdkPixbuf *pixbuf;
-
-		mark = marks->data;
-
-		pixbuf = get_mark_category_pixbuf (view,
-					           gtk_source_mark_get_category (mark),
-					           size);
-
-		if (pixbuf != NULL)
-		{
-			if (composite == NULL)
-			{
-				composite = gdk_pixbuf_copy (pixbuf);
-				mark_width = gdk_pixbuf_get_width (composite);
-				mark_height = gdk_pixbuf_get_height (composite);
-			}
-			else
-			{
-				gint pixbuf_w;
-				gint pixbuf_h;
-
-				pixbuf_w = gdk_pixbuf_get_width (pixbuf);
-				pixbuf_h = gdk_pixbuf_get_height (pixbuf);
-
-				gdk_pixbuf_composite (pixbuf,
-						      composite,
-						      0, 0,
-						      mark_width, mark_height,
-						      0, 0,
-						      (double) pixbuf_w / mark_width,
-						      (double) pixbuf_h / mark_height,
-						      GDK_INTERP_BILINEAR,
-						      COMPOSITE_ALPHA);
-			}
-		}
-
-		marks = g_slist_next (marks);
-	}
-	while (marks);
-
-	return composite;
-}
-
-static int
-measure_line_height (GtkSourceView *view)
-{
-	PangoLayout *layout;
-	gint height = 12;
-
-	layout = gtk_widget_create_pango_layout (GTK_WIDGET (view), "QWERTY");
-
-	if (layout)
-	{
-		pango_layout_get_pixel_size (layout, NULL, &height);
-		g_object_unref (layout);
-	}
-
-	return height - 2;
-}
-
-/*static void
-marks_renderer_data_func (GtkSourceGutter *gutter,
-                          GtkCellRenderer *renderer,
-                          gint             line_number,
-                          gboolean         current_line,
-                          GtkSourceView   *view)
-{
-	GSList *marks;
-	GdkPixbuf *pixbuf = NULL;
-	int size = 0;
-
-	if (view->priv->source_buffer)
-	{
-		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
-								    line_number,
-								    NULL);
-
-		if (marks != NULL)
-		{
-			GtkTextIter iter;
-
-			gtk_text_buffer_get_iter_at_line (GTK_TEXT_BUFFER (view->priv->source_buffer),
-							  &iter,
-							  line_number);
-
-			if (size == 0)
-			{
-				size = measure_line_height (view);
-			}
-
-			pixbuf = composite_marks (view, marks, size);
-			g_slist_free (marks);
-		}
-	}
-
-	g_object_set (G_OBJECT (renderer),
-	              "pixbuf", pixbuf,
-	              "xpad", 2,
-	              "ypad", 1,
-	              "yalign", 0.0,
-	              "xalign", 0.5,
-	              "mode", GTK_CELL_RENDERER_MODE_ACTIVATABLE,
-	              NULL);
-}*/
-
-/*static void
-marks_renderer_size_func (GtkSourceGutter *gutter,
-                          GtkCellRenderer *renderer,
-                          GtkSourceView   *view)
-{
-	gint size;
-	GdkPixbuf *pixbuf;
-
-	size = measure_line_height (view);
-
-	pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
-	                         TRUE,
-	                         8,
-	                         size,
-	                         size);
-
-	g_object_set (G_OBJECT (renderer),
-	              "pixbuf", pixbuf,
-	              "xpad", 2,
-	              "ypad", 1,
-	              NULL);
-
-	g_object_unref (pixbuf);
-}*/
-
-
-/*static void
-marks_renderer_activated (GtkSourceGutter *gutter,
-                          GtkCellRenderer *renderer,
-                          GtkTextIter     *iter,
-                          GdkEvent        *event,
-                          GtkSourceView   *view)
-{
-	if (renderer == view->priv->marks_renderer)
-	{
-		g_signal_emit (view,
-		               signals[LINE_MARK_ACTIVATED],
-		               0,
-		               iter,
-		               event);
-	}
-}*/
-
-static gboolean
-set_tooltip_widget_from_marks (GtkSourceView *view,
-			       GtkTooltip *tooltip,
-			       GSList *marks)
-{
-	GtkWidget *vbox = NULL;
-
-	while (marks != NULL)
-	{
-		const gchar *category;
-		GtkSourceMark *mark;
-		MarkCategory *cat;
-
-		mark = marks->data;
-		category = gtk_source_mark_get_category (mark);
-
-		cat = gtk_source_view_get_mark_category (view, mark);
-
-		if (cat != NULL && cat->tooltip_func != NULL)
-		{
-			gchar *text;
-
-			text = cat->tooltip_func (mark, cat->tooltip_data);
-			if (text != NULL)
-			{
-				GtkWidget *label;
-				GtkWidget *hbox;
-
-				if (vbox == NULL)
-				{
-					vbox = gtk_vbox_new (FALSE, 0);
-					gtk_widget_show (vbox);
-				}
-
-				hbox = gtk_hbox_new (FALSE, 4);
-				gtk_widget_show (hbox);
-				gtk_box_pack_start (GTK_BOX (vbox), hbox,
-				    FALSE, FALSE, 0);
-
-				GdkPixbuf *pixbuf;
-				gint size;
-
-				label = gtk_label_new (NULL);
-
-				if (cat->tooltip_markup)
-					gtk_label_set_markup (GTK_LABEL (label), text);
-				else
-					gtk_label_set_text (GTK_LABEL (label), text);
-
-				gtk_misc_set_alignment (GTK_MISC (label), 0, 0);
-				gtk_widget_show (label);
-
-				gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, NULL, &size);
-				pixbuf = get_mark_category_pixbuf (view, category, size);
-
-				if (pixbuf != NULL)
-				{
-					GtkWidget *image;
-					PangoLayoutLine *line;
-					PangoRectangle rect;
-					GtkWidget *align;
-
-					align = gtk_alignment_new (0, 0, 0, 0);
-					gtk_widget_show (align);
-
-					image = gtk_image_new_from_pixbuf (pixbuf);
-					gtk_misc_set_alignment (GTK_MISC (image), 0, 0);
-					gtk_widget_show (image);
-
-					/* Measure up to align exact */
-					line = pango_layout_get_line (gtk_label_get_layout (GTK_LABEL (label)), 0);
-					pango_layout_line_get_pixel_extents (line, NULL, &rect);
-
-					gtk_alignment_set_padding (GTK_ALIGNMENT (align),
-						                   (rect.height > size ? rect.height - size : size - rect.height) - 1,
-						                   0, 0, 0);
-					if (rect.height > size)
-					{
-						gtk_container_add (GTK_CONTAINER (align),
-						                   image);
-
-						image = align;
-					}
-					else if (size > rect.height)
-					{
-						gtk_container_add (GTK_CONTAINER (align),
-						                   label);
-						label = align;
-					}
-					else
-					{
-						gtk_widget_destroy (align);
-					}
-
-					gtk_box_pack_start (GTK_BOX (hbox),
-					                    image,
-					                    FALSE,
-					                    FALSE,
-					                    0);
-				}
-
-				gtk_box_pack_end (GTK_BOX (hbox),
-				                  label,
-				                  TRUE,
-				                  TRUE,
-				                  0);
-
-				if (g_slist_length (marks) != 1)
-				{
-					GtkWidget *separator;
-
-					separator = gtk_hseparator_new ();
-					gtk_widget_show (separator);
-					gtk_box_pack_start (GTK_BOX (vbox), separator,
-							    FALSE, FALSE, 0);
-				}
-
-				g_free (text);
-			}
-		}
-
-		marks = g_slist_delete_link (marks, marks);
-	}
-
-	if (vbox == NULL)
-		return FALSE;
-
-	gtk_tooltip_set_custom (tooltip, vbox);
-
-	return TRUE;
-}
-
-/*static gboolean
-renderer_query_tooltip (GtkSourceGutter *gutter,
-                        GtkCellRenderer *renderer,
-                        GtkTextIter     *iter,
-                        GtkTooltip      *tooltip,
-                        GtkSourceView   *view)
-{
-	GSList *marks;
-	GtkSourceBuffer *buffer;
-	gint line;
-
-	if (renderer != view->priv->marks_renderer)
-	{
-		return FALSE;
-	}
-
-	buffer = GTK_SOURCE_BUFFER (gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)));
-	line = gtk_text_iter_get_line (iter);
-
-	marks = gtk_source_buffer_get_source_marks_at_line (buffer,
-							    line,
-							    NULL);
-
-	if (marks != NULL)
-	{
-		marks = g_slist_sort_with_data (marks, sort_marks_by_priority, view);
-		marks = g_slist_reverse (marks);
-
-		return set_tooltip_widget_from_marks (view, tooltip, marks);
-	}
-
-	return FALSE;
-}*/
-
 static void
 init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
-
-	//view->priv->marks_renderer = gtk_cell_renderer_pixbuf_new ();
 
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
@@ -1486,9 +962,10 @@ gtk_source_view_init (GtkSourceView *view)
 	view->priv->right_margin_overlay_color = NULL;
 	view->priv->spaces_color = NULL;
 
-	view->priv->mark_categories = g_hash_table_new_full (g_str_hash, g_str_equal,
-							     (GDestroyNotify) g_free,
-							     (GDestroyNotify) mark_category_free);
+	view->priv->mark_categories = g_hash_table_new_full (g_str_hash,
+	                                                     g_str_equal,
+	                                                     (GDestroyNotify) g_free,
+	                                                     (GDestroyNotify) g_object_unref);
 
 	init_left_gutter (view);
 
@@ -2363,46 +1840,54 @@ gtk_source_view_paint_marks_background (GtkSourceView *view,
 
 	DEBUG ({
 		g_message ("Painting marks background for line numbers %d - %d",
-			   g_array_index (numbers, gint, 0),
-			   g_array_index (numbers, gint, count - 1));
+		           g_array_index (numbers, gint, 0),
+		           g_array_index (numbers, gint, count - 1));
 	});
 
 	for (i = 0; i < count; ++i)
 	{
 		gint line_to_paint;
 		GSList *marks;
-		GdkColor *background;
+		GdkColor background;
 		int priority;
 
 		line_to_paint = g_array_index (numbers, gint, i);
 
 		marks = gtk_source_buffer_get_source_marks_at_line (view->priv->source_buffer,
-								    line_to_paint,
-								    NULL);
+		                                                    line_to_paint,
+		                                                    NULL);
 
-		background = NULL;
 		priority = -1;
 
 		while (marks != NULL)
 		{
-			MarkCategory *cat = NULL;
+			GtkSourceMarkCategory *cat;
+			gint prio;
+			GdkColor bg;
 
-			cat = gtk_source_view_get_mark_category (view, marks->data);
+			cat = gtk_source_view_get_mark_category (view,
+			                                         gtk_source_mark_get_category (marks->data));
 
-			if (cat != NULL && cat->background_set && cat->priority > priority)
+			prio = gtk_source_mark_category_get_priority (cat);
+
+			if (prio > priority &&
+			    gtk_source_mark_category_get_background (cat, &bg))
 			{
-				background = &cat->background;
-				priority = cat->priority;
+				priority = prio;
+				background = bg;
 			}
 
 			marks = g_slist_delete_link (marks, marks);
 		}
 
-		if (background != NULL)
-			gtk_source_view_paint_line_background (text_view, cr,
-							       g_array_index (pixels, gint, i),
-							       g_array_index (heights, gint, i),
-							       background);
+		if (priority != -1)
+		{
+			gtk_source_view_paint_line_background (text_view,
+			                                       cr,
+			                                       g_array_index (pixels, gint, i),
+			                                       g_array_index (heights, gint, i),
+			                                       &background);
+		}
 	}
 
 	g_array_free (heights, TRUE);
@@ -3257,446 +2742,6 @@ gtk_source_view_get_indent_width (GtkSourceView *view)
 	g_return_val_if_fail (view != NULL && GTK_IS_SOURCE_VIEW (view), 0);
 
 	return view->priv->indent_width;
-}
-
-static void
-mark_category_set_background (MarkCategory *cat, const GdkColor *background)
-{
-	if (background != NULL)
-	{
-		cat->background_set = TRUE;
-		cat->background = *background;
-	}
-	else
-	{
-		cat->background_set = FALSE;
-	}
-}
-
-static MarkCategory *
-mark_category_new (gint priority)
-{
-	MarkCategory *cat;
-
-	cat = g_slice_new0 (MarkCategory);
-	cat->priority = priority;
-
-	return cat;
-}
-
-static void
-mark_category_free (MarkCategory *cat)
-{
-	if (cat->tooltip_data_notify != NULL)
-	{
-		cat->tooltip_data_notify (cat->tooltip_data);
-	}
-
-	if (cat->icon_pixbuf)
-	{
-		g_object_unref (cat->icon_pixbuf);
-	}
-
-	if (cat->cached_icon)
-	{
-		g_object_unref (cat->cached_icon);
-	}
-
-	g_free (cat->icon_stock);
-	g_free (cat->icon_name);
-
-	g_slice_free (MarkCategory, cat);
-}
-
-static MarkCategory *
-gtk_source_view_get_mark_category (GtkSourceView *view,
-				   GtkSourceMark *mark)
-{
-	const gchar *category;
-	category = gtk_source_mark_get_category (mark);
-	if (category)
-		return g_hash_table_lookup (view->priv->mark_categories,
-					    category);
-	else
-		return NULL;
-}
-
-static MarkCategory *
-gtk_source_view_ensure_category (GtkSourceView *view,
-				 const gchar   *name)
-{
-	MarkCategory *cat;
-
-	cat = g_hash_table_lookup (view->priv->mark_categories, name);
-
-	if (cat == NULL)
-	{
-		cat = mark_category_new (0);
-		g_hash_table_insert (view->priv->mark_categories,
-				     g_strdup (name),
-				     cat);
-	}
-
-	return cat;
-}
-
-/**
- * gtk_source_view_set_mark_category_icon_from_pixbuf:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @pixbuf: (allow-none): a #GdkPixbuf, or %NULL.
- *
- * Sets the icon to be used for @category to @pixbuf.
- * If @pixbuf is %NULL, the icon is unset.
- *
- * Since: 2.8
- */
-void
-gtk_source_view_set_mark_category_icon_from_pixbuf (GtkSourceView  *view,
-                                                    const gchar    *category,
-                                                    GdkPixbuf      *pixbuf)
-{
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-	g_return_if_fail (pixbuf == NULL || GDK_IS_PIXBUF (pixbuf));
-
-	cat = gtk_source_view_ensure_category (view, category);
-
-	if (cat->icon_pixbuf != NULL)
-	{
-		g_object_unref (cat->icon_pixbuf);
-		cat->icon_pixbuf = NULL;
-	}
-
-	remove_cached_category_icon (cat);
-
-	if (pixbuf != NULL)
-	{
-		cat->icon_pixbuf = g_object_ref (pixbuf);
-	}
-
-	cat->icon_type = ICON_TYPE_PIXBUF;
-
-	/* We may need to redraw the margin now */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-}
-
-/**
- * gtk_source_view_set_mark_category_icon_from_icon_name:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @name: (allow-none): the themed icon name, or %NULL.
- *
- * Sets the icon to be used for @category to the named theme item @name.
- * If @name is %NULL, the icon is unset.
- *
- * Since: 2.8
- */
-void
-gtk_source_view_set_mark_category_icon_from_icon_name (GtkSourceView  *view,
-                                                       const gchar    *category,
-                                                       const gchar    *name)
-{
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-
-	cat = gtk_source_view_ensure_category (view, category);
-
-	if (cat->icon_name != NULL)
-	{
-		g_free (cat->icon_name);
-		cat->icon_name = NULL;
-	}
-
-	remove_cached_category_icon (cat);
-
-	if (name != NULL)
-	{
-		cat->icon_name = g_strdup (name);
-	}
-
-	cat->icon_type = ICON_TYPE_NAME;
-
-	/* We may need to redraw the margin now */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-}
-
-/**
- * gtk_source_view_set_mark_category_icon_from_stock:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @stock_id: (allow-none): the stock id, or %NULL.
- *
- * Sets the icon to be used for @category to the stock item @stock_id.
- * If @stock_id is %NULL, the icon is unset.
- *
- * Since: 2.8
- */
-void
-gtk_source_view_set_mark_category_icon_from_stock (GtkSourceView  *view,
-                                                   const gchar    *category,
-                                                   const gchar    *stock_id)
-{
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-
-	cat = gtk_source_view_ensure_category (view, category);
-
-	if (cat->icon_stock != NULL)
-	{
-		g_free (cat->icon_stock);
-		cat->icon_stock = NULL;
-	}
-
-	remove_cached_category_icon (cat);
-
-	if (stock_id != NULL)
-	{
-		cat->icon_stock = g_strdup (stock_id);
-	}
-
-	cat->icon_type = ICON_TYPE_STOCK;
-
-	/* We may need to redraw the margin now */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-}
-
-static void
-set_mark_category_tooltip_func (GtkSourceView   *view,
-				const gchar     *category,
-				GtkSourceViewMarkTooltipFunc func,
-				gpointer	 user_data,
-				GDestroyNotify   user_data_notify,
-				gboolean markup)
-{
-	GtkWidget *widget;
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-
-	widget = GTK_WIDGET (view);
-	cat = gtk_source_view_ensure_category (view, category);
-
-	if (cat->tooltip_data_notify)
-		cat->tooltip_data_notify (cat->tooltip_data);
-
-	cat->tooltip_func = func;
-	cat->tooltip_markup = markup;
-	cat->tooltip_data = user_data;
-	cat->tooltip_data_notify = user_data_notify;
-
-	if (func != NULL)
-	{
-		gtk_widget_set_has_tooltip (widget, TRUE);
-		if (gtk_widget_get_realized (widget))
-		{
-			gtk_widget_trigger_tooltip_query (widget);
-		}
-	}
-}
-
-/**
- * gtk_source_view_set_mark_category_tooltip_func:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @func: (allow-none): a #GtkSourceViewMarkTooltipFunc or %NULL.
- * @user_data: (allow-none): user data which will be passed to @func.
- * @user_data_notify: (allow-none):a function to free the memory allocated
- * for @user_data or %NULL if you do not want to supply such a function.
- *
- * Set a #GtkSourceViewMarkTooltipFunc used to set tooltip on marks from the
- * given mark @category.
- * If you also specified a function with
- * gtk_source_view_set_mark_category_tooltip_markup_func()  the markup
- * variant takes precedence.
- *
- * <informalexample><programlisting><![CDATA[
- * static gchar *
- * tooltip_func (GtkSourceMark *mark,
- *               gpointer       user_data)
- * {
- *   gchar *text;
- *
- *   text = get_tooltip_for_mark (mark, user_data);
- *
- *   return text;
- * }
- *
- * ...
- *
- * GtkSourceView *view;
- *
- * gtk_source_view_set_mark_category_tooltip_func (view, "other-mark",
- *                                                 tooltip_func,
- *                                                 NULL, NULL);
- * ]]></programlisting></informalexample>
- *
- * Since: 2.8
- */
-void
-gtk_source_view_set_mark_category_tooltip_func (GtkSourceView   *view,
-						const gchar     *category,
-						GtkSourceViewMarkTooltipFunc func,
-						gpointer	 user_data,
-						GDestroyNotify   user_data_notify)
-{
-	set_mark_category_tooltip_func (view, category, func, user_data,
-					user_data_notify, FALSE);
-}
-
-/**
- * gtk_source_view_set_mark_category_tooltip_markup_func:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @markup_func: (allow-none): a #GtkSourceViewMarkTooltipFunc or %NULL.
- * @user_data: (allow-none): user data which will be passed to @func.
- * @user_data_notify: (allow-none):a function to free the memory allocated
- * for @user_data or %NULL if you do not want to supply such a function.
- *
- * See gtk_source_view_set_mark_category_tooltip_func() for more information.
- *
- * Since: 2.8
- */
-void
-gtk_source_view_set_mark_category_tooltip_markup_func (GtkSourceView   *view,
-						       const gchar     *category,
-						       GtkSourceViewMarkTooltipFunc markup_func,
-						       gpointer         user_data,
-						       GDestroyNotify   user_data_notify)
-{
-	set_mark_category_tooltip_func (view, category, markup_func, user_data,
-					user_data_notify, TRUE);
-}
-
-/**
- * gtk_source_view_set_mark_category_background:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @color: (allow-none): background color or %NULL to unset it.
- *
- * Sets given background @color for mark @category.
- * If @color is %NULL, the background color is unset.
- *
- * Since: 2.4
- */
-void
-gtk_source_view_set_mark_category_background (GtkSourceView  *view,
-					      const gchar    *category,
-					      const GdkColor *color)
-{
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-
-	cat = gtk_source_view_ensure_category (view, category);
-	mark_category_set_background (cat, color);
-
-	/* We may need to redraw the text background now */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-}
-
-/**
- * gtk_source_view_get_mark_category_background:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @dest: destination #GdkColor structure to fill in.
- *
- * Gets the background color associated with given @category.
- *
- * Return value: %TRUE if background color for @category was set
- * and @dest is set to a valid color, or %FALSE otherwise.
- *
- * Since: 2.4
- */
-gboolean
-gtk_source_view_get_mark_category_background (GtkSourceView *view,
-					      const gchar   *category,
-					      GdkColor      *dest)
-{
-	MarkCategory *cat;
-
-	g_return_val_if_fail (GTK_IS_SOURCE_VIEW (view), FALSE);
-	g_return_val_if_fail (category != NULL, FALSE);
-	g_return_val_if_fail (dest != NULL, FALSE);
-
-	cat = g_hash_table_lookup (view->priv->mark_categories, category);
-	if (cat != NULL && cat->background_set)
-	{
-		*dest = cat->background;
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
-}
-
-/**
- * gtk_source_view_set_mark_category_priority:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- * @priority: the priority for the category
- *
- * Set the @priority for the given mark @category. When there are
- * multiple marks on the same line, marks of categories with
- * higher priorities will be drawn on top.
- *
- * Since: 2.2
- */
-void
-gtk_source_view_set_mark_category_priority (GtkSourceView *view,
-					    const gchar   *category,
-					    gint          priority)
-{
-	MarkCategory *cat;
-
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-	g_return_if_fail (category != NULL);
-
-	cat = gtk_source_view_ensure_category (view, category);
-	cat->priority = priority;
-
-	/* We may need to redraw now, if the priorities affect appearance */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
-}
-
-/**
- * gtk_source_view_get_mark_category_priority:
- * @view: a #GtkSourceView.
- * @category: a mark category.
- *
- * Gets the priority which is associated with the given @category.
- *
- * Return value: the priority or if @category
- * exists but no priority was set, it defaults to 0.
- *
- * Since: 2.2
- */
-gint
-gtk_source_view_get_mark_category_priority (GtkSourceView *view,
-					    const gchar   *category)
-{
-	MarkCategory *cat;
-
-	g_return_val_if_fail (GTK_IS_SOURCE_VIEW (view), 0);
-	g_return_val_if_fail (category != NULL, 0);
-
-	cat = g_hash_table_lookup (view->priv->mark_categories, category);
-	if (cat != NULL)
-		return cat->priority;
-	else
-	{
-		g_warning ("Marker Category %s does not exist!", category);
-		return 0;
-	}
 }
 
 static gchar *
@@ -5125,4 +4170,39 @@ gtk_source_view_get_gutter (GtkSourceView     *view,
 
 		return view->priv->right_gutter;
 	}
+}
+
+/**
+ * gtk_source_view_get_mark_category:
+ * @view: a #GtkSourceView
+ * @category: the category
+ *
+ * Get the source mark category object for @category. A
+ * #GtkSourceMarkCategory is automatically created for the given category
+ * if it does not exist yet.
+ *
+ * Returns: (transfer none): the #GtkSourceMarkCategory object
+ *
+ */
+GtkSourceMarkCategory *
+gtk_source_view_get_mark_category (GtkSourceView *view,
+                                   const gchar   *category)
+{
+	GtkSourceMarkCategory *ret;
+
+	g_return_val_if_fail (GTK_IS_SOURCE_VIEW (view), NULL);
+	g_return_val_if_fail (category != NULL, NULL);
+
+	ret = g_hash_table_lookup (view->priv->mark_categories, category);
+
+	if (!ret)
+	{
+		ret = gtk_source_mark_category_new (category);
+
+		g_hash_table_insert (view->priv->mark_categories,
+		                     g_strdup (category),
+		                     ret);
+	}
+
+	return ret;
 }

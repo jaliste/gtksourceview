@@ -36,6 +36,7 @@ libgtksourceview_headers =			\
 	gtksourcelanguage.h			\
 	gtksourcelanguagemanager.h		\
 	gtksourcemark.h				\
+	gtksourcemarkcategory.h			\
 	gtksourceprintcompositor.h		\
 	gtksourcestyle.h			\
 	gtksourcestylescheme.h			\
@@ -56,7 +57,9 @@ NOINST_H_FILES = \
 	gtksourceundomanagerdefault.h	\
 	gtksourceview-i18n.h		\
 	gtksourceview-utils.h		\
-	gtktextregion.h
+	gtktextregion.h			\
+	gtksourcepixbufhelper.h		\
+	gtksourcemarkcategory.h
 
 libgtksourceview_c_files = \
 	gtksourcebuffer.c 		\
@@ -74,6 +77,8 @@ libgtksourceview_c_files = \
 	gtksourcegutterrenderer.c	\
 	gtksourcegutterrenderertext.c	\
 	gtksourcegutterrendererlines.c	\
+	gtksourcemarkcategory.c		\
+	gtksourcepixbufhelper.c		\
 	gtksourceiter.c			\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
