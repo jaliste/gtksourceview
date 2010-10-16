@@ -148,7 +148,7 @@ gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
 		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_CELL:
 			x = cell_area->x + (cell_area->width - width) * xalign;
 			y = cell_area->y + (cell_area->height - height) * yalign;
-		break;
+			break;
 		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST:
 			center_on (renderer,
 			           cell_area,
@@ -159,7 +159,7 @@ gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
 			           yalign,
 			           &x,
 			           &y);
-		break;
+			break;
 		case GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_LAST:
 			center_on (renderer,
 			           cell_area,
@@ -170,7 +170,7 @@ gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
 			           yalign,
 			           &x,
 			           &y);
-		break;
+			break;
 	}
 
 	gdk_cairo_set_source_pixbuf (cr, pixbuf, x, y);
