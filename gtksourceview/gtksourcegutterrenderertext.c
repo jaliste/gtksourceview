@@ -1,4 +1,5 @@
 #include "gtksourcegutterrenderertext.h"
+#include "gtksourceview-i18n.h"
 
 #define GTK_SOURCE_GUTTER_RENDERER_TEXT_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GTK_TYPE_SOURCE_GUTTER_RENDERER_TEXT, GtkSourceGutterRendererTextPrivate))
 
@@ -368,16 +369,16 @@ gtk_source_gutter_renderer_text_class_init (GtkSourceGutterRendererTextClass *kl
 	g_object_class_install_property (object_class,
 	                                 PROP_MARKUP,
 	                                 g_param_spec_string ("markup",
-	                                                      "Markup",
-	                                                      "Markup",
+	                                                      _("Markup"),
+	                                                      _("The markup"),
 	                                                      NULL,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
 	g_object_class_install_property (object_class,
 	                                 PROP_TEXT,
 	                                 g_param_spec_string ("text",
-	                                                      "Text",
-	                                                      "Text",
+	                                                      _("Text"),
+	                                                      _("The text"),
 	                                                      NULL,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 }
