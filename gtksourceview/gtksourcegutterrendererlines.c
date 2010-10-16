@@ -26,7 +26,6 @@
 
 struct _GtkSourceGutterRendererLinesPrivate
 {
-	GtkSourceView *view;
 	GtkTextBuffer *buffer;
 
 	gint num_line_digits;
