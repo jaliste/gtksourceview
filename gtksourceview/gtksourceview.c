@@ -2646,14 +2646,8 @@ gtk_source_view_set_show_line_marks (GtkSourceView *view,
 	}
 
 
-	/*if (show)
-	{
-		gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, -1, -1);
-	}
-	else
-	{
-		gtk_cell_renderer_set_fixed_size (view->priv->marks_renderer, 0, 0);
-	}*/
+	gtk_source_gutter_renderer_set_visible (view->priv->marks_renderer,
+	                                        show);
 
 	view->priv->show_line_marks = show;
 
