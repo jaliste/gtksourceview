@@ -77,6 +77,120 @@ gutter_renderer_folds_begin (GtkSourceGutterRenderer      *renderer,
 	folds_renderer->priv->folds_visible = _gtk_source_buffer_get_folds_in_region (GTK_SOURCE_BUFFER (buffer), start, end);
 }
 
+
+
+
+static gboolean
+gutter_renderer_activate (GtkSourceGutterRenderer *renderer,
+                          GtkTextIter             *iter,
+                          const GdkRectangle      *area,
+                          GdkEvent                *event)
+{
+	GtkSourceGutterRendererFolds *folds_renderer;
+	GtkSourceFold *fold;
+	GtkWidget *fold_label = NULL;
+	GList *folds;
+	GtkTextBuffer *buffer;
+	gint start_line;
+	gint end_line;
+	gint line_number;
+
+	folds_renderer = GTK_SOURCE_GUTTER_RENDERER_FOLDS (renderer);
+
+	folds = folds_renderer->priv->folds_visible;
+	buffer = gtk_text_view_get_buffer (gtk_source_gutter_renderer_get_view (renderer));
+
+	line_number = gtk_text_iter_get_line (iter);
+	
+	while (folds != NULL)
+	{
+		fold = folds->data;
+
+		gtk_source_fold_get_lines (fold, buffer, &start_line, &end_line);
+
+		if (line_number == start_line && fold != NULL)
+		{
+			gtk_source_fold_set_folded (fold, !gtk_source_fold_get_folded (fold));
+			break;
+		}
+		folds = g_list_next (folds);
+	}
+}
+
+
+			// Add or update the fold label. 
+		//	fold_label = g_hash_table_lookup (view->priv->fold_labels,
+		//					  fold);
+
+//			if (fold_label == NULL && fold->folded)
+//			{
+		//		fold_label = _gtk_source_fold_label_new (view);
+
+		//		g_hash_table_insert (view->priv->fold_labels,
+		//				     fold, fold_label);
+
+		//		gtk_text_view_add_child_in_window (GTK_TEXT_VIEW (view),
+		//						   fold_label,
+		//						   GTK_TEXT_WINDOW_TEXT,
+		//						   0,
+		//						   0);
+
+		//		move_fold_label (GTK_TEXT_VIEW (view), fold, fold_label);
+			//}
+			// Hide the label if the fold has expanded. 
+//			else if (fold_label != NULL && !fold->folded &&
+//				 gtk_widget_get_visible (fold_label))
+//			{
+//				gtk_widget_hide (fold_label);
+//			}
+//			break;
+//
+//		}
+///
+//		folds = g_list_next (folds);
+//	}
+//}/
+
+
+
+
+static gboolean
+gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
+                                   GtkTextIter             *iter,
+                                   const GdkRectangle      *area,
+                                   GdkEvent                *event)
+{
+	GtkSourceGutterRendererFolds *folds_renderer;
+	GtkSourceFold *fold;
+	GtkWidget *fold_label = NULL;
+	GList *folds;
+	GtkTextBuffer *buffer;
+	gint start_line;
+	gint end_line;
+	gint line_number;
+
+	folds_renderer = GTK_SOURCE_GUTTER_RENDERER_FOLDS (renderer);
+
+	folds = folds_renderer->priv->folds_visible;
+	buffer = gtk_text_view_get_buffer (gtk_source_gutter_renderer_get_view(renderer));
+	line_number = gtk_text_iter_get_line (iter);
+
+	
+	while (folds != NULL)
+	{
+		fold = folds->data;
+
+		gtk_source_fold_get_lines (fold, buffer, &start_line, &end_line);
+
+		if (line_number == start_line && fold != NULL)
+		{
+			return TRUE;
+		}
+		folds = g_list_next (folds);
+	}
+	return FALSE;
+}
+
 static void
 gtk_source_gutter_renderer_folds_class_init (GtkSourceGutterRendererFoldsClass *klass)
 {
@@ -96,6 +210,8 @@ gtk_source_gutter_renderer_folds_class_init (GtkSourceGutterRendererFoldsClass *
 	//renderer_class->size_changed = gtk_source_gutter_renderer_folds_size_changed;
 
 	renderer_class->query_data = gutter_renderer_query_data;
+	renderer_class->query_activatable = gutter_renderer_query_activatable;
+	renderer_class->activate = gutter_renderer_activate;
 
 	g_object_class_install_property (object_class,
 					 PROP_FOLD_MARK,
@@ -266,6 +382,15 @@ gtk_source_gutter_renderer_folds_draw (GtkSourceGutterRenderer *renderer,
 
 	gint c_x, c_y, l, a;
 
+		GTK_SOURCE_GUTTER_RENDERER_CLASS (
+		gtk_source_gutter_renderer_folds_parent_class)->draw (renderer,
+		                                                     cr,
+		                                                     background_area,
+		                                                     cell_area,
+		                                                     start,
+		                                                     end,
+		                                                     state);
+
 	if (renderer_fold->priv->fold_mark == GTK_SOURCE_FOLD_MARK_NONE)
 	{
 		return;
@@ -289,10 +414,6 @@ gtk_source_gutter_renderer_folds_draw (GtkSourceGutterRenderer *renderer,
 					,	
 						&width, &height);
 
-	printf("Line %d, State %s,%s,%s \n", gtk_text_iter_get_line (start),
-					(state & GTK_SOURCE_GUTTER_RENDERER_STATE_CURSOR )? "CURSOR" : "",
-				       (state & GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT )? "PRELIT" : "",
-				       (state & GTK_SOURCE_GUTTER_RENDERER_STATE_SELECTED) ? "SELECTED":"");
         g_object_get (G_OBJECT (renderer),
         	"xpad", &xpad,
         	NULL);
@@ -304,6 +425,8 @@ gtk_source_gutter_renderer_folds_draw (GtkSourceGutterRenderer *renderer,
 	c_y = cell_area->y + cell_area->height / 2;
 	l   = 5;
 	a   = 2;
+	if (state & GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT) 
+		printf("PRELIT %d\n",gtk_text_iter_get_line(start));
 
 	switch (renderer_fold->priv->fold_mark)
 	{
@@ -343,12 +466,13 @@ gtk_source_gutter_renderer_folds_draw (GtkSourceGutterRenderer *renderer,
 
 			if (state & GTK_SOURCE_GUTTER_RENDERER_STATE_PRELIT)
 			{
+				
 //				cairo_t *cr = gdk_cairo_create (window);
-//				cairo_save (cr);				
-//				gdk_cairo_set_source_color (cr, &style->light[state]);
-//				cairo_rectangle (cr, c_x  + 0.5 - l, c_y - l  + 0.5, 2 * l, 2 * l);
-//				cairo_fill (cr);
-//				cairo_restore (cr);
+				cairo_save (cr);				
+				gdk_cairo_set_source_color (cr, &style->light[state]);
+				cairo_rectangle (cr, c_x  + 0.5 - l, c_y - l  + 0.5, 2 * l, 2 * l);
+				cairo_fill (cr);
+				cairo_restore (cr);
 			}
 
 			cairo_rectangle (cr, c_x  + 0.5 - l, c_y - l  + 0.5, 2 * l, 2 * l);
