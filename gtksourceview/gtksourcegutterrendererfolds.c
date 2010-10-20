@@ -41,9 +41,7 @@ static void     gtk_source_gutter_renderer_folds_set_property  (GObject         
 static void     gtk_source_gutter_renderer_folds_finalize (GObject *gobject);
 
 
-static void     gtk_source_gutter_renderer_folds_get_size   (GtkSourceGutterRenderer            *renderer,
-                                                          gint                       *width,
-                                                          gint                       *height);
+static int     gtk_source_gutter_renderer_folds_get_size   (GtkSourceGutterRenderer            *renderer);
 
 static void
 gutter_renderer_query_data (GtkSourceGutterRenderer      *renderer,
@@ -326,10 +324,8 @@ get_line_height (GtkWidget	*widget)
 	return line_height;
 }
 
-static void
-gtk_source_gutter_renderer_folds_get_size (GtkSourceGutterRenderer *renderer,
-                                        gint            *width,
-                                        gint            *height)
+static int
+gtk_source_gutter_renderer_folds_get_size (GtkSourceGutterRenderer *renderer)
 {
 	guint xpad;
 	gfloat xalign;
@@ -347,19 +343,10 @@ gtk_source_gutter_renderer_folds_get_size (GtkSourceGutterRenderer *renderer,
 		NULL);
 
 	calc_width  = (gint) xpad * 2 + FIXED_WIDTH;
-	calc_height = (gint) FIXED_HEIGHT;
-
-	if (width)
-		*width = calc_width;
-
-	if (height)
-		*height = calc_height;
-
-
 /*	if (y_offset)
 		*y_offset = 0;
 */
-
+	return calc_width;
 }
 
 static void
@@ -410,9 +397,6 @@ gtk_source_gutter_renderer_folds_draw (GtkSourceGutterRenderer *renderer,
 
 	//line_height = get_line_height (widget);
 	line_height = 0;
-	gtk_source_gutter_renderer_folds_get_size (renderer
-					,	
-						&width, &height);
 
         g_object_get (G_OBJECT (renderer),
         	"xpad", &xpad,
