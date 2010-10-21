@@ -1545,6 +1545,7 @@ redraw_for_window (GtkSourceGutter *gutter,
 	for (item = gutter->priv->renderers; item; item = g_list_next (item))
 	{
 		Renderer *renderer = item->data;
+		gint prelit = renderer->prelit;
 
 		if (!gtk_source_gutter_renderer_get_visible (renderer->renderer))
 		{
@@ -1552,8 +1553,6 @@ redraw_for_window (GtkSourceGutter *gutter,
 		}
 		else
 		{
-			redraw |= (renderer->prelit != -1);
-
 			if (renderer != at_x || !act_on_window)
 			{
 				renderer->prelit = -1;
@@ -1567,10 +1566,15 @@ redraw_for_window (GtkSourceGutter *gutter,
 			                                     NULL,
 			                                     start))
 			{
-				redraw |= (renderer->prelit != y);
 				renderer->prelit = y;
 			}
+			else
+			{
+				renderer->prelit = -1;
+			}
 		}
+
+		redraw |= (renderer->prelit != prelit);
 	}
 
 	if (redraw)
