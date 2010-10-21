@@ -68,6 +68,16 @@ void gtk_source_gutter_renderer_text_set_text (GtkSourceGutterRendererText *rend
                                                const gchar                 *text,
                                                gint                         length);
 
+void gtk_source_gutter_renderer_text_measure (GtkSourceGutterRendererText *renderer,
+                                              const gchar                 *text,
+                                              gint                        *width,
+                                              gint                        *height);
+
+void gtk_source_gutter_renderer_text_measure_markup (GtkSourceGutterRendererText *renderer,
+                                                     const gchar                 *markup,
+                                                     gint                        *width,
+                                                     gint                        *height);
+
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_GUTTER_RENDERER_TEXT_H__ */

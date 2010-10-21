@@ -7,13 +7,10 @@ struct _GtkSourceGutterRendererTextPrivate
 {
 	gchar *text;
 
-	gchar *measure_text;
-
 	PangoLayout *cached_layout;
 	PangoAttribute *fg_attr;
 	PangoAttrList *cached_attr_list;
 
-	guint measure_is_markup : 1;
 	guint is_markup : 1;
 };
 
@@ -218,59 +215,74 @@ gutter_renderer_text_end (GtkSourceGutterRenderer *renderer)
 	text->priv->fg_attr = NULL;
 }
 
-static gint
-gutter_renderer_text_get_size (GtkSourceGutterRenderer *renderer)
+static void
+measure_text (GtkSourceGutterRendererText *renderer,
+              const gchar                 *markup,
+              const gchar                 *text,
+              gint                        *width,
+              gint                        *height)
 {
-	GtkSourceGutterRendererText *text;
-	gint size;
+	PangoLayout *layout;
+	gint w;
+	gint h;
+	GtkSourceGutterRenderer *r;
+	GtkTextView *view;
 
-	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
+	r = GTK_SOURCE_GUTTER_RENDERER (renderer);
+	view = gtk_source_gutter_renderer_get_view (r);
 
-	size = GTK_SOURCE_GUTTER_RENDERER_CLASS (gtk_source_gutter_renderer_text_parent_class)->get_size (renderer);
+	layout = gtk_widget_create_pango_layout (GTK_WIDGET (view), NULL);
 
-	if (size == -1)
+	if (markup)
 	{
-		PangoLayout *layout;
-		gint w;
-		gint h;
-
-		layout = gtk_widget_create_pango_layout (GTK_WIDGET (gtk_source_gutter_renderer_get_view (renderer)),
-		                                         NULL);
-
-		if (text->priv->measure_is_markup)
-		{
-			pango_layout_set_markup (layout,
-			                         text->priv->measure_text,
-			                         -1);
-		}
-		else
-		{
-			pango_layout_set_text (layout,
-			                       text->priv->measure_text,
-			                       -1);
-		}
-
-		pango_layout_get_size (layout, &w, &h);
-
-		size = w / PANGO_SCALE;
-
-		g_object_unref (layout);
+		pango_layout_set_markup (layout,
+		                         markup,
+		                         -1);
+	}
+	else
+	{
+		pango_layout_set_text (layout,
+		                       text,
+		                       -1);
 	}
 
-	return size;
+	pango_layout_get_size (layout, &w, &h);
+
+	if (width)
+	{
+		*width = w / PANGO_SCALE;
+	}
+
+	if (height)
+	{
+		*height = h / PANGO_SCALE;
+	}
+
+	g_object_unref (layout);
 }
 
-static void
-gutter_renderer_text_size_changed (GtkSourceGutterRenderer *renderer)
+void
+gtk_source_gutter_renderer_text_measure (GtkSourceGutterRendererText *renderer,
+                                         const gchar                 *text,
+                                         gint                        *width,
+                                         gint                        *height)
 {
-	GtkSourceGutterRendererText *text;
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER_TEXT (renderer));
+	g_return_if_fail (text != NULL);
 
-	text = GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer);
+	measure_text (renderer, NULL, text, width, height);
+}
 
-	g_free (text->priv->measure_text);
+void
+gtk_source_gutter_renderer_text_measure_markup (GtkSourceGutterRendererText *renderer,
+                                                const gchar                 *markup,
+                                                gint                        *width,
+                                                gint                        *height)
+{
+	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER_TEXT (renderer));
+	g_return_if_fail (markup != NULL);
 
-	text->priv->measure_text = g_strdup (text->priv->text);
-	text->priv->measure_is_markup = text->priv->is_markup;
+	measure_text (renderer, markup, NULL, width, height);
 }
 
 static void
@@ -290,9 +302,6 @@ set_text (GtkSourceGutterRendererText *renderer,
           gboolean                     is_markup)
 {
 	g_free (renderer->priv->text);
-	g_free (renderer->priv->measure_text);
-
-	renderer->priv->measure_text = NULL;
 
 	renderer->priv->text = length >= 0 ? g_strndup (text, length) : g_strdup (text);
 	renderer->priv->is_markup = is_markup;
@@ -360,9 +369,6 @@ gtk_source_gutter_renderer_text_class_init (GtkSourceGutterRendererTextClass *kl
 	renderer_class->begin = gutter_renderer_text_begin;
 	renderer_class->draw = gutter_renderer_text_draw;
 	renderer_class->end = gutter_renderer_text_end;
-
-	renderer_class->get_size = gutter_renderer_text_get_size;
-	renderer_class->size_changed = gutter_renderer_text_size_changed;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceGutterRendererTextPrivate));
 

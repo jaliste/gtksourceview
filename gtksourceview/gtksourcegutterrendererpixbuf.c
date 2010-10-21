@@ -43,33 +43,6 @@ enum
 	PROP_STOCK_DETAIL
 };
 
-static gint
-determine_size (GtkSourceGutterRendererPixbuf *renderer)
-{
-	GtkSourceGutterRenderer *r;
-	gint size;
-	PangoLayout *layout;
-	gint w;
-	gint h;
-
-	r = GTK_SOURCE_GUTTER_RENDERER (renderer);
-
-	size = gtk_source_gutter_renderer_get_fixed_size (r);
-
-	if (size != -1)
-	{
-		return size;
-	}
-
-	layout = gtk_widget_create_pango_layout (GTK_WIDGET (gtk_source_gutter_renderer_get_view (r)),
-	                                         "QWERTY");
-
-	pango_layout_get_size (layout, &w, &h);
-	g_object_unref (layout);
-
-	return h / PANGO_SCALE;
-}
-
 static void
 center_on (GtkSourceGutterRenderer *renderer,
            const GdkRectangle      *cell_area,
@@ -93,13 +66,13 @@ center_on (GtkSourceGutterRenderer *renderer,
 }
 
 static void
-gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
-                           cairo_t                      *cr,
-                           const GdkRectangle           *background_area,
-                           const GdkRectangle           *cell_area,
-                           GtkTextIter                  *start,
-                           GtkTextIter                  *end,
-                           GtkSourceGutterRendererState  state)
+gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer      *renderer,
+                             cairo_t                      *cr,
+                             const GdkRectangle           *background_area,
+                             const GdkRectangle           *cell_area,
+                             GtkTextIter                  *start,
+                             GtkTextIter                  *end,
+                             GtkSourceGutterRendererState  state)
 {
 	GtkSourceGutterRendererPixbuf *pix;
 	gint width;
@@ -127,7 +100,7 @@ gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
 
 	pixbuf = gtk_source_pixbuf_helper_render (pix->priv->helper,
 	                                          GTK_WIDGET (view),
-	                                          determine_size (pix));
+	                                          cell_area->width);
 
 	if (!pixbuf)
 	{
@@ -175,12 +148,6 @@ gutter_renderer_pixbuf_draw (GtkSourceGutterRenderer    *renderer,
 
 	gdk_cairo_set_source_pixbuf (cr, pixbuf, x, y);
 	cairo_paint (cr);
-}
-
-static gint
-gutter_renderer_pixbuf_get_size (GtkSourceGutterRenderer *renderer)
-{
-	return determine_size (GTK_SOURCE_GUTTER_RENDERER_PIXBUF (renderer));
 }
 
 static void
@@ -337,8 +304,6 @@ gtk_source_gutter_renderer_pixbuf_class_init (GtkSourceGutterRendererPixbufClass
 	object_class->set_property = gtk_source_gutter_renderer_pixbuf_set_property;
 
 	renderer_class->draw = gutter_renderer_pixbuf_draw;
-
-	renderer_class->get_size = gutter_renderer_pixbuf_get_size;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceGutterRendererPixbufPrivate));
 

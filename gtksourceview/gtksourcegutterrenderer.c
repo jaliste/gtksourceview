@@ -48,7 +48,7 @@ struct _GtkSourceGutterRendererPrivate
 	gfloat xalign;
 	gfloat yalign;
 
-	gint fixed_size;
+	gint size;
 
 	GdkColor background_gdk;
 	gboolean background_set;
@@ -75,7 +75,7 @@ enum
 	PROP_VIEW,
 	PROP_ALIGNMENT_MODE,
 	PROP_WINDOW_TYPE,
-	PROP_FIXED_SIZE,
+	PROP_SIZE,
 	PROP_BACKGROUND_GDK,
 	PROP_BACKGROUND_SET
 };
@@ -204,18 +204,16 @@ set_alignment_mode (GtkSourceGutterRenderer              *renderer,
 }
 
 static void
-set_fixed_size (GtkSourceGutterRenderer *renderer,
-                gint                     value)
+set_size (GtkSourceGutterRenderer *renderer,
+          gint                     value)
 {
-	if (renderer->priv->fixed_size == value)
+	if (renderer->priv->size == value)
 	{
 		return;
 	}
 
-	renderer->priv->fixed_size = value;
-	g_object_notify (G_OBJECT (renderer), "fixed-size");
-
-	gtk_source_gutter_renderer_size_changed (renderer);
+	renderer->priv->size = value;
+	g_object_notify (G_OBJECT (renderer), "size");
 }
 
 static void
@@ -282,8 +280,8 @@ gtk_source_gutter_renderer_set_property (GObject      *object,
 		case PROP_WINDOW_TYPE:
 			self->priv->window_type = g_value_get_enum (value);
 			break;
-		case PROP_FIXED_SIZE:
-			set_fixed_size (self, g_value_get_int (value));
+		case PROP_SIZE:
+			set_size (self, g_value_get_int (value));
 			break;
 		case PROP_BACKGROUND_GDK:
 			set_background_gdk (self,
@@ -333,8 +331,8 @@ gtk_source_gutter_renderer_get_property (GObject    *object,
 		case PROP_WINDOW_TYPE:
 			g_value_set_enum (value, self->priv->window_type);
 			break;
-		case PROP_FIXED_SIZE:
-			g_value_set_int (value, self->priv->fixed_size);
+		case PROP_SIZE:
+			g_value_set_int (value, self->priv->size);
 			break;
 		case PROP_BACKGROUND_GDK:
 			g_value_set_boxed (value, &self->priv->background_gdk);
@@ -346,12 +344,6 @@ gtk_source_gutter_renderer_get_property (GObject    *object,
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 			break;
 	}
-}
-
-static gint
-renderer_get_size_impl (GtkSourceGutterRenderer *renderer)
-{
-	return renderer->priv->fixed_size;
 }
 
 static void
@@ -387,7 +379,6 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	object_class->get_property = gtk_source_gutter_renderer_get_property;
 	object_class->set_property = gtk_source_gutter_renderer_set_property;
 
-	klass->get_size = renderer_get_size_impl;
 	klass->draw = renderer_draw_impl;
 
 	g_type_class_add_private (object_class, sizeof (GtkSourceGutterRendererPrivate));
@@ -494,27 +485,6 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 		              GTK_TYPE_TEXT_ITER,
 		              GDK_TYPE_RECTANGLE,
 		              GDK_TYPE_EVENT);
-
-	/**
-	 * GtkSourceGutterRenderer::size-changed:
-	 * @renderer: the #GtkSourceGutterRenderer who emits the signal
-	 *
-	 * The ::size-changed signal is emitted when the renderer has
-	 * changed its size. Use #gtk_source_gutter_renderer_size_changed
-	 * to emit this signal from an implementation of the
-	 * #GtkSourceGutterRenderer interface.
-	 *
-	 */
-	signals[SIZE_CHANGED] =
-		g_signal_new ("size-changed",
-		              G_TYPE_FROM_CLASS (object_class),
-		              G_SIGNAL_RUN_FIRST,
-		              G_STRUCT_OFFSET (GtkSourceGutterRendererClass, size_changed),
-		              NULL,
-		              NULL,
-		              g_cclosure_marshal_VOID__VOID,
-		              G_TYPE_NONE,
-		              0);
 
 	/**
 	 * GtkSourceGutterRenderer::queue-draw:
@@ -667,13 +637,13 @@ gtk_source_gutter_renderer_class_init (GtkSourceGutterRendererClass *klass)
 	                                                    G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
 	g_object_class_install_property (object_class,
-	                                 PROP_FIXED_SIZE,
-	                                 g_param_spec_int ("fixed-size",
-	                                                   _("Fixed Size"),
-	                                                   _("The fixed size"),
-	                                                   -1,
+	                                 PROP_SIZE,
+	                                 g_param_spec_int ("size",
+	                                                   _("Size"),
+	                                                   _("The size"),
+	                                                   0,
 	                                                   G_MAXINT,
-	                                                   -1,
+	                                                   0,
 	                                                   G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
 	g_object_class_install_property (object_class,
@@ -849,33 +819,6 @@ gtk_source_gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
 }
 
 /**
- * gtk_source_gutter_renderer_get_size:
- * @renderer: a #GtkSourceGutterRenderer
- *
- * Get the required size of the renderer. The @width and @height parameters
- * can be %NULL depending on whether the renderer is packed in a top/bottom or
- * left/right gutter.
- *
- * Returns: the preferred size of the renderer
- *
- **/
-gint
-gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer)
-{
-	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), 0);
-
-	if (GTK_SOURCE_GUTTER_RENDERER_CLASS (G_OBJECT_GET_CLASS (renderer))->get_size)
-	{
-		return GTK_SOURCE_GUTTER_RENDERER_CLASS (
-			G_OBJECT_GET_CLASS (renderer))->get_size (renderer);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-/**
  * gtk_source_gutter_renderer_activate:
  * @renderer: a #GtkSourceGutterRenderer
  * @iter: a #GtkTextIter at the start of the line where the renderer is activated
@@ -898,22 +841,6 @@ gtk_source_gutter_renderer_activate (GtkSourceGutterRenderer *renderer,
 	g_return_if_fail (event != NULL);
 
 	g_signal_emit (renderer, signals[ACTIVATE], 0, iter, area, event);
-}
-
-/**
- * gtk_source_gutter_renderer_size_changed:
- * @renderer: a #GtkSourceGutterRenderer
- * 
- * Emits the ::size-changed signal of the renderer. Call this from an
- * implementation to inform about a size change of the renderer.
- *
- **/
-void
-gtk_source_gutter_renderer_size_changed (GtkSourceGutterRenderer *renderer)
-{
-	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
-
-	g_signal_emit (renderer, signals[SIZE_CHANGED], 0);
 }
 
 /**
@@ -1223,39 +1150,38 @@ gtk_source_gutter_renderer_get_view (GtkSourceGutterRenderer *renderer)
 }
 
 /**
- * gtk_source_gutter_renderer_get_fixed_size:
+ * gtk_source_gutter_renderer_get_size:
  * @renderer: a #GtkSourceGutterRenderer
  *
- * Get the fixed size of the renderer. If @width or @height is smaller than
- * 0, then the renderer does not have a fixed size.
+ * Get the size of the renderer.
  *
- * Returns: %TRUE if the renderer has a fixed size, %FALSE otherwise
+ * Returns: the size of the renderer.
  *
  **/
 gint
-gtk_source_gutter_renderer_get_fixed_size (GtkSourceGutterRenderer *renderer)
+gtk_source_gutter_renderer_get_size (GtkSourceGutterRenderer *renderer)
 {
-	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), -1);
+	g_return_val_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer), 0);
 
-	return renderer->priv->fixed_size;
+	return renderer->priv->size;
 }
 
 /**
- * gtk_source_gutter_renderer_set_fixed_size:
+ * gtk_source_gutter_renderer_set_size:
  * @renderer: a #GtkSourceGutterRenderer
- * @size: the fixed size, or -1
+ * @size: the size
  *
- * Sets the fixed size of the renderer. A value of -1 specifies that the size
+ * Sets the size of the renderer. A value of -1 specifies that the size
  * is to be determined dynamically.
  *
  **/
 void
-gtk_source_gutter_renderer_set_fixed_size (GtkSourceGutterRenderer *renderer,
-                                           gint                     size)
+gtk_source_gutter_renderer_set_size (GtkSourceGutterRenderer *renderer,
+                                     gint                     size)
 {
 	g_return_if_fail (GTK_IS_SOURCE_GUTTER_RENDERER (renderer));
 
-	set_fixed_size (renderer, size);
+	set_size (renderer, size);
 }
 
 /**

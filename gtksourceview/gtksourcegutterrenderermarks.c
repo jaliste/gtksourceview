@@ -410,12 +410,29 @@ gutter_renderer_query_activatable (GtkSourceGutterRenderer *renderer,
 }
 
 static void
+gtk_source_gutter_renderer_marks_constructed (GObject *object)
+{
+	GtkSourceGutterRendererMarks *renderer;
+	GtkSourceView *view;
+	GtkSourceGutterRenderer *r;
+
+	renderer = GTK_SOURCE_GUTTER_RENDERER_MARKS (object);
+	r = GTK_SOURCE_GUTTER_RENDERER (renderer);
+
+	view = GTK_SOURCE_VIEW (gtk_source_gutter_renderer_get_view (r));
+
+	gtk_source_gutter_renderer_set_size (r,
+	                                     measure_line_height (view));
+}
+
+static void
 gtk_source_gutter_renderer_marks_class_init (GtkSourceGutterRendererMarksClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	GtkSourceGutterRendererClass *renderer_class = GTK_SOURCE_GUTTER_RENDERER_CLASS (klass);
 
 	object_class->finalize = gtk_source_gutter_renderer_marks_finalize;
+	object_class->constructed = gtk_source_gutter_renderer_marks_constructed;
 
 	renderer_class->query_data = gutter_renderer_query_data;
 	renderer_class->query_tooltip = gutter_renderer_query_tooltip;

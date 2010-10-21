@@ -64,17 +64,21 @@ recalculate_size (GtkSourceGutterRendererLines *renderer)
 	if (num_digits != renderer->priv->num_line_digits)
 	{
 		gchar *markup;
+		gint size;
 
 		renderer->priv->num_line_digits = num_digits;
 
 		num_lines = MAX (num_lines, 99);
 
 		markup = g_strdup_printf ("<b>%d</b>", num_lines);
-
-		g_object_set (renderer, "markup", markup, NULL);
-		gtk_source_gutter_renderer_size_changed (GTK_SOURCE_GUTTER_RENDERER (renderer));
-
+		gtk_source_gutter_renderer_text_measure_markup (GTK_SOURCE_GUTTER_RENDERER_TEXT (renderer),
+		                                                markup,
+		                                                &size,
+		                                                NULL);
 		g_free (markup);
+
+		gtk_source_gutter_renderer_set_size (GTK_SOURCE_GUTTER_RENDERER (renderer),
+		                                     size);
 	}
 }
 
