@@ -2,6 +2,7 @@
  *  gtksourcefold.c
  *
  *  Copyright (C) 2005 - Jeroen Zwartepoorte <jeroen.zwartepoorte@gmail.com>
+ *  Copyright (C) 2010 - Jose Aliste <jaliste@src.gnome.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Library General Public License as published by
@@ -35,11 +36,12 @@ _gtk_source_fold_new (GtkSourceBuffer   *buffer,
 	fold->prelighted = FALSE;
 	fold->animated = FALSE;
 	fold->expander_style = GTK_EXPANDER_EXPANDED;
+	fold->buffer = GTK_TEXT_BUFFER (buffer);
 
-	fold->start_line = gtk_text_buffer_create_mark (GTK_TEXT_BUFFER (buffer),
+	fold->start_line = gtk_text_buffer_create_mark (fold->buffer,
 							NULL, begin, FALSE);
 	g_object_ref (fold->start_line);
-	fold->end_line = gtk_text_buffer_create_mark (GTK_TEXT_BUFFER (buffer),
+	fold->end_line = gtk_text_buffer_create_mark (fold->buffer,
 						      NULL, end, FALSE);
 	g_object_ref (fold->end_line);
 
@@ -328,7 +330,6 @@ gtk_source_fold_get_children (GtkSourceFold *fold)
 
 void
 gtk_source_fold_get_lines (GtkSourceFold *fold,
-			   GtkTextBuffer *buffer,
 			   gint *start_line,
 			   gint *end_line)
 {
@@ -336,8 +337,8 @@ gtk_source_fold_get_lines (GtkSourceFold *fold,
 
 	g_return_if_fail (fold != NULL);
 
-	gtk_text_buffer_get_iter_at_mark (buffer, &iter_start, fold->start_line);
-	gtk_text_buffer_get_iter_at_mark (buffer, &iter_stop, fold->end_line);
+	gtk_text_buffer_get_iter_at_mark (fold->buffer, &iter_start, fold->start_line);
+	gtk_text_buffer_get_iter_at_mark (fold->buffer, &iter_stop, fold->end_line);
 
 	/* The end iter of the fold is on the next line, so if the end
 	 * iter is at the start of the line, go back a line. */

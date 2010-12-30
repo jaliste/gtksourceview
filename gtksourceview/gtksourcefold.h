@@ -2,6 +2,7 @@
  *  gtksourcefold.h
  *
  *  Copyright (C) 2005 - Jeroen Zwartepoorte <jeroen.zwartepoorte@gmail.com>
+ *  Copyright (C) 2010 - José Aliste <jaliste@src.gnome.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Library General Public License as published by
@@ -47,7 +48,6 @@ GtkSourceFold		*gtk_source_fold_get_parent	(GtkSourceFold       *fold);
 const GList		*gtk_source_fold_get_children	(GtkSourceFold       *fold);
 
 void 			gtk_source_fold_get_lines	(GtkSourceFold 	     *fold,
-							 GtkTextBuffer 	     *buffer,
 							 gint 		     *start_line,
 			 				 gint 		     *end_line);
 
