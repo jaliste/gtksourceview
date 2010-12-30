@@ -27,6 +27,7 @@ G_BEGIN_DECLS
 
 struct _GtkSourceFold
 {
+	GtkTextBuffer *buffer;
 	/* Markers for the start & end of the fold. */
 	GtkTextMark	*start_line;
 	GtkTextMark	*end_line;
