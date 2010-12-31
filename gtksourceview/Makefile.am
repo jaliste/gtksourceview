@@ -77,6 +77,7 @@ libgtksourceview_c_files = \
 	gtksourcecontextengine.c	\
 	gtksourceengine.c		\
 	gtksourcefold.c			\
+	gtksourcefoldmanager.c		\
 	gtksourcegutter.c		\
 	gtksourcegutterrenderer.c	\
 	gtksourcegutterrenderertext.c	\
