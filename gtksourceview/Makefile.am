@@ -77,18 +77,18 @@ libgtksourceview_c_files = \
 	gtksourcecompletionutils.c	\
 	gtksourcecontextengine.c	\
 	gtksourceengine.c		\
+	gtksourcefold.c			\
+	gtksourcefoldlabel.c		\
+	gtksourcefoldmanager.c		\
 	gtksourcegutter.c		\
 	gtksourcegutterrenderer.c	\
+	gtksourcegutterrendererfolds.c	\
 	gtksourcegutterrenderertext.c	\
 	gtksourcegutterrendererpixbuf.c	\
 	gtksourcegutterrendererlines.c	\
 	gtksourcegutterrenderermarks.c	\
 	gtksourcemarkcategory.c		\
 	gtksourcepixbufhelper.c		\
-	gtksourcebuffer-private.h 	\
-	gtksourcefold.c			\
-	gtksourcegutterrendererfolds.c	\
-	gtksourcefoldlabel.c		\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
 	gtksourcelanguage-parser-1.c	\
