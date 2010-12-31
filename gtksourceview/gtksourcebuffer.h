@@ -77,7 +77,7 @@ struct _GtkSourceBufferClass
 	void (*redo) (GtkSourceBuffer *buffer);
 	void (*fold_added)  (GtkSourceBuffer *buffer,
 			     GtkSourceFold   *fold);
-	void (*fold_remove) (GtkSourceBuffer *buffer,
+	void (*remove_fold) (GtkSourceBuffer *buffer,
 			     GtkSourceFold   *fold);
 
 	void (*bracket_matched) (GtkSourceBuffer           *buffer,
@@ -227,9 +227,15 @@ void			 _gtk_source_buffer_remove_fold		(GtkSourceBuffer	*buffer,
 								 const GtkTextIter	*start,
 								 const GtkTextIter	*end);
 
-gboolean		 _gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
-void			 _gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
+gboolean		 gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
+void			 gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
 								 gboolean                folds_enabled);
+void			 gtk_source_buffer_fold_expand (GtkSourceBuffer *buffer, 
+                               GtkSourceFold *fold);
+
+void gtk_source_buffer_fold_collapse (GtkSourceBuffer *buffer,
+                                 GtkSourceFold *fold);
+
 
 G_END_DECLS
 

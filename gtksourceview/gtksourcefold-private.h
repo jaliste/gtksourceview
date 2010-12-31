@@ -29,8 +29,8 @@ struct _GtkSourceFold
 {
 	GtkTextBuffer *buffer;
 	/* Markers for the start & end of the fold. */
-	GtkTextMark	*start_line;
-	GtkTextMark	*end_line;
+	GtkTextMark	*start_mark;
+	GtkTextMark	*end_mark;
 
 	/* Add reference to parent fold; needed for reparenting. */
 	GtkSourceFold	*parent;
