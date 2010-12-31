@@ -40,6 +40,7 @@ G_BEGIN_DECLS
 #define GTK_IS_SOURCE_BUFFER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GTK_TYPE_SOURCE_BUFFER))
 #define GTK_SOURCE_BUFFER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GTK_TYPE_SOURCE_BUFFER, GtkSourceBufferClass))
 
+typedef struct _GtkSourceFold			GtkSourceFold;
 typedef struct _GtkSourceBuffer			GtkSourceBuffer;
 typedef struct _GtkSourceBufferClass		GtkSourceBufferClass;
 typedef struct _GtkSourceBufferPrivate		GtkSourceBufferPrivate;
