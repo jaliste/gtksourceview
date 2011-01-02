@@ -75,6 +75,10 @@ struct _GtkSourceBufferClass
 	/* Signals */
 	void (*undo) (GtkSourceBuffer *buffer);
 	void (*redo) (GtkSourceBuffer *buffer);
+	void (*fold_added)  (GtkSourceBuffer *buffer,
+			     GtkSourceFold   *fold);
+	void (*remove_fold) (GtkSourceBuffer *buffer,
+			     GtkSourceFold   *fold);
 
 	void (*bracket_matched) (GtkSourceBuffer           *buffer,
 				 GtkTextIter               *iter,
