@@ -7,6 +7,7 @@
  *                           Jeroen Zwartepoorte <jeroen@xs4all.nl>
  * Copyright (C) 2003 - Paolo Maggi <paolo.maggi@polito.it> and
  *                      Gustavo Giráldez <gustavo.giraldez@gmx.net>
+ * Copyright (C) 2010 - José Aliste <jaliste@src.gnome.org>
  *
  * GtkSourceView is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -39,6 +40,8 @@
 #include "gtksourcestyle-private.h"
 #include "gtksourceundomanagerdefault.h"
 #include "gtksourceview-typebuiltins.h"
+#include "gtksourcefoldmanager.h"
+#include "gtksourcebuffer-private.h"
 
 /**
  * SECTION:buffer
@@ -89,6 +92,8 @@ enum {
 	UNDO,
 	REDO,
 	BRACKET_MATCHED,
+	FOLD_ADDED,
+	REMOVE_FOLD,
 	LAST_SIGNAL
 };
 
@@ -102,7 +107,8 @@ enum {
 	PROP_MAX_UNDO_LEVELS,
 	PROP_LANGUAGE,
 	PROP_STYLE_SCHEME,
-	PROP_UNDO_MANAGER
+	PROP_UNDO_MANAGER,
+	PROP_FOLDING_ENABLED
 };
 
 struct _GtkSourceBufferPrivate
@@ -121,6 +127,9 @@ struct _GtkSourceBufferPrivate
 
 	GtkSourceUndoManager  *undo_manager;
 	gint                   max_undo_levels;
+
+	GtkSourceFoldManager  *fold_manager;
+	GtkTextTag            *fold_tag;
 
 	guint                  highlight_syntax : 1;
 	guint                  highlight_brackets : 1;
@@ -178,6 +187,9 @@ static gboolean	 gtk_source_buffer_find_bracket_match_with_limit (GtkSourceBuffe
 static void	 gtk_source_buffer_real_undo		(GtkSourceBuffer	 *buffer);
 static void	 gtk_source_buffer_real_redo		(GtkSourceBuffer	 *buffer);
 
+static void	gtk_source_buffer_real_remove_fold 	(GtkSourceBuffer	 *buffer,
+							 GtkSourceFold		 *fold);
+
 static void
 gtk_source_buffer_constructed (GObject *object)
 {
@@ -222,6 +234,9 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 
 	klass->undo = gtk_source_buffer_real_undo;
 	klass->redo = gtk_source_buffer_real_redo;
+
+	klass->fold_added  = NULL;
+	klass->remove_fold = gtk_source_buffer_real_remove_fold;
 
 	/**
 	 * GtkSourceBuffer:highlight-syntax:
@@ -389,6 +404,47 @@ gtk_source_buffer_class_init (GtkSourceBufferClass *klass)
 			  GTK_TYPE_TEXT_ITER,
 			  GTK_TYPE_SOURCE_BRACKET_MATCH_TYPE);
 
+	/**
+	 * GtkSourceBuffer::fold-added
+	 * @buffer: a #GtkSourceBuffer.
+	 * @fold: a pointer to the #SourceFold that was added.
+	 *
+	 * The ::fold-added signal is emmitted when a fold is added to the buffer.
+	 *
+	 * Since: 3.0
+	 */
+	buffer_signals[FOLD_ADDED] =
+	    g_signal_new ("fold-added",
+			  G_OBJECT_CLASS_TYPE (object_class),
+			  G_SIGNAL_RUN_LAST,
+			  G_STRUCT_OFFSET (GtkSourceBufferClass, fold_added),
+			  NULL, NULL,
+			  _gtksourceview_marshal_VOID__BOXED,
+			  G_TYPE_NONE,
+			  1,
+			  GTK_TYPE_SOURCE_FOLD | G_SIGNAL_TYPE_STATIC_SCOPE);
+
+	/**
+	 * GtkSourceBuffer::remove-fold
+	 * @buffer: a #GtkSourceBuffer.
+	 * @fold: a pointer to the fold to be  removed.
+	 *
+	 * The ::remove-fold signal is emitted just before removing a fold.
+	 * The actual remove operation happens in the default handler for this signal.
+	 *
+	 * Since: 3.0
+	 */
+	buffer_signals[REMOVE_FOLD] =
+	    g_signal_new ("remove-fold",
+			  G_OBJECT_CLASS_TYPE (object_class),
+			  G_SIGNAL_RUN_LAST,
+			  G_STRUCT_OFFSET (GtkSourceBufferClass, remove_fold),
+			  NULL, NULL,
+			  _gtksourceview_marshal_VOID__BOXED,
+			  G_TYPE_NONE,
+			  1,
+			  GTK_TYPE_SOURCE_FOLD | G_SIGNAL_TYPE_STATIC_SCOPE);
+
 	g_type_class_add_private (object_class, sizeof (GtkSourceBufferPrivate));
 }
 
@@ -453,6 +509,8 @@ gtk_source_buffer_init (GtkSourceBuffer *buffer)
 
 	priv->source_marks = g_array_new (FALSE, FALSE, sizeof (GtkSourceMark *));
 	priv->style_scheme = _gtk_source_style_scheme_get_default ();
+
+	priv->fold_manager = NULL;
 
 	if (priv->style_scheme != NULL)
 		g_object_ref (priv->style_scheme);
@@ -557,6 +615,11 @@ gtk_source_buffer_set_property (GObject      *object,
 			                                    g_value_get_object (value));
 			break;
 
+		case PROP_FOLDING_ENABLED:
+			gtk_source_buffer_set_folds_enabled (source_buffer,
+			                                    g_value_get_boolean (value));
+			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 			break;
@@ -610,6 +673,10 @@ gtk_source_buffer_get_property (GObject    *object,
 
 		case PROP_UNDO_MANAGER:
 			g_value_set_object (value, source_buffer->priv->undo_manager);
+			break;
+
+		case PROP_FOLDING_ENABLED:
+			g_value_set_boolean (value, gtk_source_buffer_get_folds_enabled (source_buffer));
 			break;
 
 		default:
@@ -2433,4 +2500,149 @@ gtk_source_buffer_get_undo_manager (GtkSourceBuffer *buffer)
 	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
 
 	return buffer->priv->undo_manager;
+}
+
+/**
+ * gtk_source_buffer_get_folds_enabled:
+ * @buffer: a #GtkSourceBuffer.
+ *
+ * Returns whether code_folding is enabled for the buffer.
+ *
+ * Returns: TRUE if code_folding is enabled, or FALSE otherwise.
+ **/
+gboolean
+gtk_source_buffer_get_folds_enabled (GtkSourceBuffer *buffer)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
+	return (buffer->priv->fold_manager != NULL);
+}
+
+/**
+ * gtk_source_buffer_set_folds_enabled:
+ * @buffer: a #GtkSourceBuffer.
+ * @folds_enabled: a boleean
+ *
+ * Enable/disable code folding for the buffer.
+ *
+ **/
+void
+gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
+                                     gboolean         folds_enabled)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	folds_enabled = (folds_enabled != FALSE);
+
+	if (buffer->priv->fold_manager != NULL && !folds_enabled)
+	{
+		/* Destroy fold_manager */
+		g_object_unref (buffer->priv->fold_manager);
+		buffer->priv->fold_manager = NULL;
+	}
+	else if (buffer->priv->fold_manager == NULL && folds_enabled)
+	{
+		/*Create new fold_manager */
+		buffer->priv->fold_manager = gtk_source_fold_manager_new (buffer);
+
+		/* Create invisibility tag for folding lines. */
+		buffer->priv->fold_tag = gtk_text_buffer_create_tag (GTK_TEXT_BUFFER (buffer),
+                                                                     NULL, "invisible", TRUE, NULL);
+		gtk_source_fold_manager_set_fold_tag (buffer->priv->fold_manager, buffer->priv->fold_tag);
+	}
+}
+
+/* Fold methods */
+
+GtkSourceFold *
+gtk_source_buffer_add_fold (GtkSourceBuffer   *buffer,
+                            const GtkTextIter *begin,
+                            const GtkTextIter *end)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
+	g_return_val_if_fail (begin != NULL, NULL);
+	g_return_val_if_fail (end != NULL, NULL);
+
+	if (buffer->priv->fold_manager)
+	{
+		return gtk_source_fold_manager_add_fold (buffer->priv->fold_manager, begin, end);
+	}
+
+	return NULL;
+}
+
+void
+gtk_source_buffer_remove_fold (GtkSourceBuffer *buffer,
+                               GtkSourceFold   *fold)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+	g_signal_emit (G_OBJECT (buffer), buffer_signals [REMOVE_FOLD], 0, fold);
+}
+
+static void
+gtk_source_buffer_real_remove_fold (GtkSourceBuffer *buffer,
+                                    GtkSourceFold   *fold)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	if (buffer->priv->fold_manager)
+	{
+		gtk_source_fold_manager_remove_fold (buffer->priv->fold_manager, fold);
+	}
+}
+
+void
+gtk_source_buffer_fold_expand (GtkSourceBuffer *buffer,
+                               GtkSourceFold *fold)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	if (buffer->priv->fold_manager)
+	{
+		gtk_source_fold_manager_expand_fold (buffer->priv->fold_manager, fold);
+	}
+}
+
+void
+gtk_source_buffer_fold_collapse (GtkSourceBuffer *buffer,
+                                 GtkSourceFold *fold)
+{
+	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+
+	if (buffer->priv->fold_manager)
+	{
+		gtk_source_fold_manager_collapse_fold (buffer->priv->fold_manager, fold);
+	}
+}
+
+/**
+ * gtk_source_buffer_get_folds_in_region:
+ * @buffer: a #GtkSourceBuffer.
+ * @begin: the begin point of the region.
+ * @end: the end point of the region.
+ *
+ * Returns a list of all folds in the specified region. This is a flattened list
+ * of the parent->child fold hierarchy. This function is mainly used in
+ * gtk_source_view_get_lines to determine which folds to draw.
+ *
+ * This method returns the folds of which the start lies in the region. So if
+ * a fold begins before the region, the fold itself isn't returned, but its
+ * children might.
+ *
+ * Return value: a #GList of the #GtkSourceFold's in the region, or %NULL if
+ * there are no folds in the region.
+ **/
+GList *
+gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
+                                        const GtkTextIter *begin,
+                                        const GtkTextIter *end)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
+	g_return_val_if_fail (begin != NULL && end != NULL, NULL);
+
+	if (buffer->priv->fold_manager)
+	{
+		return  gtk_source_fold_manager_get_folds_in_region (buffer->priv->fold_manager,
+                                                                     begin, end);
+	}
+	return NULL;
 }
