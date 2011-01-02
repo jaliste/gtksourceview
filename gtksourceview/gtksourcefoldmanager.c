@@ -212,48 +212,6 @@ gtk_source_fold_manager_remove_fold (GtkSourceFoldManager *manager,
  * Return value: a Flattened?? #GList of the #GtkSourceFold's in the region, or %NULL if
  * there are no folds in the region.
  **/
-GtkSourceFold *
-gtk_source_fold_manager_get_first_fold_intersects_region (GtkSourceFoldManager *manager, 
-							 const GtkTextIter    *begin,
-							 const GtkTextIter    *end)
-{
-	GtkSourceFold *result = NULL, *tmp_fold;
-	GSequenceIter *iter = NULL;
-
-	/* Create a tmp_fold so we can search for the first
-	 * fold whose start_mark appears after @begin. */
-	tmp_fold = _gtk_source_fold_new (manager->priv->buffer, begin, end);
-
-	iter = g_sequence_search (manager->priv->folds, tmp_fold, (GCompareDataFunc) compare_folds_inv, NULL);
-
-	if (g_sequence_iter_is_end (iter))
-	{
-
-		return NULL;
-	}
-
-	result = g_sequence_get (iter);
-	// ESTA MALO!!!!
-	/* We go backwards from iter until we find a fold whose end mark appears 
-	 * before @begin. Since folds are ordered by start_mark and end_mark > start_mark. 
-	 * The fold after it is the first that intersect the region. */
-	while (!g_sequence_iter_is_begin (iter))
-	{
-		GtkSourceFold *fold;
-		GtkTextIter iter_end;
-
-		iter = g_sequence_iter_prev (iter);
-		fold = g_sequence_get (iter);
-		gtk_source_fold_get_bounds (result, NULL, &iter_end);
-
-		if (gtk_text_iter_compare (&iter_end, begin) < 0)
-		{
-			break;
-		}
-		result = fold;
-	}
-	return result;
-}
 
 GList *
 gtk_source_fold_manager_get_folds_in_region (GtkSourceFoldManager *manager,
