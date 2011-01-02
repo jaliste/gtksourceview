@@ -69,19 +69,20 @@ compare_folds (gpointer lhs, gpointer rhs, gpointer data)
 	return gtk_text_iter_compare (&iter_lhs, &iter_rhs);
 }
 
+static gint 
+compare_folds_inv (gpointer lhs, gpointer rhs, gpointer data)
+{
+	return (-1)*compare_folds (lhs, rhs, data);
+}
 GtkSourceFold *
 gtk_source_fold_manager_add_fold (GtkSourceFoldManager *manager,
                                   const GtkTextIter    *begin,
                                   const GtkTextIter    *end)
 {
 	GtkSourceFold *new_fold;
-	GSequenceIter *insert_iter;
+	GSequenceIter *insert_iter, *previous_iter;
 	GtkSourceFold *closest_fold;
-	GtkTextIter closest_begin;
-
-	DEBUG (g_message ("add fold @ %d, %d",
-			  gtk_text_iter_get_line (begin),
-			  gtk_text_iter_get_line (end)));
+	GtkTextIter closest_begin, closest_end;
 
 	new_fold = _gtk_source_fold_new (manager->priv->buffer, begin, end);
 
@@ -89,25 +90,87 @@ gtk_source_fold_manager_add_fold (GtkSourceFoldManager *manager,
                                          new_fold, (GCompareDataFunc) compare_folds,
                                          NULL);
 
-	/* We check if the new_fold is valid to be inserted. */
-	if (g_sequence_iter_is_end (insert_iter))
+	/* insert_iter is a GSequenceIter pointing to the first fold having a 
+	 * start mark  larger than the start_mark of the fold to be inserted. 
+	 * If such fold does not exist, then insert_iter is the end iter of the 
+	 * sequence.
+	 */
+
+	if (!g_sequence_iter_is_begin (insert_iter))
+	{
+		GtkSourceFold *previous;
+		GtkTextIter prev_begin, prev_end;
+
+		/* We look for the parent of the fold to be inserted. 
+		   Since the folds are ordered by start_marks and can only 
+		   overlap if one is contained in another, the parent is either 
+		   the previous fold, or the parent of the previous fold */
+
+		previous_iter = g_sequence_iter_prev (insert_iter);
+		previous = g_sequence_get (previous_iter);
+		gtk_source_fold_get_bounds (previous, &prev_begin, &prev_end);
+
+		/* ASSERT previous->begin <= begin  */
+
+		if (gtk_text_iter_compare (&prev_end, begin) > 0)
+		{
+			if (gtk_text_iter_compare (&prev_end, end) > 0 )
+			{
+				/* Previous is parent */
+				new_fold->parent = previous;
+			}
+			else
+			{
+				/* overlap is not trivial, fold is invalid */
+				/* FIXME: I leak the new_fold here */
+				return NULL;
+			}
+		}
+		else if (previous->parent != NULL &&
+		         gtk_source_fold_compare_end_with_iter (previous->parent, end) >= 0)
+		{
+			/* previous and new_fold don't overlap, only 
+			 * possible parent is previous's parent */
+
+			new_fold->parent = previous->parent;
+		} 
+	}
+
+	if (!g_sequence_iter_is_end (insert_iter))
+	{
+		closest_fold = g_sequence_get (insert_iter);
+		gtk_source_fold_get_bounds (closest_fold, &closest_begin, &closest_end);
+
+		/* ASSERT: insert->iter->begin > begin */
+		if (gtk_text_iter_compare (&closest_begin, end) >= 0)
+		{	
+			/* no overlap so new_fold has no childs */
+			new_fold->node = g_sequence_insert_before (insert_iter, new_fold);
+		} 
+		else if (gtk_text_iter_compare (&closest_end, end) <= 0)
+		{
+			/* insert_iter is contained in new_fold
+			   we need to reparent. */
+			/* FIXME: Add reparenting method */
+		}
+		else 
+		{
+			/* overlap is not trivial, fold is invalid */
+			/* FIXME: I Am leaking here */
+			return NULL;
+		}
+	}
+	else
 	{
 		new_fold->node = g_sequence_append (manager->priv->folds, new_fold);
 	} 
-	else
-	{
-		closest_fold = g_sequence_get (insert_iter);
-		gtk_source_fold_get_bounds (closest_fold, &closest_begin, NULL);
 
-		if (gtk_text_iter_compare (&closest_begin, end) >= 0)
-		{
-			new_fold->node = g_sequence_insert_before (insert_iter, new_fold);
-		} 
-		else
-		{
-			gtk_source_fold_free (new_fold);
-		}
-	}
+}
+
+void 
+foreach_children_reparent (GtkSourceFold *fold, GtkSourceFold *child)
+{
+	child->parent = fold->parent;
 }
 
 void
@@ -120,8 +183,14 @@ gtk_source_fold_manager_remove_fold (GtkSourceFoldManager *manager,
 	if (fold->folded)
 		gtk_source_fold_manager_expand_fold (manager, fold);
 
-	g_sequence_remove (fold->node);
+	if (!g_sequence_iter_is_end (fold->node))
+	{
+		GSequenceIter *last_child;
 
+		last_child = g_sequence_iter_prev (gtk_source_fold_next (fold, TRUE));
+		g_sequence_foreach_range (fold->node, last_child, (GFunc) foreach_children_reparent, fold);
+	}
+	g_sequence_remove (fold->node);
 	/* FIXME */
 	//gtk_source_fold_free (fold);
 }
@@ -143,6 +212,49 @@ gtk_source_fold_manager_remove_fold (GtkSourceFoldManager *manager,
  * Return value: a Flattened?? #GList of the #GtkSourceFold's in the region, or %NULL if
  * there are no folds in the region.
  **/
+GtkSourceFold *
+gtk_source_fold_manager_get_first_fold_intersects_region (GtkSourceFoldManager *manager, 
+							 const GtkTextIter    *begin,
+							 const GtkTextIter    *end)
+{
+	GtkSourceFold *result = NULL, *tmp_fold;
+	GSequenceIter *iter = NULL;
+
+	/* Create a tmp_fold so we can search for the first
+	 * fold whose start_mark appears after @begin. */
+	tmp_fold = _gtk_source_fold_new (manager->priv->buffer, begin, end);
+
+	iter = g_sequence_search (manager->priv->folds, tmp_fold, (GCompareDataFunc) compare_folds_inv, NULL);
+
+	if (g_sequence_iter_is_end (iter))
+	{
+
+		return NULL;
+	}
+
+	result = g_sequence_get (iter);
+	// ESTA MALO!!!!
+	/* We go backwards from iter until we find a fold whose end mark appears 
+	 * before @begin. Since folds are ordered by start_mark and end_mark > start_mark. 
+	 * The fold after it is the first that intersect the region. */
+	while (!g_sequence_iter_is_begin (iter))
+	{
+		GtkSourceFold *fold;
+		GtkTextIter iter_end;
+
+		iter = g_sequence_iter_prev (iter);
+		fold = g_sequence_get (iter);
+		gtk_source_fold_get_bounds (result, NULL, &iter_end);
+
+		if (gtk_text_iter_compare (&iter_end, begin) < 0)
+		{
+			break;
+		}
+		result = fold;
+	}
+	return result;
+}
+
 GList *
 gtk_source_fold_manager_get_folds_in_region (GtkSourceFoldManager *manager,
 					     const GtkTextIter    *begin,
@@ -159,9 +271,11 @@ gtk_source_fold_manager_get_folds_in_region (GtkSourceFoldManager *manager,
 	/* Create a tmp_fold so we can search for the first
 	 * fold whose start_mark appears after @begin. */
 	tmp_fold = _gtk_source_fold_new (GTK_SOURCE_BUFFER (buffer), begin, end);
-	iter = g_sequence_search (list_folds, tmp_fold, (GCompareDataFunc) compare_folds, NULL);
+	iter = g_sequence_search (list_folds, tmp_fold, (GCompareDataFunc) compare_folds, GINT_TO_POINTER (-1));
 	iter2 = iter;
-	//gtk_source_fold_free (tmp_fold);
+	/* FIXME */
+	/* Do not leak temp_fold */
+	/* gtk_source_fold_free (tmp_fold); */
 
 	/* First we go forwards from iter in the sequence of folds until we find 
 	 * a fold whose start_mark appears after @end.
@@ -172,7 +286,7 @@ gtk_source_fold_manager_get_folds_in_region (GtkSourceFoldManager *manager,
 		fold = g_sequence_get (iter);
 		gtk_source_fold_get_bounds (fold, &iter_start, &iter_end);
 
-		if (gtk_text_iter_compare (&iter_start, end) >= 0)
+		if (gtk_text_iter_compare (&iter_start, end) > 0)
 		{
 			break;
 		}
@@ -189,11 +303,24 @@ gtk_source_fold_manager_get_folds_in_region (GtkSourceFoldManager *manager,
 		iter2 = g_sequence_iter_prev (iter2);
 		fold = g_sequence_get (iter2);
 		gtk_source_fold_get_bounds (fold, &iter_start, &iter_end);
-
 		if (gtk_text_iter_compare (&iter_end, begin) < 0)
 		{
+			/* This fold does not intersect the region but maybe its 
+			 * parent does */
+			while (fold->parent != NULL)
+			{
+				if (gtk_source_fold_compare_end_with_iter (fold->parent, begin)>=0)
+				{
+					gint a,b;
+					gtk_source_fold_get_lines (fold->parent,&a, &b);
+					/* parent stops inside the region, add it to the list.*/
+					result = g_list_prepend (result, fold->parent);
+				}
+				fold = fold->parent;
+			}
 			break;
 		}
+
 		result = g_list_prepend (result, fold);
 	}
 	return result;
