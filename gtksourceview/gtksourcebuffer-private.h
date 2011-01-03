@@ -27,24 +27,24 @@ G_BEGIN_DECLS
 
 /* fold methods. */
 GtkSourceFold * 	gtk_source_buffer_add_fold		(GtkSourceBuffer        *buffer,
-								 const GtkTextIter      *begin,
-								 const GtkTextIter      *end);
+			                                         const GtkTextIter      *begin,
+			                                         const GtkTextIter      *end);
 void			gtk_source_buffer_remove_fold		(GtkSourceBuffer        *buffer,
-								 GtkSourceFold          *fold);
+			                                         GtkSourceFold          *fold);
 void			gtk_source_buffer_remove_folds_in_region
  								(GtkSourceBuffer        *buffer,
-								 const GtkTextIter      *begin,
-								 const GtkTextIter      *end);
+			                                         const GtkTextIter      *begin,
+			                                         const GtkTextIter      *end);
 GList *			gtk_source_buffer_get_folds_in_region	(GtkSourceBuffer        *buffer,
-								 const GtkTextIter      *begin,
-								 const GtkTextIter      *end);
+			                                         const GtkTextIter      *begin,
+			                                         const GtkTextIter      *end);
 gboolean		gtk_source_buffer_get_folds_enabled	(GtkSourceBuffer        *buffer);
 void			gtk_source_buffer_set_folds_enabled	(GtkSourceBuffer        *buffer,
 								 gboolean                folds_enabled);
-void			gtk_source_buffer_fold_expand		(GtkSourceBuffer        *buffer, 
-								 GtkSourceFold          *fold);
+void			gtk_source_buffer_fold_expand		(GtkSourceBuffer        *buffer,
+			                                         GtkSourceFold          *fold);
 void 			gtk_source_buffer_fold_collapse		(GtkSourceBuffer        *buffer,
-								 GtkSourceFold          *fold);
+			                                         GtkSourceFold          *fold);
 G_END_DECLS
 
 #endif /* __GTK_SOURCE_BUFFER_PRIVATE_H__ */
