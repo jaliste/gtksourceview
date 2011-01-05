@@ -40,8 +40,6 @@ _gtk_source_fold_new (GtkSourceBuffer   *buffer,
 	fold = g_slice_new (GtkSourceFold);
 	fold->node = NULL;
 	fold->parent = NULL;
-	fold->children = NULL;
-	fold->last_child = NULL;
 	fold->folded = FALSE;
 	fold->buffer = GTK_TEXT_BUFFER (buffer);
 
@@ -50,6 +48,73 @@ _gtk_source_fold_new (GtkSourceBuffer   *buffer,
 	fold->end_mark = g_object_ref (gtk_text_buffer_create_mark (fold->buffer,
                                                                     NULL, end, TRUE));
 	return fold;
+}
+
+gint 
+gtk_source_fold_compare_begin_with_iter (GtkSourceFold *fold,
+                                    GtkTextIter   *iter)
+{
+	GtkTextIter start;
+
+	g_return_val_if_fail (fold != NULL, NULL);
+
+	gtk_source_fold_get_bounds (fold, &start, NULL);
+
+	return gtk_text_iter_compare (&start, iter);
+}
+
+
+gboolean 
+gtk_source_fold_compare_end_with_iter (GtkSourceFold *fold,
+                                      GtkTextIter   *iter)
+{
+	GtkTextIter end;
+
+	g_return_val_if_fail (fold != NULL, NULL);
+
+	gtk_source_fold_get_bounds (fold, NULL, &end);
+
+	return gtk_text_iter_compare (&end, iter);
+}
+
+GtkSourceFold *
+gtk_source_fold_next (GtkSourceFold *fold,
+                      gboolean       skip_children)
+{
+	GSequenceIter *iter;
+	gint begin, end;
+
+	g_return_val_if_fail (fold != NULL, NULL);
+
+	iter = fold->node;
+	if (iter == NULL || g_sequence_iter_is_end (iter)) 
+	{
+		return NULL;
+	}
+	iter = g_sequence_iter_next (iter);
+
+	if (skip_children)
+	{
+		GtkTextIter begin, end;
+
+		gtk_source_fold_get_bounds (fold, &begin, &end);
+		while (!g_sequence_iter_is_end (iter))
+		{
+			GtkTextIter child_begin, child_end;
+			GtkSourceFold *child;
+
+			child = g_sequence_get (iter);
+			gtk_source_fold_get_bounds (child, &child_begin, &child_end);
+			if (gtk_text_iter_compare (&begin, &child_begin) >= 0 || 
+			    gtk_text_iter_compare (&end, &child_end) < 0)
+			{
+				break;
+			}
+			iter = g_sequence_iter_next (iter);
+		}
+	}
+
+	return g_sequence_get (iter);
 }
 
 /**
@@ -76,10 +141,6 @@ gtk_source_fold_free (GtkSourceFold *fold)
 	}
 	g_object_unref (fold->end_mark);
 
-	if (fold->children)
-	{
-		g_list_free (fold->children);
-	}
 
 	g_free (fold);
 }
@@ -101,7 +162,6 @@ gtk_source_fold_copy (const GtkSourceFold *fold)
 
 	copy = g_slice_new (GtkSourceFold);
 	*copy = *fold;
-	copy->children = g_list_copy (fold->children);
 	g_object_ref (copy->start_mark);
 	g_object_ref (copy->end_mark);
 
@@ -189,19 +249,6 @@ gtk_source_fold_get_buffer (GtkSourceFold *fold)
 	return GTK_SOURCE_BUFFER (fold->buffer);
 }
 
-/**
- * gtk_source_fold_get_parent:
- * @fold: a #GtkSourceFold.
- *
- * Return value: the parent #GtkSourceFold, or NULL if this is a root fold.
- **/
-GtkSourceFold *
-gtk_source_fold_get_parent (GtkSourceFold *fold)
-{
-	g_return_val_if_fail (fold != NULL, NULL);
-
-	return fold->parent;
-}
 
 /**
  * gtk_source_fold_get_children:
@@ -214,7 +261,7 @@ gtk_source_fold_get_children (GtkSourceFold *fold)
 {
 	g_return_val_if_fail (fold != NULL, NULL);
 
-	return fold->children;
+	return NULL;
 }
 
 void
