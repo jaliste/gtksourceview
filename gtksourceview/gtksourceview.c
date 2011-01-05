@@ -38,11 +38,14 @@
 #include "gtksourceview-typebuiltins.h"
 #include "gtksourcemark.h"
 #include "gtksourceview.h"
+#include "gtksourcebuffer-private.h"
 #include "gtksourcecompletion-private.h"
 #include "gtksourcecompletionutils.h"
 #include "gtksourcegutter-private.h"
 #include "gtksourcegutterrendererlines.h"
 #include "gtksourcegutterrenderermarks.h"
+#include "gtksourcefold-private.h"
+#include "gtksourcegutterrendererfolds.h"
 
 /**
  * SECTION:view
@@ -106,6 +109,7 @@ enum {
 	PROP_COMPLETION,
 	PROP_SHOW_LINE_NUMBERS,
 	PROP_SHOW_LINE_MARKS,
+	PROP_SHOW_FOLDS,
 	PROP_TAB_WIDTH,
 	PROP_INDENT_WIDTH,
 	PROP_AUTO_INDENT,
@@ -118,12 +122,23 @@ enum {
 	PROP_DRAW_SPACES
 };
 
+typedef struct _FoldLabelLocation FoldLabelLocation;
+
+struct _FoldLabelLocation
+{
+	GtkSourceView	*view;
+	GtkTextIter	 start;
+	GtkTextIter	 end;
+	gboolean         updated;
+};
+
 struct _GtkSourceViewPrivate
 {
 	guint		 tab_width;
 	gboolean	 tabs_set;
 	gint		 indent_width;
 	gboolean 	 show_line_numbers;
+	gint		 line_numbers_width;
 	gboolean	 show_line_marks;
 	gboolean	 auto_indent;
 	gboolean	 insert_spaces;
@@ -152,6 +167,7 @@ struct _GtkSourceViewPrivate
 
 	GtkSourceGutterRenderer *line_renderer;
 	GtkSourceGutterRenderer *marks_renderer;
+	GtkSourceGutterRenderer	*folds_renderer;
 
 	GdkRGBA          current_line_color;
 
@@ -162,6 +178,15 @@ struct _GtkSourceViewPrivate
 
 	guint            current_line_color_set : 1;
 	guint            dispose_has_run : 1;
+
+	gint		 old_lines;
+
+	gint		 prelight_fold_line;
+	gboolean	 fold_button_down;
+	guint		 animation_timeout;
+	gint		 animate_fold_line;
+	GHashTable	*fold_labels;
+	GList		*last_folds;
 };
 
 
@@ -245,6 +270,14 @@ static void	gtk_source_view_style_updated			(GtkWidget         *widget);
 static void	gtk_source_view_realize			(GtkWidget         *widget);
 static void	gtk_source_view_update_style_scheme		(GtkSourceView     *view);
 
+static gboolean move_fold_label				(GtkTextView        *view,
+							 GtkSourceFold      *fold,
+							 GtkWidget          *label);
+static void foreach_fold_label				(GtkSourceFold     *fold,
+							 GtkWidget         *label,
+							 FoldLabelLocation *location);
+static void update_fold_label_locations			(GtkSourceView *view);
+
 /* Private functions. */
 static void
 gtk_source_view_class_init (GtkSourceViewClass *klass)
@@ -267,6 +300,7 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 	widget_class->key_press_event = gtk_source_view_key_press_event;
 	widget_class->draw = gtk_source_view_draw;
 	widget_class->style_updated = gtk_source_view_style_updated;
+	//widget_class->motion_notify_event = gtk_source_view_motion_notify;
 	widget_class->realize = gtk_source_view_realize;
 
 	textview_class->populate_popup = gtk_source_view_populate_popup;
@@ -302,7 +336,7 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 							       _("Show Line Numbers"),
 							       _("Whether to display line numbers"),
 							       FALSE,
-							       G_PARAM_READWRITE));
+							       G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 	/**
 	 * GtkSourceView:show-line-marks:
 	 *
@@ -313,6 +347,18 @@ gtk_source_view_class_init (GtkSourceViewClass *klass)
 					 g_param_spec_boolean ("show-line-marks",
 							       _("Show Line Marks"),
 							       _("Whether to display line mark pixbufs"),
+							       FALSE,
+							       G_PARAM_READWRITE));
+	/**
+	 * GtkSourceView:show-folds:
+	 *
+	 * Whether to display folds
+	 */
+	g_object_class_install_property (object_class,
+					 PROP_SHOW_FOLDS,
+					 g_param_spec_boolean ("show-folds",
+							       _("Show Folds"),
+							       _("Whether to display folds"),
 							       FALSE,
 							       G_PARAM_READWRITE));
 
@@ -753,12 +799,18 @@ gtk_source_view_set_property (GObject      *object,
 	switch (prop_id)
 	{
 		case PROP_SHOW_LINE_NUMBERS:
+			printf ("SHOW LINE NUMBERS %b\n", g_value_get_boolean (value));
 			gtk_source_view_set_show_line_numbers (view,
 							       g_value_get_boolean (value));
 			break;
 
 		case PROP_SHOW_LINE_MARKS:
 			gtk_source_view_set_show_line_marks (view,
+							     g_value_get_boolean (value));
+			break;
+
+		case PROP_SHOW_FOLDS:
+			gtk_source_view_set_show_folds (view,
 							     g_value_get_boolean (value));
 			break;
 
@@ -847,6 +899,11 @@ gtk_source_view_get_property (GObject    *object,
 					     gtk_source_view_get_show_line_marks (view));
 			break;
 
+		case PROP_SHOW_FOLDS:
+			g_value_set_boolean (value,
+					     gtk_source_view_get_show_folds (view));
+			break;
+
 		case PROP_TAB_WIDTH:
 			g_value_set_uint (value,
 					  gtk_source_view_get_tab_width (view));
@@ -929,6 +986,7 @@ init_left_gutter (GtkSourceView *view)
 {
 	GtkSourceGutter *gutter;
 
+
 	gutter = gtk_source_view_get_gutter (view, GTK_TEXT_WINDOW_LEFT);
 
 	view->priv->line_renderer = gtk_source_gutter_renderer_lines_new ();
@@ -958,6 +1016,27 @@ init_left_gutter (GtkSourceView *view)
 	                  "activate",
 	                  G_CALLBACK (gutter_renderer_marks_activate),
 	                  view);
+
+	view->priv->folds_renderer = gtk_source_gutter_renderer_folds_new ();
+
+	gtk_source_gutter_insert (gutter,
+				  view->priv->folds_renderer,
+				  -29);
+	g_object_set (view->priv->folds_renderer,
+					    "alignment-mode", GTK_SOURCE_GUTTER_RENDERER_ALIGNMENT_MODE_FIRST,
+                                          "yalign", 0.5,
+                                          "xalign", 1.0,
+                                          "xpad", 3,
+                                          NULL);
+	/*g_signal_connect (gutter,
+	                  "cell-activated",
+	                  G_CALLBACK (renderer_activated),
+	                  view);
+
+	g_signal_connect (gutter,
+	                  "query-tooltip",
+	                  G_CALLBACK (renderer_query_tooltip),
+	                  view);*/
 }
 
 static void
@@ -975,13 +1054,19 @@ gtk_source_view_init (GtkSourceView *view)
 	view->priv->smart_home_end = GTK_SOURCE_SMART_HOME_END_DISABLED;
 	view->priv->right_margin_pos = DEFAULT_RIGHT_MARGIN_POSITION;
 	view->priv->cached_right_margin_pos = -1;
+	view->priv->line_numbers_width = 0;
 
+	view->priv->prelight_fold_line = -1;
+	view->priv->fold_button_down = FALSE;
+	view->priv->fold_labels = g_hash_table_new (g_direct_hash, g_direct_equal);
 	gtk_text_view_set_left_margin (GTK_TEXT_VIEW (view), 2);
 	gtk_text_view_set_right_margin (GTK_TEXT_VIEW (view), 2);
 
 	view->priv->right_margin_line_color = NULL;
 	view->priv->right_margin_overlay_color = NULL;
 	view->priv->spaces_color = NULL;
+
+	view->priv->last_folds = NULL;
 
 	view->priv->mark_categories = g_hash_table_new_full (g_str_hash,
 	                                                     g_str_equal,
@@ -1098,6 +1183,20 @@ gtk_source_view_finalize (GObject *object)
 		g_hash_table_destroy (view->priv->mark_categories);
 	}
 
+
+	g_hash_table_destroy (view->priv->fold_labels);
+/*
+	if (view->priv->left_gutter)
+		g_object_unref (view->priv->left_gutter);
+
+	if (view->priv->right_gutter)
+		g_object_unref (view->priv->right_gutter);
+*/
+	/* notify_buffer() would recreate the buffer if it is set to null,
+	 * and we don't want that to happen when finalizing */
+	g_signal_handlers_disconnect_by_func (view, notify_buffer, NULL);
+	set_source_buffer (view, NULL);
+
 	G_OBJECT_CLASS (gtk_source_view_parent_class)->finalize (object);
 }
 
@@ -1186,6 +1285,41 @@ buffer_style_scheme_changed_cb (GtkSourceBuffer *buffer,
 }
 
 static void
+buffer_folding_enabled_cb (GtkSourceBuffer *buffer,
+		           gboolean         folds_enabled,
+		           GtkSourceView   *view)
+{
+	printf ("folds enabled\n");
+}
+static void
+fold_added_cb (GtkSourceBuffer *buffer,
+	       GtkSourceFold   *fold,
+	       GtkSourceView   *view)
+{
+	DEBUG(g_print("Signal fold_added catched\n"));
+	gtk_widget_queue_draw (GTK_WIDGET (view));
+}
+
+static void
+fold_remove_cb (GtkSourceBuffer *buffer,
+		GtkSourceFold   *fold,
+		GtkSourceView   *view)
+{
+	//GtkSourceFoldLabel *label = g_hash_table_lookup (view->priv->fold_labels, fold);
+
+	//if (label != NULL)
+//	{
+/*		if (GTK_WIDGET_VISIBLE (label))
+			gtk_widget_hide (GTK_WIDGET (label));
+*/
+//		g_hash_table_remove (view->priv->fold_labels, fold);
+
+		/* FIXME: this causes excessive redrawing? */
+//		gtk_widget_queue_draw (GTK_WIDGET (view));
+//	}
+}
+
+static void
 set_source_buffer (GtkSourceView *view,
 		   GtkTextBuffer *buffer)
 {
@@ -1203,7 +1337,12 @@ set_source_buffer (GtkSourceView *view,
 		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
 						      buffer_style_scheme_changed_cb,
 						      view);
-
+		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
+						      fold_added_cb,
+						      view);
+		g_signal_handlers_disconnect_by_func (view->priv->source_buffer,
+						      fold_remove_cb,
+						      view);
 		g_object_unref (view->priv->source_buffer);
 	}
 
@@ -1222,6 +1361,18 @@ set_source_buffer (GtkSourceView *view,
 		g_signal_connect (buffer,
 				  "notify::style-scheme",
 				  G_CALLBACK (buffer_style_scheme_changed_cb),
+				  view);
+		g_signal_connect (buffer,
+				  "notify::folding-enabled",
+				  G_CALLBACK (buffer_folding_enabled_cb),
+				  view);
+		g_signal_connect (buffer,
+				  "fold-added",
+				  G_CALLBACK (fold_added_cb),
+				  view);
+		g_signal_connect (buffer,
+				  "remove-fold",
+				  G_CALLBACK (fold_remove_cb),
 				  view);
 	}
 	else
@@ -1698,7 +1849,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 			   GArray       *numbers,
 			   gint         *countp)
 {
-	GtkTextIter iter;
+	GtkTextIter iter, iter2, start_fold;
 	gint count;
 	gint last_line_num = -1;
 
@@ -1709,10 +1860,21 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 	/* Get iter at first y */
 	gtk_text_view_get_line_at_y (text_view, &iter, first_y, NULL);
+	gtk_text_view_get_line_at_y (text_view, &iter2, last_y, NULL);
+
+	DEBUG (g_message ("from %d to %d",
+			  gtk_text_iter_get_line (&iter),
+			  gtk_text_iter_get_line (&iter2)));
 
 	/* For each iter, get its location and add it to the arrays.
 	 * Stop when we pass last_y */
+	/* forward to line end so we match all folds on the line. */
+	gtk_text_iter_forward_to_line_end (&iter2);
+
+
 	count = 0;
+
+	last_line_num = gtk_text_iter_get_line (&iter);
 
 	while (!gtk_text_iter_is_end (&iter))
 	{
@@ -1734,7 +1896,7 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 		if ((y + height) >= last_y)
 			break;
 
-		gtk_text_iter_forward_line (&iter);
+		gtk_text_iter_forward_visible_line (&iter);
 	}
 
 	if (gtk_text_iter_is_end (&iter))
@@ -1758,7 +1920,35 @@ gtk_source_view_get_lines (GtkTextView  *text_view,
 
 	*countp = count;
 }
+/*--
 
+	if (gtk_text_iter_is_end (&iter))
+	{
+		gint y, height;
+		gint line_num;
+
+		gtk_text_view_get_line_yrange (text_view, &iter, &y, &height);
+
+		line_num = gtk_text_iter_get_line (&iter);
+
+		/* Only add the line number if we started at the last line or
+		 * if we didn't add the line number already in the previous
+		 * while loop (line_num != last_line_num).
+
+		if (count == 0 || line_num != last_line_num)
+		{
+			g_array_append_val (buffer_coords, y);
+			g_array_append_val (numbers, line_num);
+			++count;
+		}
+	}
+
+	if (l != NULL)
+		g_list_free (l);
+
+	*countp = count;
+}
+//>>*/
 static void
 gtk_source_view_paint_line_background (GtkTextView    *text_view,
 				       cairo_t        *cr,
@@ -2606,7 +2796,7 @@ gtk_source_view_set_show_line_numbers (GtkSourceView *view,
 {
 	g_return_if_fail (view != NULL);
 	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
-
+	printf ("SHOW %d\n", show);
 	show = (show != FALSE);
 
 	if (show == view->priv->show_line_numbers)
@@ -2668,6 +2858,54 @@ gtk_source_view_set_show_line_marks (GtkSourceView *view,
 	view->priv->show_line_marks = show;
 
 	g_object_notify (G_OBJECT (view), "show_line_marks");
+}
+
+/**
+ * gtk_source_view_get_show_folds:
+ * @view: a #GtkSourceView.
+ *
+ * Returns whether folds are displayed beside the text.
+ *
+ * Return value: %TRUE if the folds are displayed.
+ *
+ * Since: 3.0
+ **/
+gboolean
+gtk_source_view_get_show_folds (GtkSourceView *view)
+{
+	g_return_val_if_fail (GTK_IS_SOURCE_VIEW (view), FALSE);
+
+	return (gtk_source_buffer_get_folds_enabled (view->priv->source_buffer) != FALSE);
+}
+
+/**
+ * gtk_source_view_set_show_folds:
+ * @view: a #GtkSourceView.
+ * @show: whether folds should be displayed.
+ *
+ * If %TRUE folds will be displayed beside the text.
+ *
+ * Since: 3.0
+ **/
+void
+gtk_source_view_set_show_folds (GtkSourceView *view,
+				gboolean       show)
+{
+	GtkSourceGutter *gutter;
+
+	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
+
+	show = (show != FALSE);
+
+	if (show == gtk_source_view_get_show_folds (view))
+	{
+		return;
+	}
+
+	// gtk_source_buffer_set_folds_enabled (view->priv->source_buffer, show);
+
+	gtk_source_gutter_renderer_set_visible (view->priv->folds_renderer, show);
+
 }
 
 static gboolean
@@ -3946,6 +4184,21 @@ gtk_source_view_style_updated (GtkWidget *widget)
 
 	view = GTK_SOURCE_VIEW (widget);
 
+	//view->priv->expander_size += EXPANDER_EXTRA_PADDING;
+
+	//if (previous_style)
+//	{
+		/* If previous_style is NULL this is the initial
+		 * emission and we can't set the tab array since the
+		 * text view doesn't have a default style yet */
+
+		/* re-set tab stops, but only if we already modified them, i.e.
+		 * do nothing with good old 8-space tabs */
+//		if (view->priv->tabs_set)
+//		{
+//			set_tab_stops_internal (view);
+//		}
+
 	/* re-set tab stops, but only if we already modified them, i.e.
 	 * do nothing with good old 8-space tabs */
 	if (view->priv->tabs_set)
@@ -4245,3 +4498,147 @@ gtk_source_view_get_mark_category (GtkSourceView *view,
 
 	return ret;
 }
+
+static void
+expand_folds (GtkSourceBuffer *buffer, GList *folds)
+{
+	GtkSourceFold *fold;
+	GList *children;
+
+	/*while (folds != NULL)
+	{
+		fold = folds->data;
+		children = fold->children;
+
+		expand_folds (buffer, children);
+
+		gtk_source_fold_set_folded (fold, FALSE);
+
+		folds = g_list_next (folds);
+	}*/
+}
+
+#if 0
+static gboolean
+move_fold_label (GtkTextView        *view,
+		 GtkSourceFold      *fold,
+		 GtkWidget          *label)
+{
+	GtkTextIter begin;
+	GdkRectangle rect;
+	int x, y, old_x, old_y;
+
+	gtk_source_fold_get_bounds (fold, &begin, NULL);
+
+	/* if there's no text before the start of the fold, show the fold label
+	 * after the text on the line. This ties in with how GtkSourceFold shows
+	 * a collapsed fold: the first line remains visible when there's no text
+	 * before the start of the fold. */
+	if (gtk_text_iter_starts_sentence (&begin) && !gtk_text_iter_ends_line (&begin))
+		gtk_text_iter_forward_to_line_end (&begin);
+
+	gtk_text_view_get_iter_location (view, &begin, &rect);
+
+	gtk_text_view_buffer_to_window_coords (view,
+					       GTK_TEXT_WINDOW_TEXT,
+					       rect.x, rect.y,
+					       &x, &y);
+
+	_gtk_source_fold_label_get_position (GTK_SOURCE_FOLD_LABEL (label),
+					     &old_x, &old_y);
+
+	/* Only update if the position has really changed. */
+//	if (GTK_WIDGET_VISIBLE (label) && old_x == x && old_y == y)
+//		return FALSE;
+
+	_gtk_source_fold_label_set_position (GTK_SOURCE_FOLD_LABEL (label), x, y);
+
+	/* Position the label 2 pixels to the right of the last character. */
+	gtk_text_view_move_child (view, label, x + 2, y);
+
+//	if (!GTK_WIDGET_VISIBLE (label))
+//		gtk_widget_show (label);
+
+	return TRUE;
+}
+
+static void
+foreach_fold_label (GtkSourceFold     *fold,
+		    GtkWidget         *label,
+		    FoldLabelLocation *location)
+{
+	GtkTextIter fold_start;
+
+	/* If the fold isn't collapsed, don't bother. */
+	if (!gtk_source_fold_get_folded (fold))
+		return;
+
+	gtk_source_fold_get_bounds (fold, &fold_start, NULL);
+
+	/* If the label is in the visible range, update its location. */
+	if (gtk_text_iter_compare (&fold_start, &location->start) != -1 &&
+	    gtk_text_iter_compare (&fold_start, &location->end) != 1)
+	{
+		gboolean updated = move_fold_label (GTK_TEXT_VIEW (location->view),
+						    fold, label);
+
+		/* Set the updated flag so we queue a redraw. */
+		if (!location->updated && updated)
+			location->updated = TRUE;
+	}
+	else if (GTK_WIDGET_VISIBLE (label))
+	{
+		/* If the label was visible, but no longer is, queue a redraw. */
+		gtk_widget_hide (label);
+		location->updated = TRUE;
+	}
+}
+
+static void
+update_fold_label_locations (GtkSourceView *view)
+{
+	FoldLabelLocation location;
+	int y;
+
+	location.view = view;
+	location.updated = FALSE;
+
+	/* Get the visible line range in the textview. */
+	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       0,
+					       NULL,
+					       &y);
+
+	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.start, 0, y);
+/*
+	gtk_text_view_window_to_buffer_coords (GTK_TEXT_VIEW (view),
+					       GTK_TEXT_WINDOW_TEXT,
+					       0,
+					       GTK_WIDGET (view)->allocation.height,
+					       NULL,
+					       &y);
+*/
+	gtk_text_view_get_iter_at_location (GTK_TEXT_VIEW (view), &location.end, 0, y);
+
+	/* Update the fold label positions. */
+	g_hash_table_foreach (view->priv->fold_labels,
+			      (GHFunc) foreach_fold_label,
+			      &location);
+
+	/* When scrolling, we can't just update the fold label positions and *not*
+	 * redraw the visible area. If we don't redraw, we get ghosting effects
+	 * when scrolling.
+	 */
+	if (location.updated)
+	{
+		//gtk_widget_queue_draw (GTK_WIDGET (view));
+		gdk_window_invalidate_rect (gtk_text_view_get_window (GTK_TEXT_VIEW (view),
+								      GTK_TEXT_WINDOW_TEXT),
+					    NULL, TRUE);
+	}
+}
+#endif
+
+
