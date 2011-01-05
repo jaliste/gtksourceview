@@ -27,34 +27,17 @@ G_BEGIN_DECLS
 
 struct _GtkSourceFold
 {
-	GtkTextBuffer *buffer;
 	/* Markers for the start & end of the fold. */
 	GtkTextMark	*start_mark;
 	GtkTextMark	*end_mark;
 
-	/* Add reference to parent fold; needed for reparenting. */
+	GSequenceIter	*node;
+	GtkTextBuffer	*buffer;
 	GtkSourceFold	*parent;
 
-	/* List of child folds; sorted by appearance. */
-	GList		*children;
-
-	GList		*last_child;
-
-	/* Style of the expander arrow; if animated is set, this will gradually
-	 * increase to show the fold is collapsing/expanding. */
-	GtkExpanderStyle expander_style;
-
-	/* TRUE if the fold has collapsed. */
+	/* TRUE if the fold is collapsed. */
 	gint		 folded : 1;
 
-	/* TRUE if the user moves the mouse over the expander arrow; draw the
-	 * expander filled to indicate the mouse over. */
-	gint		 prelighted : 1;
-
-	/* TRUE if the user expanded/collapsed a fold using the GUI; animate
-	 * the collapse/expansion of the fold. */
-	gint		 animated : 1;
-	GSequenceIter   *node;
 };
 
 GtkSourceFold	*_gtk_source_fold_new	(GtkSourceBuffer	*buffer,
