@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 GType			 gtk_source_fold_get_type	(void) G_GNUC_CONST;
 
 GtkSourceFold		*gtk_source_fold_copy		(const GtkSourceFold *fold);
+GtkSourceFold		*gtk_source_fold_next		(GtkSourceFold *fold, gboolean skip_childs);
 void			 gtk_source_fold_free		(GtkSourceFold       *fold);
 
 gboolean		 gtk_source_fold_get_folded	(GtkSourceFold       *fold);
