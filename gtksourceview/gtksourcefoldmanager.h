@@ -63,6 +63,10 @@ GtkSourceFold *		gtk_source_fold_manager_add_fold 		(GtkSourceFoldManager   *fol
 									 const GtkTextIter *end);
 void			gtk_source_fold_manager_remove_fold		(GtkSourceFoldManager *fold_manager,
 									 GtkSourceFold   *fold);
+GtkSourceFold *		gtk_source_fold_manager_get_first_fold_intersects_region
+									(GtkSourceFoldManager *manager,
+									 const GtkTextIter    *begin,
+									 const GtkTextIter    *end);
 GList *			gtk_source_fold_manager_get_folds_in_region	(GtkSourceFoldManager *manager,
 									 const GtkTextIter    *begin,
 									 const GtkTextIter    *end);
