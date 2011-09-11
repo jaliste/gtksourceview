@@ -61,7 +61,9 @@ NOINST_H_FILES = \
 	gtksourcepixbufhelper.h			\
 	gtksourcegutterrendererlines.h		\
 	gtksourcegutterrenderermarks.h		\
-	gtksourcegutterrenderer-private.h
+	gtksourcegutterrenderer-private.h	\
+	gtksourcehighlighter.h		\
+	gtksourcecontextengine-private.h
 
 libgtksourceview_c_files = \
 	gtksourcebuffer.c 		\
@@ -81,6 +83,7 @@ libgtksourceview_c_files = \
 	gtksourcegutterrendererpixbuf.c	\
 	gtksourcegutterrendererlines.c	\
 	gtksourcegutterrenderermarks.c	\
+	gtksourcehighlighter.c          \
 	gtksourcepixbufhelper.c		\
 	gtksourcelanguage.c 		\
 	gtksourcelanguagemanager.c 	\
