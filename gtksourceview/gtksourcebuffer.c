@@ -2571,7 +2571,7 @@ gtk_source_buffer_get_undo_manager (GtkSourceBuffer *buffer)
 gboolean
 gtk_source_buffer_get_folds_enabled (GtkSourceBuffer *buffer)
 { 
-	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), FALSE);
+	g_return_val_if_fail (GTK_SOURCE_IS_BUFFER (buffer), FALSE);
 	return (buffer->priv->fold_manager != NULL);
 }
 
@@ -2587,7 +2587,7 @@ void
 gtk_source_buffer_set_folds_enabled (GtkSourceBuffer *buffer,
                                      gboolean         folds_enabled)
 {
-	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+	g_return_if_fail (GTK_SOURCE_IS_BUFFER (buffer));
 
 	folds_enabled = (folds_enabled != FALSE);
 
@@ -2612,7 +2612,7 @@ gtk_source_buffer_add_fold (GtkSourceBuffer   *buffer,
                             const GtkTextIter *begin,
                             const GtkTextIter *end)
 {
-	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
+	g_return_val_if_fail (GTK_SOURCE_IS_BUFFER (buffer), NULL);
 	g_return_val_if_fail (begin != NULL, NULL);
 	g_return_val_if_fail (end != NULL, NULL);
 
@@ -2628,7 +2628,7 @@ void
 gtk_source_buffer_remove_fold (GtkSourceBuffer *buffer,
                                GtkSourceFold   *fold)
 {
-	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+	g_return_if_fail (GTK_SOURCE_IS_BUFFER (buffer));
 	g_signal_emit (G_OBJECT (buffer), buffer_signals [REMOVE_FOLD], 0, fold);
 }
 
@@ -2636,7 +2636,7 @@ static void
 gtk_source_buffer_real_remove_fold (GtkSourceBuffer *buffer,
                                     GtkSourceFold   *fold)
 {
-	g_return_if_fail (GTK_IS_SOURCE_BUFFER (buffer));
+	g_return_if_fail (GTK_SOURCE_IS_BUFFER (buffer));
 
 	if (buffer->priv->fold_manager)
 	{
@@ -2748,7 +2748,7 @@ _gtk_source_buffer_get_folds_in_region (GtkSourceBuffer   *buffer,
                                         const GtkTextIter *begin,
                                         const GtkTextIter *end)
 {
-	g_return_val_if_fail (GTK_IS_SOURCE_BUFFER (buffer), NULL);
+	g_return_val_if_fail (GTK_SOURCE_IS_BUFFER (buffer), NULL);
 	g_return_val_if_fail (begin != NULL && end != NULL, NULL);
 
 	if (buffer->priv->fold_manager)

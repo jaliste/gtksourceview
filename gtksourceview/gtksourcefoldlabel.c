@@ -52,7 +52,7 @@ gtk_source_fold_label_get_property (GObject    *object,
 {
 	GtkSourceFoldLabel *label;
 
-	g_return_if_fail (GTK_IS_SOURCE_FOLD_LABEL (object));
+	g_return_if_fail (GTK_SOURCE_IS_FOLD_LABEL (object));
 
 	label = GTK_SOURCE_FOLD_LABEL (object);
 
@@ -82,7 +82,7 @@ set_view (GtkSourceFoldLabel *label, GtkSourceView *view)
 	PangoContext *ctx;
 	PangoFontDescription *font_desc;
 
-	g_return_if_fail (GTK_IS_SOURCE_VIEW (view));
+	g_return_if_fail (GTK_SOURCE_IS_VIEW (view));
 
 	ctx = gtk_widget_get_pango_context (GTK_WIDGET (view));
 	font_desc = pango_context_get_font_description (ctx);
@@ -97,7 +97,7 @@ gtk_source_fold_label_set_property (GObject      *object,
 {
 	GtkSourceFoldLabel *label;
 
-	g_return_if_fail (GTK_IS_SOURCE_FOLD_LABEL (object));
+	g_return_if_fail (GTK_SOURCE_IS_FOLD_LABEL (object));
 
 	label = GTK_SOURCE_FOLD_LABEL (object);
 
@@ -165,7 +165,7 @@ _gtk_source_fold_label_class_init (GtkSourceFoldLabelClass *klass)
 					 g_param_spec_object ("sourceview",
 							      _("Sourceview"),
 							      _("The Sourceview this label is shown in"),
-							      GTK_TYPE_SOURCE_VIEW,
+							      GTK_SOURCE_TYPE_VIEW,
 							      G_PARAM_READWRITE));
 
 	g_object_class_install_property (object_class,
@@ -212,7 +212,7 @@ _gtk_source_fold_label_get_position (GtkSourceFoldLabel *label,
 				     int                *x,
 				     int                *y)
 {
-	g_return_if_fail (GTK_IS_SOURCE_FOLD_LABEL (label));
+	g_return_if_fail (GTK_SOURCE_IS_FOLD_LABEL (label));
 
 	if (x != NULL)
 		*x = label->priv->x;
@@ -225,7 +225,7 @@ _gtk_source_fold_label_set_position (GtkSourceFoldLabel *label,
 				     int                 x,
 				     int                 y)
 {
-	g_return_if_fail (GTK_IS_SOURCE_FOLD_LABEL (label));
+	g_return_if_fail (GTK_SOURCE_IS_FOLD_LABEL (label));
 
 	label->priv->x = x;
 	label->priv->y = y;
